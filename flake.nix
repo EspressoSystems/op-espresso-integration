@@ -34,6 +34,8 @@
       in
       {
         devShells.default = pkgs.mkShell {
+          COMPOSE_DOCKER_CLI_BUILD=1;
+          DOCKER_BUILDKIT=1;
           packages = with pkgs; [
             go
             # goimports, godoc, etc.
@@ -42,6 +44,7 @@
             golangci-lint
 
             # Node
+            nodejs
             pnpm
             yarn # `pnpm build` fails without this
 
