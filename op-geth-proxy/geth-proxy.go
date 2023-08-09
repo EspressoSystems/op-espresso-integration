@@ -58,6 +58,7 @@ func ForwardToSequencer(message rpcMessage) {
 	}
 	request.Header.Set("Content-Type", "application/json")
 	client := &http.Client{}
+	log.Println("Transaction recieved, forwarding to sequencer.")
 	response, err := client.Do(request)
 	if err != nil {
 		log.Println("Failed to connect to the sequencer: ", err)
@@ -88,7 +89,6 @@ func (h *baseHandle) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 	// Check for sendRawTransaction
-	log.Println("Message:", message.Method)
 	if message.Method == "eth_sendRawTransaction" {
 		ForwardToSequencer(message)
 	}
