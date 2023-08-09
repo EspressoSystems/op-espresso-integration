@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"io"
@@ -36,11 +37,20 @@ type rpcMessage struct {
 }
 
 func ForwardToSequencer(message rpcMessage) {
+	var hexString string
+	if err := json.Unmarshal(message.Params[0], &hexString); err != nil {
+		panic(err)
+	}
+	var txnBytes, err = hex.DecodeString(hexString[2:])
+	if err != nil {
+		panic(err)
+	}
+
 	// json.RawMessage is a []byte array, which is marshalled
 	// As a base64-encoded string. Our sequencer API expects a JSON array.
-	payload := make([]int, len(message.Params[0]))
+	payload := make([]int, len(txnBytes))
 	for i := range payload {
-		payload[i] = int(message.Params[0][i])
+		payload[i] = int(txnBytes[i])
 	}
 
 	// Construct a transaction and send it to the sequencer
