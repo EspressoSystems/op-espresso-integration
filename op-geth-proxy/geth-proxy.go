@@ -39,11 +39,13 @@ type rpcMessage struct {
 func ForwardToSequencer(message rpcMessage) {
 	var hexString string
 	if err := json.Unmarshal(message.Params[0], &hexString); err != nil {
-		panic(err)
+		log.Println("Error decoding params field of the rpc message.")
+		return
 	}
 	var txnBytes, err = hex.DecodeString(hexString[2:])
 	if err != nil {
-		panic(err)
+		log.Println("Error decoding hex string. The first raw transaction parameter must be valid hex.")
+		return
 	}
 
 	// json.RawMessage is a []byte array, which is marshalled
@@ -72,6 +74,7 @@ func ForwardToSequencer(message rpcMessage) {
 	response, err := client.Do(request)
 	if err != nil {
 		log.Println("Failed to connect to the sequencer: ", err)
+		return
 	}
 	if response.StatusCode != 200 {
 		log.Println("Request failed. Here is the response: ", err)
@@ -96,7 +99,8 @@ func (h *baseHandle) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	var message rpcMessage
 	if err := json.Unmarshal(body, &message); err != nil {
-		panic(err)
+		log.Println("Invalid request: expected RPC message")
+		return
 	}
 	// Check for sendRawTransaction
 	if message.Method == "eth_sendRawTransaction" {
