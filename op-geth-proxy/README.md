@@ -11,5 +11,5 @@ go run geth-proxy.go -listen-addr "127.0.0.1:9091" -vm-id 2
 ```
 With env vars:
 ```
-SEQUENCER_PROXY_LISTEN_ADDR=127.0.0.1:9095 go run geth-proxy.go 
+OP_GETH_PROXY_LISTEN_ADDR=127.0.0.1:9095 go run geth-proxy.go
 ```

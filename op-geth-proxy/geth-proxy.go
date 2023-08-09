@@ -15,7 +15,7 @@ import (
 )
 
 // Environment variables beginning with this prefix can be used to instantiate command line flags
-const ENV_PREFIX = "SEQUENCER_PROXY"
+const ENV_PREFIX = "OP_GETH_PROXY"
 
 var (
 	fs            = flag.NewFlagSet("proxy", flag.ContinueOnError)
@@ -31,16 +31,16 @@ type Transaction struct {
 }
 
 type rpcMessage struct {
-	Params json.RawMessage `json:"params,omitempty"`
-	Method string          `json:"method,omitempty"`
+	Params []json.RawMessage `json:"params,omitempty"`
+	Method string            `json:"method,omitempty"`
 }
 
 func ForwardToSequencer(message rpcMessage) {
 	// json.RawMessage is a []byte array, which is marshalled
 	// As a base64-encoded string. Our sequencer API expects a JSON array.
-	payload := make([]int, len(message.Params))
+	payload := make([]int, len(message.Params[0]))
 	for i := range payload {
-		payload[i] = int(message.Params[i])
+		payload[i] = int(message.Params[0][i])
 	}
 
 	// Construct a transaction and send it to the sequencer
