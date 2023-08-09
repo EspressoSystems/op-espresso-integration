@@ -1433,104 +1433,104 @@ workflows:
           docker_name: op-node
           docker_tags: <<pipeline.git.revision>>,<<pipeline.git.branch>>
           docker_context: .
-      - docker-publish:
-          name: op-node-docker-publish
-          docker_name: op-node
-          docker_file: op-node/Dockerfile
-          docker_tags: <<pipeline.git.revision>>,<<pipeline.git.branch>>
-          context:
-            - oplabs-gcr
-          platforms: "linux/amd64,linux/arm64"
+      # - docker-publish:
+      #     name: op-node-docker-publish
+      #     docker_name: op-node
+      #     docker_file: op-node/Dockerfile
+      #     docker_tags: <<pipeline.git.revision>>,<<pipeline.git.branch>>
+      #     context:
+      #       - oplabs-gcr
+      #     platforms: "linux/amd64,linux/arm64"
       - docker-build:
           name: op-batcher-docker-build
           docker_file: op-batcher/Dockerfile
           docker_name: op-batcher
           docker_tags: <<pipeline.git.revision>>,<<pipeline.git.branch>>
           docker_context: .
-      - docker-publish:
-          name: op-batcher-docker-publish
-          docker_file: op-batcher/Dockerfile
-          docker_name: op-batcher
-          docker_tags: <<pipeline.git.revision>>,<<pipeline.git.branch>>
-          context:
-            - oplabs-gcr
-          platforms: "linux/amd64,linux/arm64"
+      # - docker-publish:
+      #     name: op-batcher-docker-publish
+      #     docker_file: op-batcher/Dockerfile
+      #     docker_name: op-batcher
+      #     docker_tags: <<pipeline.git.revision>>,<<pipeline.git.branch>>
+      #     context:
+      #       - oplabs-gcr
+      #     platforms: "linux/amd64,linux/arm64"
       - docker-build:
           name: op-program-docker-build
           docker_file: op-program/Dockerfile
           docker_name: op-program
           docker_tags: <<pipeline.git.revision>>,<<pipeline.git.branch>>
           docker_context: .
-      - docker-publish:
-          name: op-program-docker-publish
-          docker_file: op-program/Dockerfile
-          docker_name: op-program
-          docker_tags: <<pipeline.git.revision>>,<<pipeline.git.branch>>
-          context:
-            - oplabs-gcr
-          platforms: "linux/amd64,linux/arm64"
+      # - docker-publish:
+      #     name: op-program-docker-publish
+      #     docker_file: op-program/Dockerfile
+      #     docker_name: op-program
+      #     docker_tags: <<pipeline.git.revision>>,<<pipeline.git.branch>>
+      #     context:
+      #       - oplabs-gcr
+      #     platforms: "linux/amd64,linux/arm64"
       - docker-build:
           name: op-proposer-docker-build
           docker_file: op-proposer/Dockerfile
           docker_name: op-proposer
           docker_tags: <<pipeline.git.revision>>,<<pipeline.git.branch>>
           docker_context: .
-      - docker-publish:
-          name: op-proposer-docker-publish
-          docker_file: op-proposer/Dockerfile
-          docker_name: op-proposer
-          docker_tags: <<pipeline.git.revision>>,<<pipeline.git.branch>>
-          context:
-            - oplabs-gcr
-          platforms: "linux/amd64,linux/arm64"
+      # - docker-publish:
+      #     name: op-proposer-docker-publish
+      #     docker_file: op-proposer/Dockerfile
+      #     docker_name: op-proposer
+      #     docker_tags: <<pipeline.git.revision>>,<<pipeline.git.branch>>
+      #     context:
+      #       - oplabs-gcr
+      #     platforms: "linux/amd64,linux/arm64"
       - docker-build:
           name: op-challenger-docker-build
           docker_file: op-challenger/Dockerfile
           docker_name: op-challenger
           docker_tags: <<pipeline.git.revision>>,<<pipeline.git.branch>>
           docker_context: .
-      - docker-publish:
-          name: op-challenger-docker-publish
-          docker_file: op-challenger/Dockerfile
-          docker_name: op-challenger
-          docker_tags: <<pipeline.git.revision>>,<<pipeline.git.branch>>
-          context:
-            - oplabs-gcr
-          platforms: "linux/amd64,linux/arm64"
+      # - docker-publish:
+      #     name: op-challenger-docker-publish
+      #     docker_file: op-challenger/Dockerfile
+      #     docker_name: op-challenger
+      #     docker_tags: <<pipeline.git.revision>>,<<pipeline.git.branch>>
+      #     context:
+      #       - oplabs-gcr
+      #     platforms: "linux/amd64,linux/arm64"
       - docker-build:
           name: op-heartbeat-docker-build
           docker_file: op-heartbeat/Dockerfile
           docker_name: op-heartbeat
           docker_tags: <<pipeline.git.revision>>,<<pipeline.git.branch>>
           docker_context: .
-      - docker-publish:
-          name: op-heartbeat-docker-publish
-          docker_file: op-heartbeat/Dockerfile
-          docker_name: op-heartbeat
-          docker_tags: <<pipeline.git.revision>>,<<pipeline.git.branch>>
-          context:
-            - oplabs-gcr
+      # - docker-publish:
+      #     name: op-heartbeat-docker-publish
+      #     docker_file: op-heartbeat/Dockerfile
+      #     docker_name: op-heartbeat
+      #     docker_tags: <<pipeline.git.revision>>,<<pipeline.git.branch>>
+      #     context:
+      #       - oplabs-gcr
       - docker-build:
           name: indexer-docker-build
           docker_file: indexer/Dockerfile
           docker_name: indexer
           docker_tags: <<pipeline.git.revision>>,<<pipeline.git.branch>>
           docker_context: .
-      - docker-publish:
-          name: indexer-docker-publish
-          docker_file: indexer/Dockerfile
-          docker_name: indexer
-          docker_tags: <<pipeline.git.revision>>,<<pipeline.git.branch>>
-          context:
-            - oplabs-gcr
-      - docker-publish:
-          name: chain-mon-docker-publish
-          docker_file: ./ops/docker/Dockerfile.packages
-          docker_name: chain-mon
-          docker_tags: <<pipeline.git.revision>>,<<pipeline.git.branch>>
-          docker_target: wd-mon
-          context:
-            - oplabs-gcr
+      # - docker-publish:
+      #     name: indexer-docker-publish
+      #     docker_file: indexer/Dockerfile
+      #     docker_name: indexer
+      #     docker_tags: <<pipeline.git.revision>>,<<pipeline.git.branch>>
+      #     context:
+      #       - oplabs-gcr
+      # - docker-publish:
+      #     name: chain-mon-docker-publish
+      #     docker_file: ./ops/docker/Dockerfile.packages
+      #     docker_name: chain-mon
+      #     docker_tags: <<pipeline.git.revision>>,<<pipeline.git.branch>>
+      #     docker_target: wd-mon
+      #     context:
+      #       - oplabs-gcr
       - hive-test:
           name: hive-test-rpc
           version: <<pipeline.git.revision>>
