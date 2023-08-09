@@ -52,7 +52,7 @@ func ForwardToSequencer(message rpcMessage) {
 	if err != nil {
 		panic(err)
 	}
-	request, err := http.NewRequest("POST", *sequencerAddr, bytes.NewBuffer(marshalled))
+	request, err := http.NewRequest("POST", *sequencerAddr+"/submit/submit", bytes.NewBuffer(marshalled))
 	if err != nil {
 		panic(err)
 	}
