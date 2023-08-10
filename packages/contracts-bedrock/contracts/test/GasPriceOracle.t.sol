@@ -53,7 +53,8 @@ contract GasPriceOracle_Test is CommonTest {
             _sequenceNumber: sequenceNumber,
             _batcherHash: batcherHash,
             _l1FeeOverhead: l1FeeOverhead,
-            _l1FeeScalar: l1FeeScalar
+            _l1FeeScalar: l1FeeScalar,
+            _justification: hex"c0"
         });
     }
 
