@@ -11,6 +11,10 @@
   outputs = { self, flake-utils, nixpkgs, foundry, ... }:
     let
       goVersion = 19; # Change this to update the whole stack
+      # Be consistent with CI, which uses an older version of geth.
+      pkgsGeth = import (builtins.fetchTarball {
+          url = "https://github.com/NixOS/nixpkgs/archive/611bf8f183e6360c2a215fa70dfd659943a9857f.tar.gz";
+      }) {};
       overlays = [
         (final: prev: {
           go = prev."go_1_${toString goVersion}";
@@ -19,6 +23,7 @@
           nodejs = prev.nodejs-16_x;
           pnpm = prev.nodePackages.pnpm;
           yarn = prev.nodePackages.yarn;
+          go-ethereum = pkgsGeth.go-ethereum;
         })
         foundry.overlay
       ];
