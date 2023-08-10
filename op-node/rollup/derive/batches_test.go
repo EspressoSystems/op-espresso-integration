@@ -174,12 +174,15 @@ func TestValidBatch(t *testing.T) {
 			L2SafeHead: l2A0,
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1B,
-				Batch: &BatchData{BatchV1{
-					ParentHash:   l2A1.ParentHash,
-					EpochNum:     rollup.Epoch(l2A1.L1Origin.Number),
-					EpochHash:    l2A1.L1Origin.Hash,
-					Timestamp:    l2A1.Time,
-					Transactions: nil,
+				Batch: &BatchData{BatchV2{
+					BatchV1: BatchV1{
+						ParentHash:   l2A1.ParentHash,
+						EpochNum:     rollup.Epoch(l2A1.L1Origin.Number),
+						EpochHash:    l2A1.L1Origin.Hash,
+						Timestamp:    l2A1.Time,
+						Transactions: nil,
+					},
+					Justification: nil,
 				}},
 			},
 			Expected: BatchUndecided,
@@ -190,12 +193,15 @@ func TestValidBatch(t *testing.T) {
 			L2SafeHead: l2A0,
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1B,
-				Batch: &BatchData{BatchV1{
-					ParentHash:   l2A1.ParentHash,
-					EpochNum:     rollup.Epoch(l2A1.L1Origin.Number),
-					EpochHash:    l2A1.L1Origin.Hash,
-					Timestamp:    l2A1.Time + 1, // 1 too high
-					Transactions: nil,
+				Batch: &BatchData{BatchV2{
+						BatchV1: BatchV1{
+						ParentHash:   l2A1.ParentHash,
+						EpochNum:     rollup.Epoch(l2A1.L1Origin.Number),
+						EpochHash:    l2A1.L1Origin.Hash,
+						Timestamp:    l2A1.Time + 1, // 1 too high
+						Transactions: nil,
+					},
+					Justification: nil,
 				}},
 			},
 			Expected: BatchFuture,
@@ -206,12 +212,15 @@ func TestValidBatch(t *testing.T) {
 			L2SafeHead: l2A0,
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1B,
-				Batch: &BatchData{BatchV1{
-					ParentHash:   l2A1.ParentHash,
-					EpochNum:     rollup.Epoch(l2A1.L1Origin.Number),
-					EpochHash:    l2A1.L1Origin.Hash,
-					Timestamp:    l2A0.Time, // repeating the same time
-					Transactions: nil,
+				Batch: &BatchData{BatchV2{
+					BatchV1: BatchV1{
+						ParentHash:   l2A1.ParentHash,
+						EpochNum:     rollup.Epoch(l2A1.L1Origin.Number),
+						EpochHash:    l2A1.L1Origin.Hash,
+						Timestamp:    l2A0.Time, // repeating the same time
+						Transactions: nil,
+					},
+					Justification: nil,
 				}},
 			},
 			Expected: BatchDrop,
@@ -222,12 +231,15 @@ func TestValidBatch(t *testing.T) {
 			L2SafeHead: l2A0,
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1B,
-				Batch: &BatchData{BatchV1{
-					ParentHash:   l2A1.ParentHash,
-					EpochNum:     rollup.Epoch(l2A1.L1Origin.Number),
-					EpochHash:    l2A1.L1Origin.Hash,
-					Timestamp:    l2A1.Time - 1, // block time is 2, so this is 1 too low
-					Transactions: nil,
+				Batch: &BatchData{BatchV2{
+					BatchV1: BatchV1{
+						ParentHash:   l2A1.ParentHash,
+						EpochNum:     rollup.Epoch(l2A1.L1Origin.Number),
+						EpochHash:    l2A1.L1Origin.Hash,
+						Timestamp:    l2A1.Time - 1, // block time is 2, so this is 1 too low
+						Transactions: nil,
+					},
+					Justification: nil,
 				}},
 			},
 			Expected: BatchDrop,
@@ -238,12 +250,15 @@ func TestValidBatch(t *testing.T) {
 			L2SafeHead: l2A0,
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1B,
-				Batch: &BatchData{BatchV1{
-					ParentHash:   testutils.RandomHash(rng),
-					EpochNum:     rollup.Epoch(l2A1.L1Origin.Number),
-					EpochHash:    l2A1.L1Origin.Hash,
-					Timestamp:    l2A1.Time,
-					Transactions: nil,
+				Batch: &BatchData{BatchV2{
+					BatchV1: BatchV1{
+						ParentHash:   testutils.RandomHash(rng),
+						EpochNum:     rollup.Epoch(l2A1.L1Origin.Number),
+						EpochHash:    l2A1.L1Origin.Hash,
+						Timestamp:    l2A1.Time,
+						Transactions: nil,
+					},
+					Justification: nil,
 				}},
 			},
 			Expected: BatchDrop,
@@ -254,12 +269,15 @@ func TestValidBatch(t *testing.T) {
 			L2SafeHead: l2A0,
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1F, // included in 5th block after epoch of batch, while seq window is 4
-				Batch: &BatchData{BatchV1{
-					ParentHash:   l2A1.ParentHash,
-					EpochNum:     rollup.Epoch(l2A1.L1Origin.Number),
-					EpochHash:    l2A1.L1Origin.Hash,
-					Timestamp:    l2A1.Time,
-					Transactions: nil,
+				Batch: &BatchData{BatchV2{
+					BatchV1: BatchV1{
+						ParentHash:   l2A1.ParentHash,
+						EpochNum:     rollup.Epoch(l2A1.L1Origin.Number),
+						EpochHash:    l2A1.L1Origin.Hash,
+						Timestamp:    l2A1.Time,
+						Transactions: nil,
+					},
+					Justification: nil,
 				}},
 			},
 			Expected: BatchDrop,
@@ -270,12 +288,15 @@ func TestValidBatch(t *testing.T) {
 			L2SafeHead: l2B0, // we already moved on to B
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1C,
-				Batch: &BatchData{BatchV1{
-					ParentHash:   l2B0.Hash,                          // build on top of safe head to continue
-					EpochNum:     rollup.Epoch(l2A3.L1Origin.Number), // epoch A is no longer valid
-					EpochHash:    l2A3.L1Origin.Hash,
-					Timestamp:    l2B0.Time + conf.BlockTime, // pass the timestamp check to get too epoch check
-					Transactions: nil,
+				Batch: &BatchData{BatchV2{
+					BatchV1: BatchV1{
+						ParentHash:   l2B0.Hash,                          // build on top of safe head to continue
+						EpochNum:     rollup.Epoch(l2A3.L1Origin.Number), // epoch A is no longer valid
+						EpochHash:    l2A3.L1Origin.Hash,
+						Timestamp:    l2B0.Time + conf.BlockTime, // pass the timestamp check to get too epoch check
+						Transactions: nil,
+					},
+					Justification: nil,
 				}},
 			},
 			Expected: BatchDrop,
@@ -286,12 +307,15 @@ func TestValidBatch(t *testing.T) {
 			L2SafeHead: l2A3,
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1C,
-				Batch: &BatchData{BatchV1{
-					ParentHash:   l2B0.ParentHash,
-					EpochNum:     rollup.Epoch(l2B0.L1Origin.Number),
-					EpochHash:    l2B0.L1Origin.Hash,
-					Timestamp:    l2B0.Time,
-					Transactions: nil,
+				Batch: &BatchData{BatchV2{
+					BatchV1: BatchV1{
+						ParentHash:   l2B0.ParentHash,
+						EpochNum:     rollup.Epoch(l2B0.L1Origin.Number),
+						EpochHash:    l2B0.L1Origin.Hash,
+						Timestamp:    l2B0.Time,
+						Transactions: nil,
+					},
+					Justification: nil,
 				}},
 			},
 			Expected: BatchUndecided,
@@ -302,12 +326,15 @@ func TestValidBatch(t *testing.T) {
 			L2SafeHead: l2A3,
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1D,
-				Batch: &BatchData{BatchV1{
-					ParentHash:   l2B0.ParentHash,
-					EpochNum:     rollup.Epoch(l1C.Number), // invalid, we need to adopt epoch B before C
-					EpochHash:    l1C.Hash,
-					Timestamp:    l2B0.Time,
-					Transactions: nil,
+				Batch: &BatchData{BatchV2{
+					BatchV1: BatchV1{
+						ParentHash:   l2B0.ParentHash,
+						EpochNum:     rollup.Epoch(l1C.Number), // invalid, we need to adopt epoch B before C
+						EpochHash:    l1C.Hash,
+						Timestamp:    l2B0.Time,
+						Transactions: nil,
+					},
+					Justification: nil,
 				}},
 			},
 			Expected: BatchDrop,
@@ -318,12 +345,15 @@ func TestValidBatch(t *testing.T) {
 			L2SafeHead: l2A3,
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1C,
-				Batch: &BatchData{BatchV1{
-					ParentHash:   l2B0.ParentHash,
-					EpochNum:     rollup.Epoch(l2B0.L1Origin.Number),
-					EpochHash:    l1A.Hash, // invalid, epoch hash should be l1B
-					Timestamp:    l2B0.Time,
-					Transactions: nil,
+				Batch: &BatchData{BatchV2{
+					BatchV1: BatchV1{
+						ParentHash:   l2B0.ParentHash,
+						EpochNum:     rollup.Epoch(l2B0.L1Origin.Number),
+						EpochHash:    l1A.Hash, // invalid, epoch hash should be l1B
+						Timestamp:    l2B0.Time,
+						Transactions: nil,
+					},
+					Justification: nil,
 				}},
 			},
 			Expected: BatchDrop,
@@ -334,12 +364,15 @@ func TestValidBatch(t *testing.T) {
 			L2SafeHead: l2A3,
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1B,
-				Batch: &BatchData{BatchV1{ // we build l2A4, which has a timestamp of 2*4 = 8 higher than l2A0
-					ParentHash:   l2A4.ParentHash,
-					EpochNum:     rollup.Epoch(l2A4.L1Origin.Number),
-					EpochHash:    l2A4.L1Origin.Hash,
-					Timestamp:    l2A4.Time,
-					Transactions: []hexutil.Bytes{[]byte("sequencer should not include this tx")},
+				Batch: &BatchData{BatchV2{
+					BatchV1: BatchV1{ // we build l2A4, which has a timestamp of 2*4 = 8 higher than l2A0
+						ParentHash:   l2A4.ParentHash,
+						EpochNum:     rollup.Epoch(l2A4.L1Origin.Number),
+						EpochHash:    l2A4.L1Origin.Hash,
+						Timestamp:    l2A4.Time,
+						Transactions: []hexutil.Bytes{[]byte("sequencer should not include this tx")},
+					},
+					Justification: nil,
 				}},
 			},
 			Expected: BatchDrop,
@@ -350,12 +383,15 @@ func TestValidBatch(t *testing.T) {
 			L2SafeHead: l2X0,
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1Z,
-				Batch: &BatchData{BatchV1{
-					ParentHash:   l2Y0.ParentHash,
-					EpochNum:     rollup.Epoch(l2Y0.L1Origin.Number),
-					EpochHash:    l2Y0.L1Origin.Hash,
-					Timestamp:    l2Y0.Time, // valid, but more than 6 ahead of l1Y.Time
-					Transactions: []hexutil.Bytes{[]byte("sequencer should not include this tx")},
+				Batch: &BatchData{BatchV2{
+					BatchV1: BatchV1{
+						ParentHash:   l2Y0.ParentHash,
+						EpochNum:     rollup.Epoch(l2Y0.L1Origin.Number),
+						EpochHash:    l2Y0.L1Origin.Hash,
+						Timestamp:    l2Y0.Time, // valid, but more than 6 ahead of l1Y.Time
+						Transactions: []hexutil.Bytes{[]byte("sequencer should not include this tx")},
+					},
+					Justification: nil,
 				}},
 			},
 			Expected: BatchDrop,
@@ -366,12 +402,15 @@ func TestValidBatch(t *testing.T) {
 			L2SafeHead: l2A3,
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1BLate,
-				Batch: &BatchData{BatchV1{ // l2A4 time < l1BLate time, so we cannot adopt origin B yet
-					ParentHash:   l2A4.ParentHash,
-					EpochNum:     rollup.Epoch(l2A4.L1Origin.Number),
-					EpochHash:    l2A4.L1Origin.Hash,
-					Timestamp:    l2A4.Time,
-					Transactions: nil,
+				Batch: &BatchData{BatchV2{
+					BatchV1: BatchV1{ // l2A4 time < l1BLate time, so we cannot adopt origin B yet
+						ParentHash:   l2A4.ParentHash,
+						EpochNum:     rollup.Epoch(l2A4.L1Origin.Number),
+						EpochHash:    l2A4.L1Origin.Hash,
+						Timestamp:    l2A4.Time,
+						Transactions: nil,
+					},
+					Justification: nil,
 				}},
 			},
 			Expected: BatchAccept, // accepted because empty & preserving L2 time invariant
@@ -382,12 +421,15 @@ func TestValidBatch(t *testing.T) {
 			L2SafeHead: l2X0,
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1Z,
-				Batch: &BatchData{BatchV1{
-					ParentHash:   l2Y0.ParentHash,
-					EpochNum:     rollup.Epoch(l2Y0.L1Origin.Number),
-					EpochHash:    l2Y0.L1Origin.Hash,
-					Timestamp:    l2Y0.Time, // valid, but more than 6 ahead of l1Y.Time
-					Transactions: nil,
+				Batch: &BatchData{BatchV2{
+					BatchV1: BatchV1{
+						ParentHash:   l2Y0.ParentHash,
+						EpochNum:     rollup.Epoch(l2Y0.L1Origin.Number),
+						EpochHash:    l2Y0.L1Origin.Hash,
+						Timestamp:    l2Y0.Time, // valid, but more than 6 ahead of l1Y.Time
+						Transactions: nil,
+					},
+					Justification: nil,
 				}},
 			},
 			Expected: BatchAccept, // accepted because empty & still advancing epoch
@@ -398,12 +440,15 @@ func TestValidBatch(t *testing.T) {
 			L2SafeHead: l2A3,
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1B,
-				Batch: &BatchData{BatchV1{ // we build l2A4, which has a timestamp of 2*4 = 8 higher than l2A0
-					ParentHash:   l2A4.ParentHash,
-					EpochNum:     rollup.Epoch(l2A4.L1Origin.Number),
-					EpochHash:    l2A4.L1Origin.Hash,
-					Timestamp:    l2A4.Time,
-					Transactions: nil,
+				Batch: &BatchData{BatchV2{
+					BatchV1: BatchV1{ // we build l2A4, which has a timestamp of 2*4 = 8 higher than l2A0
+						ParentHash:   l2A4.ParentHash,
+						EpochNum:     rollup.Epoch(l2A4.L1Origin.Number),
+						EpochHash:    l2A4.L1Origin.Hash,
+						Timestamp:    l2A4.Time,
+						Transactions: nil,
+					},
+					Justification: nil,
 				}},
 			},
 			Expected: BatchUndecided, // we have to wait till the next epoch is in sight to check the time
@@ -414,12 +459,15 @@ func TestValidBatch(t *testing.T) {
 			L2SafeHead: l2A3,
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1C,
-				Batch: &BatchData{BatchV1{ // we build l2A4, which has a timestamp of 2*4 = 8 higher than l2A0
-					ParentHash:   l2A4.ParentHash,
-					EpochNum:     rollup.Epoch(l2A4.L1Origin.Number),
-					EpochHash:    l2A4.L1Origin.Hash,
-					Timestamp:    l2A4.Time,
-					Transactions: nil,
+				Batch: &BatchData{BatchV2{
+					BatchV1: BatchV1{ // we build l2A4, which has a timestamp of 2*4 = 8 higher than l2A0
+						ParentHash:   l2A4.ParentHash,
+						EpochNum:     rollup.Epoch(l2A4.L1Origin.Number),
+						EpochHash:    l2A4.L1Origin.Hash,
+						Timestamp:    l2A4.Time,
+						Transactions: nil,
+					},
+					Justification: nil,
 				}},
 			},
 			Expected: BatchDrop, // dropped because it could have advanced the epoch to B
@@ -430,14 +478,17 @@ func TestValidBatch(t *testing.T) {
 			L2SafeHead: l2A0,
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1B,
-				Batch: &BatchData{BatchV1{
-					ParentHash: l2A1.ParentHash,
-					EpochNum:   rollup.Epoch(l2A1.L1Origin.Number),
-					EpochHash:  l2A1.L1Origin.Hash,
-					Timestamp:  l2A1.Time,
-					Transactions: []hexutil.Bytes{
-						[]byte{}, // empty tx data
+				Batch: &BatchData{BatchV2{
+					BatchV1: BatchV1{
+						ParentHash: l2A1.ParentHash,
+						EpochNum:   rollup.Epoch(l2A1.L1Origin.Number),
+						EpochHash:  l2A1.L1Origin.Hash,
+						Timestamp:  l2A1.Time,
+						Transactions: []hexutil.Bytes{
+							[]byte{}, // empty tx data
+						},
 					},
+					Justification: nil,
 				}},
 			},
 			Expected: BatchDrop,
@@ -448,14 +499,17 @@ func TestValidBatch(t *testing.T) {
 			L2SafeHead: l2A0,
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1B,
-				Batch: &BatchData{BatchV1{
-					ParentHash: l2A1.ParentHash,
-					EpochNum:   rollup.Epoch(l2A1.L1Origin.Number),
-					EpochHash:  l2A1.L1Origin.Hash,
-					Timestamp:  l2A1.Time,
-					Transactions: []hexutil.Bytes{
-						[]byte{types.DepositTxType, 0}, // piece of data alike to a deposit
+				Batch: &BatchData{BatchV2{
+					BatchV1: BatchV1{
+						ParentHash: l2A1.ParentHash,
+						EpochNum:   rollup.Epoch(l2A1.L1Origin.Number),
+						EpochHash:  l2A1.L1Origin.Hash,
+						Timestamp:  l2A1.Time,
+						Transactions: []hexutil.Bytes{
+							[]byte{types.DepositTxType, 0}, // piece of data alike to a deposit
+						},
 					},
+					Justification: nil,
 				}},
 			},
 			Expected: BatchDrop,
@@ -466,15 +520,18 @@ func TestValidBatch(t *testing.T) {
 			L2SafeHead: l2A0,
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1B,
-				Batch: &BatchData{BatchV1{
-					ParentHash: l2A1.ParentHash,
-					EpochNum:   rollup.Epoch(l2A1.L1Origin.Number),
-					EpochHash:  l2A1.L1Origin.Hash,
-					Timestamp:  l2A1.Time,
-					Transactions: []hexutil.Bytes{
-						[]byte{0x02, 0x42, 0x13, 0x37},
-						[]byte{0x02, 0xde, 0xad, 0xbe, 0xef},
+				Batch: &BatchData{BatchV2{
+					BatchV1: BatchV1{
+						ParentHash: l2A1.ParentHash,
+						EpochNum:   rollup.Epoch(l2A1.L1Origin.Number),
+						EpochHash:  l2A1.L1Origin.Hash,
+						Timestamp:  l2A1.Time,
+						Transactions: []hexutil.Bytes{
+							[]byte{0x02, 0x42, 0x13, 0x37},
+							[]byte{0x02, 0xde, 0xad, 0xbe, 0xef},
+						},
 					},
+					Justification: nil,
 				}},
 			},
 			Expected: BatchAccept,
@@ -485,15 +542,18 @@ func TestValidBatch(t *testing.T) {
 			L2SafeHead: l2A3,
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1C,
-				Batch: &BatchData{BatchV1{
-					ParentHash: l2B0.ParentHash,
-					EpochNum:   rollup.Epoch(l2B0.L1Origin.Number),
-					EpochHash:  l2B0.L1Origin.Hash,
-					Timestamp:  l2B0.Time,
-					Transactions: []hexutil.Bytes{
-						[]byte{0x02, 0x42, 0x13, 0x37},
-						[]byte{0x02, 0xde, 0xad, 0xbe, 0xef},
+				Batch: &BatchData{BatchV2{
+					BatchV1: BatchV1{
+						ParentHash: l2B0.ParentHash,
+						EpochNum:   rollup.Epoch(l2B0.L1Origin.Number),
+						EpochHash:  l2B0.L1Origin.Hash,
+						Timestamp:  l2B0.Time,
+						Transactions: []hexutil.Bytes{
+							[]byte{0x02, 0x42, 0x13, 0x37},
+							[]byte{0x02, 0xde, 0xad, 0xbe, 0xef},
+						},
 					},
+					Justification: nil,
 				}},
 			},
 			Expected: BatchAccept,
@@ -504,12 +564,15 @@ func TestValidBatch(t *testing.T) {
 			L2SafeHead: l2A2,
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1B,
-				Batch: &BatchData{BatchV1{ // we build l2B0', which starts a new epoch too early
-					ParentHash:   l2A2.Hash,
-					EpochNum:     rollup.Epoch(l2B0.L1Origin.Number),
-					EpochHash:    l2B0.L1Origin.Hash,
-					Timestamp:    l2A2.Time + conf.BlockTime,
-					Transactions: nil,
+				Batch: &BatchData{BatchV2{
+					BatchV1: BatchV1{ // we build l2B0', which starts a new epoch too early
+						ParentHash:   l2A2.Hash,
+						EpochNum:     rollup.Epoch(l2B0.L1Origin.Number),
+						EpochHash:    l2B0.L1Origin.Hash,
+						Timestamp:    l2A2.Time + conf.BlockTime,
+						Transactions: nil,
+					},
+					Justification: nil,
 				}},
 			},
 			Expected: BatchDrop,

@@ -48,12 +48,15 @@ func mockHash(time uint64, layer uint8) common.Hash {
 func b(timestamp uint64, epoch eth.L1BlockRef) *BatchData {
 	rng := rand.New(rand.NewSource(int64(timestamp)))
 	data := testutils.RandomData(rng, 20)
-	return &BatchData{BatchV1{
-		ParentHash:   mockHash(timestamp-2, 2),
-		Timestamp:    timestamp,
-		EpochNum:     rollup.Epoch(epoch.Number),
-		EpochHash:    epoch.Hash,
-		Transactions: []hexutil.Bytes{data},
+	return &BatchData{BatchV2{
+		BatchV1: BatchV1{
+			ParentHash:   mockHash(timestamp-2, 2),
+			Timestamp:    timestamp,
+			EpochNum:     rollup.Epoch(epoch.Number),
+			EpochHash:    epoch.Hash,
+			Transactions: []hexutil.Bytes{data},
+		},
+		Justification: nil,
 	}}
 }
 

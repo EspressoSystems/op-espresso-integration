@@ -131,10 +131,10 @@ func (m *FakeEngineControl) Reset() {
 
 var _ derive.ResettableEngineControl = (*FakeEngineControl)(nil)
 
-type testAttrBuilderFn func(ctx context.Context, l2Parent eth.L2BlockRef, epoch eth.BlockID) (attrs *eth.PayloadAttributes, err error)
+type testAttrBuilderFn func(ctx context.Context, l2Parent eth.L2BlockRef, epoch eth.BlockID, justification *eth.L2BatchJustification) (attrs *eth.PayloadAttributes, err error)
 
-func (fn testAttrBuilderFn) PreparePayloadAttributes(ctx context.Context, l2Parent eth.L2BlockRef, epoch eth.BlockID) (attrs *eth.PayloadAttributes, err error) {
-	return fn(ctx, l2Parent, epoch)
+func (fn testAttrBuilderFn) PreparePayloadAttributes(ctx context.Context, l2Parent eth.L2BlockRef, epoch eth.BlockID, justification *eth.L2BatchJustification) (attrs *eth.PayloadAttributes, err error) {
+	return fn(ctx, l2Parent, epoch, justification)
 }
 
 var _ derive.AttributesBuilder = (testAttrBuilderFn)(nil)
@@ -233,7 +233,7 @@ func TestSequencerChaosMonkey(t *testing.T) {
 	// We keep attribute building simple, we don't talk to a real execution engine in this test.
 	// Sometimes we fake an error in the attributes preparation.
 	var attrsErr error
-	attrBuilder := testAttrBuilderFn(func(ctx context.Context, l2Parent eth.L2BlockRef, epoch eth.BlockID) (attrs *eth.PayloadAttributes, err error) {
+	attrBuilder := testAttrBuilderFn(func(ctx context.Context, l2Parent eth.L2BlockRef, epoch eth.BlockID, justification *eth.L2BatchJustification) (attrs *eth.PayloadAttributes, err error) {
 		if attrsErr != nil {
 			return nil, attrsErr
 		}
@@ -252,7 +252,7 @@ func TestSequencerChaosMonkey(t *testing.T) {
 			InfoBaseFee:     big.NewInt(1234),
 			InfoReceiptRoot: common.Hash{},
 		}
-		infoDep, err := derive.L1InfoDepositBytes(seqNr, l1Info, cfg.Genesis.SystemConfig, false)
+		infoDep, err := derive.L1InfoDepositBytes(seqNr, l1Info, cfg.Genesis.SystemConfig, justification, false)
 		require.NoError(t, err)
 
 		testGasLimit := eth.Uint64Quantity(10_000_000)

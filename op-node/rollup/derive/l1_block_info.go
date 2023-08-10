@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/rlp"
 
 	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
 	"github.com/ethereum-optimism/optimism/op-node/eth"
@@ -18,7 +20,6 @@ import (
 const (
 	L1InfoFuncSignature = "setL1BlockValues(uint64,uint64,uint256,bytes32,uint64,bytes32,uint256,uint256)"
 	L1InfoArguments     = 8
-	L1InfoLen           = 4 + 32*L1InfoArguments
 )
 
 var (
@@ -44,6 +45,7 @@ type L1BlockInfo struct {
 	BatcherAddr   common.Address
 	L1FeeOverhead eth.Bytes32
 	L1FeeScalar   eth.Bytes32
+	Justification *eth.L2BatchJustification `rlp:"nil"`
 }
 
 // Binary Format
@@ -59,10 +61,11 @@ type L1BlockInfo struct {
 // | 32      | BatcherAddr              |
 // | 32      | L1FeeOverhead            |
 // | 32      | L1FeeScalar              |
+// | variable| Justification            |
 // +---------+--------------------------+
 
 func (info *L1BlockInfo) MarshalBinary() ([]byte, error) {
-	w := bytes.NewBuffer(make([]byte, 0, L1InfoLen))
+	w := new(bytes.Buffer)
 	if err := solabi.WriteSignature(w, L1InfoFuncBytes4); err != nil {
 		return nil, err
 	}
@@ -90,13 +93,13 @@ func (info *L1BlockInfo) MarshalBinary() ([]byte, error) {
 	if err := solabi.WriteEthBytes32(w, info.L1FeeScalar); err != nil {
 		return nil, err
 	}
+	if err := rlp.Encode(w, info.Justification); err != nil {
+		return nil, err
+	}
 	return w.Bytes(), nil
 }
 
 func (info *L1BlockInfo) UnmarshalBinary(data []byte) error {
-	if len(data) != L1InfoLen {
-		return fmt.Errorf("data is unexpected length: %d", len(data))
-	}
 	reader := bytes.NewReader(data)
 
 	var err error
@@ -127,6 +130,22 @@ func (info *L1BlockInfo) UnmarshalBinary(data []byte) error {
 	if info.L1FeeScalar, err = solabi.ReadEthBytes32(reader); err != nil {
 		return err
 	}
+
+	// If the remaining bytes are the RLP encoding of an empty list (which represents a `nil`
+	// pointer) skip the Justification. The RLP library automatically handles `nil` pointers as
+	// struct fields with the `rlp:"nil"` attribute, but here it is not a nested field which might
+	// be `nil` but the top-level object, and the RLP library does not allow that.
+	rlpBytes, err := io.ReadAll(reader)
+	if err != nil {
+		return err
+	}
+	// If not RLP encoding of empty list...
+	if !(len(rlpBytes) == 1 && rlpBytes[0] == 0xc0) {
+		if err := rlp.DecodeBytes(rlpBytes, &info.Justification); err != nil {
+			return err
+		}
+	}
+
 	if !solabi.EmptyReader(reader) {
 		return errors.New("too many bytes")
 	}
@@ -142,7 +161,7 @@ func L1InfoDepositTxData(data []byte) (L1BlockInfo, error) {
 
 // L1InfoDeposit creates a L1 Info deposit transaction based on the L1 block,
 // and the L2 block-height difference with the start of the epoch.
-func L1InfoDeposit(seqNumber uint64, block eth.BlockInfo, sysCfg eth.SystemConfig, regolith bool) (*types.DepositTx, error) {
+func L1InfoDeposit(seqNumber uint64, block eth.BlockInfo, sysCfg eth.SystemConfig, justification *eth.L2BatchJustification, regolith bool) (*types.DepositTx, error) {
 	infoDat := L1BlockInfo{
 		Number:         block.NumberU64(),
 		Time:           block.Time(),
@@ -152,6 +171,7 @@ func L1InfoDeposit(seqNumber uint64, block eth.BlockInfo, sysCfg eth.SystemConfi
 		BatcherAddr:    sysCfg.BatcherAddr,
 		L1FeeOverhead:  sysCfg.Overhead,
 		L1FeeScalar:    sysCfg.Scalar,
+		Justification:  justification,
 	}
 	data, err := infoDat.MarshalBinary()
 	if err != nil {
@@ -183,8 +203,8 @@ func L1InfoDeposit(seqNumber uint64, block eth.BlockInfo, sysCfg eth.SystemConfi
 }
 
 // L1InfoDepositBytes returns a serialized L1-info attributes transaction.
-func L1InfoDepositBytes(seqNumber uint64, l1Info eth.BlockInfo, sysCfg eth.SystemConfig, regolith bool) ([]byte, error) {
-	dep, err := L1InfoDeposit(seqNumber, l1Info, sysCfg, regolith)
+func L1InfoDepositBytes(seqNumber uint64, l1Info eth.BlockInfo, sysCfg eth.SystemConfig, justification *eth.L2BatchJustification, regolith bool) ([]byte, error) {
+	dep, err := L1InfoDeposit(seqNumber, l1Info, sysCfg, justification, regolith)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create L1 info tx: %w", err)
 	}

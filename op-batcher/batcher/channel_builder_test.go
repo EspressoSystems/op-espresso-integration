@@ -138,7 +138,7 @@ func newMiniL2BlockWithNumberParent(numTx int, number *big.Int, parent common.Ha
 		Difficulty: common.Big0,
 		Number:     big.NewInt(100),
 	}, nil, nil, nil, trie.NewStackTrie(nil))
-	l1InfoTx, err := derive.L1InfoDeposit(0, eth.BlockToInfo(l1Block), eth.SystemConfig{}, false)
+	l1InfoTx, err := derive.L1InfoDeposit(0, eth.BlockToInfo(l1Block), eth.SystemConfig{}, nil, false)
 	if err != nil {
 		panic(err)
 	}
@@ -323,8 +323,11 @@ func FuzzSeqWindowClose(f *testing.F) {
 		// Check the timeout
 		cb.timeout = timeout
 		cb.updateSwTimeout(&derive.BatchData{
-			BatchV1: derive.BatchV1{
-				EpochNum: rollup.Epoch(epochNum),
+			BatchV2: derive.BatchV2{
+				BatchV1: derive.BatchV1{
+					EpochNum: rollup.Epoch(epochNum),
+				},
+				Justification: nil,
 			},
 		})
 		calculatedTimeout := epochNum + seqWindowSize - subSafetyMargin
@@ -355,8 +358,11 @@ func FuzzSeqWindowZeroTimeoutClose(f *testing.F) {
 		// Check the timeout
 		cb.timeout = 0
 		cb.updateSwTimeout(&derive.BatchData{
-			BatchV1: derive.BatchV1{
-				EpochNum: rollup.Epoch(epochNum),
+			BatchV2: derive.BatchV2{
+				BatchV1: derive.BatchV1{
+					EpochNum: rollup.Epoch(epochNum),
+				},
+				Justification: nil,
 			},
 		})
 		calculatedTimeout := epochNum + seqWindowSize - subSafetyMargin
@@ -520,7 +526,7 @@ func TestChannelBuilder_OutputFramesMaxFrameIndex(t *testing.T) {
 			Difficulty: common.Big0,
 			Number:     common.Big0,
 		}, nil, nil, nil, trie.NewStackTrie(nil))
-		l1InfoTx, _ := derive.L1InfoDeposit(0, eth.BlockToInfo(lBlock), eth.SystemConfig{}, false)
+		l1InfoTx, _ := derive.L1InfoDeposit(0, eth.BlockToInfo(lBlock), eth.SystemConfig{}, nil, false)
 		txs := []*types.Transaction{types.NewTx(l1InfoTx)}
 		a := types.NewBlock(&types.Header{
 			Number: big.NewInt(0),

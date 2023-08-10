@@ -13,6 +13,8 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/trie"
+
+	"github.com/ethereum-optimism/optimism/op-node/espresso"
 )
 
 type ErrorCode int
@@ -234,6 +236,18 @@ type PayloadAttributes struct {
 	NoTxPool bool `json:"noTxPool,omitempty"`
 	// GasLimit override
 	GasLimit *Uint64Quantity `json:"gasLimit,omitempty"`
+}
+
+type L2BatchJustification struct {
+	PrevBatchLastBlock espresso.Header `json:"prevBatchLastBlock"`
+	FirstBlock espresso.Header `json:"firstBlock"`
+	Payload *L2BatchPayloadJustification `json:"payload,omitempty",rlp:"nil"`
+}
+
+type L2BatchPayloadJustification struct {
+	LastBlock espresso.Header `json:"lastBlock"`
+	NextBatchFirstBlock espresso.Header `json:"nextBatchFirstBlock"`
+	NmtProofs []espresso.NmtProof `json:"nmtProofs"`
 }
 
 type ExecutePayloadStatus string
