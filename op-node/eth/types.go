@@ -13,6 +13,8 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/trie"
+
+	"github.com/ethereum-optimism/optimism/op-node/espresso"
 )
 
 type ErrorCode int
@@ -234,6 +236,33 @@ type PayloadAttributes struct {
 	NoTxPool bool `json:"noTxPool,omitempty"`
 	// GasLimit override
 	GasLimit *Uint64Quantity `json:"gasLimit,omitempty"`
+}
+
+type L2BatchJustification struct {
+	PrevBatchLastBlock espresso.Header `json:"prevBatchLastBlock"`
+	FirstBlock espresso.Header `json:"firstBlock"`
+
+	// The block number of `FirstBlock`. This allows us to authenticate the `FirstBlock` header by
+	// computing the commitment of `FirstBlock` and checking it against the commitment at position
+	// `FirstBlockNumber` in a certified sequence (e.g. the sequencer contract). We can also
+	// authenticate `PrevBatchLastBlock` in a similar way, since it is required to be the block
+	// immediately before `FirstBlock`.
+	FirstBlockNumber uint64 `json:"firstBlockNumber"`
+
+	Payload *L2BatchPayloadJustification `json:"payload,omitempty",rlp:"nil"`
+}
+
+type L2BatchPayloadJustification struct {
+	LastBlock espresso.Header `json:"lastBlock"`
+	NextBatchFirstBlock espresso.Header `json:"nextBatchFirstBlock"`
+
+	// NmtProofs proving, for each Espresso block included in the batch, the inclusion and
+	// completeness of the transactions in that block relative to the namespace for this OP-chain.
+	// The length of this slice also gives us the position of `LastBlock`
+	// (`FirstBlockNumber + len(NmtProofs) - 1`) which we need in order to authenticate `LastBlock`
+	// and `NextBatchFirstBlock` (the block immediately after `LastBlock`) against a certified
+	// sequence of Espresso block commitments.
+	NmtProofs []espresso.NmtProof `json:"nmtProofs"`
 }
 
 type ExecutePayloadStatus string

@@ -253,12 +253,15 @@ func blockToBatch(block *types.Block) (*derive.BatchData, error) {
 	}
 
 	return &derive.BatchData{
-		BatchV1: derive.BatchV1{
-			ParentHash:   block.ParentHash(),
-			EpochNum:     rollup.Epoch(l1Info.Number),
-			EpochHash:    l1Info.BlockHash,
-			Timestamp:    block.Time(),
-			Transactions: opaqueTxs,
+		BatchV2: derive.BatchV2{
+			BatchV1: derive.BatchV1{
+				ParentHash:   block.ParentHash(),
+				EpochNum:     rollup.Epoch(l1Info.Number),
+				EpochHash:    l1Info.BlockHash,
+				Timestamp:    block.Time(),
+				Transactions: opaqueTxs,
+			},
+			Justification: l1Info.Justification,
 		},
 	}, nil
 }

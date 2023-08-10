@@ -17,6 +17,9 @@ import (
 // Batch format
 // first byte is type followed by bytestring.
 //
+// BatchV2Type := 1
+// batchV2 := BatchV2Type ++ RLP([batchV1, justification])
+//
 // BatchV1Type := 0
 // batchV1 := BatchV1Type ++ RLP([epoch, timestamp, transaction_list]
 //
@@ -31,6 +34,7 @@ var encodeBufferPool = sync.Pool{
 
 const (
 	BatchV1Type = iota
+	BatchV2Type
 )
 
 type BatchV1 struct {
@@ -42,8 +46,13 @@ type BatchV1 struct {
 	Transactions []hexutil.Bytes
 }
 
-type BatchData struct {
+type BatchV2 struct {
 	BatchV1
+	Justification *eth.L2BatchJustification // not present for V1
+}
+
+type BatchData struct {
+	BatchV2
 	// batches may contain additional data with new upgrades
 }
 
@@ -70,8 +79,13 @@ func (b *BatchData) MarshalBinary() ([]byte, error) {
 }
 
 func (b *BatchData) encodeTyped(buf *bytes.Buffer) error {
-	buf.WriteByte(BatchV1Type)
-	return rlp.Encode(buf, &b.BatchV1)
+	if b.Justification == nil {
+		buf.WriteByte(BatchV1Type)
+		return rlp.Encode(buf, &b.BatchV1)
+	} else {
+		buf.WriteByte(BatchV2Type)
+		return rlp.Encode(buf, &b.BatchV2)
+	}
 }
 
 // DecodeRLP implements rlp.Decoder
@@ -101,6 +115,8 @@ func (b *BatchData) decodeTyped(data []byte) error {
 	switch data[0] {
 	case BatchV1Type:
 		return rlp.DecodeBytes(data[1:], &b.BatchV1)
+	case BatchV2Type:
+		return rlp.DecodeBytes(data[1:], &b.BatchV2)
 	default:
 		return fmt.Errorf("unrecognized batch type: %d", data[0])
 	}

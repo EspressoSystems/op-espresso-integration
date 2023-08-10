@@ -42,12 +42,15 @@ func TestAttributesQueue(t *testing.T) {
 	safeHead.L1Origin = l1Info.ID()
 	safeHead.Time = l1Info.InfoTime
 
-	batch := &BatchData{BatchV1{
-		ParentHash:   safeHead.Hash,
-		EpochNum:     rollup.Epoch(l1Info.InfoNum),
-		EpochHash:    l1Info.InfoHash,
-		Timestamp:    safeHead.Time + cfg.BlockTime,
-		Transactions: []eth.Data{eth.Data("foobar"), eth.Data("example")},
+	batch := &BatchData{BatchV2{
+		BatchV1: BatchV1{
+			ParentHash:   safeHead.Hash,
+			EpochNum:     rollup.Epoch(l1Info.InfoNum),
+			EpochHash:    l1Info.InfoHash,
+			Timestamp:    safeHead.Time + cfg.BlockTime,
+			Transactions: []eth.Data{eth.Data("foobar"), eth.Data("example")},
+		},
+		Justification: testutils.RandomL2BatchJustification(rng),
 	}}
 
 	parentL1Cfg := eth.SystemConfig{
@@ -66,7 +69,7 @@ func TestAttributesQueue(t *testing.T) {
 	l2Fetcher := &testutils.MockL2Client{}
 	l2Fetcher.ExpectSystemConfigByL2Hash(safeHead.Hash, parentL1Cfg, nil)
 
-	l1InfoTx, err := L1InfoDepositBytes(safeHead.SequenceNumber+1, l1Info, expectedL1Cfg, false)
+	l1InfoTx, err := L1InfoDepositBytes(safeHead.SequenceNumber+1, l1Info, expectedL1Cfg, batch.Justification, false)
 	require.NoError(t, err)
 	attrs := eth.PayloadAttributes{
 		Timestamp:             eth.Uint64Quantity(safeHead.Time + cfg.BlockTime),

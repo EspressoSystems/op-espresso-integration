@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"math/rand"
 
+	"github.com/ethereum-optimism/optimism/op-node/espresso"
 	"github.com/ethereum-optimism/optimism/op-node/eth"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -268,4 +269,34 @@ func RandomOutputResponse(rng *rand.Rand) *eth.OutputResponse {
 			FinalizedL2:        RandomL2BlockRef(rng),
 		},
 	}
+}
+
+func RandomL2BatchJustification(rng *rand.Rand) *eth.L2BatchJustification {
+	return &eth.L2BatchJustification{
+		PrevBatchLastBlock: RandomEspressoHeader(rng),
+		FirstBlock:         RandomEspressoHeader(rng),
+		Payload: &eth.L2BatchPayloadJustification{
+			LastBlock:           RandomEspressoHeader(rng),
+			NextBatchFirstBlock: RandomEspressoHeader(rng),
+			NmtProofs:           make([]espresso.NmtProof, 0),
+		},
+	}
+}
+
+func RandomEspressoHeader(rng *rand.Rand) espresso.Header {
+	l1Block := RandomBlockRef(rng)
+	return espresso.Header{
+		Timestamp: rng.Uint64(),
+		L1Block: espresso.L1BlockInfo{
+			Number: l1Block.Number,
+			Timestamp: *new(big.Int).SetUint64(l1Block.Time),
+		},
+		TransactionsRoot: RandomNmtRoot(rng),
+	}
+}
+
+func RandomNmtRoot(rng *rand.Rand) espresso.NmtRoot {
+	var bytes [32]byte
+	rng.Read(bytes[:])
+	return bytes[:]
 }
