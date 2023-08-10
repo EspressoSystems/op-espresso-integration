@@ -239,8 +239,8 @@ type PayloadAttributes struct {
 }
 
 type L2BatchJustification struct {
+	FirstBlock         espresso.Header `json:"firstBlock"`
 	PrevBatchLastBlock espresso.Header `json:"prevBatchLastBlock"`
-	FirstBlock espresso.Header `json:"firstBlock"`
 
 	// The block number of `FirstBlock`. This allows us to authenticate the `FirstBlock` header by
 	// computing the commitment of `FirstBlock` and checking it against the commitment at position
@@ -249,11 +249,11 @@ type L2BatchJustification struct {
 	// immediately before `FirstBlock`.
 	FirstBlockNumber uint64 `json:"firstBlockNumber"`
 
-	Payload *L2BatchPayloadJustification `json:"payload,omitempty",rlp:"nil"`
+	Payload *L2BatchPayloadJustification `json:"payload,omitempty" rlp:"nil"`
 }
 
 type L2BatchPayloadJustification struct {
-	LastBlock espresso.Header `json:"lastBlock"`
+	LastBlock           espresso.Header `json:"lastBlock"`
 	NextBatchFirstBlock espresso.Header `json:"nextBatchFirstBlock"`
 
 	// NmtProofs proving, for each Espresso block included in the batch, the inclusion and

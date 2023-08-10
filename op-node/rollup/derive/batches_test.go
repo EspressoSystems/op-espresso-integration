@@ -194,7 +194,7 @@ func TestValidBatch(t *testing.T) {
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1B,
 				Batch: &BatchData{BatchV2{
-						BatchV1: BatchV1{
+					BatchV1: BatchV1{
 						ParentHash:   l2A1.ParentHash,
 						EpochNum:     rollup.Epoch(l2A1.L1Origin.Number),
 						EpochHash:    l2A1.L1Origin.Hash,
