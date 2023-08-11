@@ -2,19 +2,19 @@
   description = "A Nix-flake-based Go 1.17 development environment";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+  # Be consistent with CI, which uses an older version of geth.
+  inputs.nixpkgs-geth.url = "github:NixOS/nixpkgs/611bf8f183e6360c2a215fa70dfd659943a9857f";
   inputs.flake-utils.url = "github:numtide/flake-utils";
   inputs.flake-compat.url = "github:edolstra/flake-compat";
   inputs.flake-compat.flake = false;
 
-  inputs.foundry.url = "github:shazow/foundry.nix/monthly"; # Use monthly branch for permanent releases
+  # Closes commit in foundry.nix to forge 3b1129b used in CI.
+  inputs.foundry.url = "github:shazow/foundry.nix/fef36a77f0838fe278cc01ccbafbab8cd38ad26f";
 
-  outputs = { self, flake-utils, nixpkgs, foundry, ... }:
+
+  outputs = { self, flake-utils, nixpkgs, nixpkgs-geth, foundry, ... }:
     let
       goVersion = 19; # Change this to update the whole stack
-      # Be consistent with CI, which uses an older version of geth.
-      pkgsGeth = import (builtins.fetchTarball {
-          url = "https://github.com/NixOS/nixpkgs/archive/611bf8f183e6360c2a215fa70dfd659943a9857f.tar.gz";
-      }) {};
       overlays = [
         (final: prev: {
           go = prev."go_1_${toString goVersion}";
@@ -23,7 +23,7 @@
           nodejs = prev.nodejs-16_x;
           pnpm = prev.nodePackages.pnpm;
           yarn = prev.nodePackages.yarn;
-          go-ethereum = pkgsGeth.go-ethereum;
+          go-ethereum = nixpkgs-geth.legacyPackages.${prev.system}.go-ethereum;
         })
         foundry.overlay
       ];

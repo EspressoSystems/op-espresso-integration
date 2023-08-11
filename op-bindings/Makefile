@@ -1,4 +1,4 @@
-SHELL := /bin/bash
+SHELL := /usr/bin/env bash
 
 pkg := bindings
 monorepo-base := $(shell dirname $(realpath .))
@@ -12,7 +12,7 @@ version:
 
 compile:
 	cd $(contracts-dir) && \
-		pnpm build
+        forge build
 
 bindings: compile bindings-build
 
