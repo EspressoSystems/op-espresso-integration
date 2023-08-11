@@ -290,13 +290,15 @@ func RandomEspressoHeader(rng *rand.Rand) espresso.Header {
 		TransactionsRoot: RandomNmtRoot(rng),
 		L1Block: espresso.L1BlockInfo{
 			Number:    l1Block.Number,
-			Timestamp: *new(big.Int).SetUint64(l1Block.Time),
+			Timestamp: *espresso.NewU256().SetUint64(l1Block.Time),
 		},
 	}
 }
 
 func RandomNmtRoot(rng *rand.Rand) espresso.NmtRoot {
-	var bytes [32]byte
+	bytes := make([]byte, 32)
 	rng.Read(bytes[:])
-	return bytes[:]
+	return espresso.NmtRoot{
+		Root: bytes,
+	}
 }
