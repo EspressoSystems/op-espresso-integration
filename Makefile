@@ -56,6 +56,11 @@ op-program:
 	make -C ./op-program op-program
 .PHONY: op-program
 
+op-geth-proxy:
+	make -C ./op-geth-proxy op-geth-proxy
+.PHONY: op-geth-proxy
+
+
 mod-tidy:
 	# Below GOPRIVATE line allows mod-tidy to be run immediately after
 	# releasing new versions. This bypasses the Go modules proxy, which
