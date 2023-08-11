@@ -194,7 +194,6 @@ services:
     image: ghcr.io/espressosystems/espresso-sequencer/sequencer:main
     ports:
       - 50001:8080
-    # Run the API server (with options taken from the environment) and the optional submission API
     command: sequencer -- http -- query
     environment:
       - ESPRESSO_SEQUENCER_ORCHESTRATOR_URL=http://orchestrator:8080
