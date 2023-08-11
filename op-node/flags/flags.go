@@ -229,6 +229,12 @@ var (
 		Required: false,
 		Value:    false,
 	}
+	EspressoUrl = &cli.StringFlag{
+		Name:     "espresso",
+		Usage:    "Sets the URL for fetching data from the Espresso Sequencer. Required only if sequencing for an Espresso-enabled OP-chain",
+		EnvVars:  prefixEnvVars("ESPRESSO_URL"),
+		Required: false,
+	}
 )
 
 var requiredFlags = []cli.Flag{
