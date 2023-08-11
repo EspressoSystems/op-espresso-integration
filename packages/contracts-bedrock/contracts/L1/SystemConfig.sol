@@ -22,6 +22,7 @@ contract SystemConfig is OwnableUpgradeable, Semver {
         BATCHER,
         GAS_CONFIG,
         GAS_LIMIT,
+        ESPRESSO,
         UNSAFE_BLOCK_SIGNER
     }
 
@@ -48,6 +49,9 @@ contract SystemConfig is OwnableUpgradeable, Semver {
     /// @notice L2 block gas limit.
     uint64 public gasLimit;
 
+    /// @notice Whether the Espresso Sequencer is enabled.
+    bool public espresso;
+
     /// @notice The configuration for the deposit fee market.
     ///         Used by the OptimismPortal to meter the cost of buying L2 gas on L1.
     ///         Set as internal with a getter so that the struct is returned instead of a tuple.
@@ -66,6 +70,7 @@ contract SystemConfig is OwnableUpgradeable, Semver {
     /// @param _scalar            Initial scalar value.
     /// @param _batcherHash       Initial batcher hash.
     /// @param _gasLimit          Initial gas limit.
+    /// @param _espresso          Initial choice of using the Espresso Sequencer.
     /// @param _unsafeBlockSigner Initial unsafe block signer address.
     /// @param _config            Initial resource config.
     constructor(
@@ -74,6 +79,7 @@ contract SystemConfig is OwnableUpgradeable, Semver {
         uint256 _scalar,
         bytes32 _batcherHash,
         uint64 _gasLimit,
+        bool _espresso,
         address _unsafeBlockSigner,
         ResourceMetering.ResourceConfig memory _config
     ) Semver(1, 3, 1) {
@@ -83,6 +89,7 @@ contract SystemConfig is OwnableUpgradeable, Semver {
             _scalar: _scalar,
             _batcherHash: _batcherHash,
             _gasLimit: _gasLimit,
+            _espresso: _espresso,
             _unsafeBlockSigner: _unsafeBlockSigner,
             _config: _config
         });
@@ -95,6 +102,7 @@ contract SystemConfig is OwnableUpgradeable, Semver {
     /// @param _scalar            Initial scalar value.
     /// @param _batcherHash       Initial batcher hash.
     /// @param _gasLimit          Initial gas limit.
+    /// @param _espresso          Initial choice of using the Espresso Sequencer.
     /// @param _unsafeBlockSigner Initial unsafe block signer address.
     /// @param _config            Initial ResourceConfig.
     function initialize(
@@ -103,6 +111,7 @@ contract SystemConfig is OwnableUpgradeable, Semver {
         uint256 _scalar,
         bytes32 _batcherHash,
         uint64 _gasLimit,
+        bool _espresso,
         address _unsafeBlockSigner,
         ResourceMetering.ResourceConfig memory _config
     ) public initializer {
@@ -112,6 +121,7 @@ contract SystemConfig is OwnableUpgradeable, Semver {
         scalar = _scalar;
         batcherHash = _batcherHash;
         gasLimit = _gasLimit;
+        espresso = _espresso;
         _setUnsafeBlockSigner(_unsafeBlockSigner);
         _setResourceConfig(_config);
         require(_gasLimit >= minimumGasLimit(), "SystemConfig: gas limit too low");
@@ -178,6 +188,15 @@ contract SystemConfig is OwnableUpgradeable, Semver {
 
         bytes memory data = abi.encode(_gasLimit);
         emit ConfigUpdate(VERSION, UpdateType.GAS_LIMIT, data);
+    }
+
+    /// @notice Opts in or out of using the Espresso Sequencer.
+    /// @param _espresso Whether to use Espresso.
+    function setEspresso(bool _espresso) external onlyOwner {
+        espresso = _espresso;
+
+        bytes memory data = abi.encode(_espresso);
+        emit ConfigUpdate(VERSION, UpdateType.ESPRESSO, data);
     }
 
     /// @notice Low level setter for the unsafe block signer address.

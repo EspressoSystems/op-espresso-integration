@@ -181,6 +181,11 @@ func (info *L1BlockInfo) UnmarshalBinary(data []byte) error {
 	return nil
 }
 
+// Whether the rollup is using the Espresso sequencer at this point in its history.
+func (info *L1BlockInfo) UsingEspresso() bool {
+	return info.Justification != nil
+}
+
 // L1InfoDepositTxData is the inverse of L1InfoDeposit, to see where the L2 chain is derived from
 func L1InfoDepositTxData(data []byte) (L1BlockInfo, error) {
 	var info L1BlockInfo

@@ -75,6 +75,7 @@ func PayloadToSystemConfig(payload *eth.ExecutionPayload, cfg *rollup.Config) (e
 			Overhead:    info.L1FeeOverhead,
 			Scalar:      info.L1FeeScalar,
 			GasLimit:    uint64(payload.GasLimit),
+			Espresso:    info.UsingEspresso(),
 		}, err
 	}
 }

@@ -141,6 +141,8 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 		EIP1559Denominator: 8,
 
 		FundDevAccounts: true,
+
+		Espresso: false,
 	}
 
 	if err := deployConfig.InitDeveloperDeployedAddresses(); err != nil {
