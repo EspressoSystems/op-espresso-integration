@@ -82,6 +82,33 @@ func ReadUint256(r io.Reader) (*big.Int, error) {
 	return new(big.Int).SetBytes(n[:]), nil
 }
 
+func ReadBytes(r io.Reader) ([]byte, error) {
+	// First read the length.
+	dataLen, err := ReadUint256(r)
+	if err != nil {
+		return nil, err
+	}
+	// Validate length.
+	if !dataLen.IsUint64() {
+		return nil, fmt.Errorf("bytes array is too long: %d", dataLen)
+	}
+	bufLen := dataLen.Uint64()
+
+	// Read the payload.
+	b := make([]byte, bufLen)
+	if _, err := io.ReadFull(r, b); err != nil {
+		return nil, err
+	}
+	// Consume extra padding bytes if necessary.
+	if paddingLen := bytesPadding(bufLen); paddingLen != 0 {
+		padding := make([]byte, paddingLen)
+		if _, err := io.ReadFull(r, padding); err != nil {
+			return nil, err
+		}
+	}
+	return b, nil
+}
+
 func EmptyReader(r io.Reader) bool {
 	var t [1]byte
 	n, err := r.Read(t[:])
@@ -131,4 +158,28 @@ func WriteUint64(w io.Writer, n uint64) error {
 		return err
 	}
 	return nil
+}
+
+func WriteBytes(w io.Writer, b []byte) error {
+	// The ABI encoding for a dynamic byte array consists of the length of the array, encoded as a
+	// uint256, followed by the array contents, followed by zeros padding to a multiple of 32 bytes.
+	dataLen := uint64(len(b))
+	if err := WriteUint256(w, new(big.Int).SetUint64(dataLen)); err != nil {
+		return err
+	}
+	if _, err := w.Write(b); err != nil {
+		return err
+	}
+	// Figure out how many bytes of padding we need.
+	if paddingLen := bytesPadding(dataLen); paddingLen != 0 {
+		padding := make([]byte, paddingLen)
+		if _, err := w.Write(padding); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func bytesPadding(dataLen uint64) uint64 {
+	return (32 - (dataLen % 32)) % 32
 }

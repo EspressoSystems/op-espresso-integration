@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -18,14 +17,15 @@ import (
 )
 
 const (
-	L1InfoFuncSignature = "setL1BlockValues(uint64,uint64,uint256,bytes32,uint64,bytes32,uint256,uint256)"
+	L1InfoFuncSignature = "setL1BlockValues(uint64,uint64,uint256,bytes32,uint64,bytes32,uint256,uint256,bytes)"
 	L1InfoArguments     = 8
 )
 
 var (
-	L1InfoFuncBytes4       = crypto.Keccak256([]byte(L1InfoFuncSignature))[:4]
-	L1InfoDepositerAddress = common.HexToAddress("0xdeaddeaddeaddeaddeaddeaddeaddeaddead0001")
-	L1BlockAddress         = predeploys.L1BlockAddr
+	L1InfoFuncBytes4          = crypto.Keccak256([]byte(L1InfoFuncSignature))[:4]
+	L1InfoDepositerAddress    = common.HexToAddress("0xdeaddeaddeaddeaddeaddeaddeaddeaddead0001")
+	L1InfoJustificationOffset = new(big.Int).SetUint64(288) // See Binary Format table below
+	L1BlockAddress            = predeploys.L1BlockAddr
 )
 
 const (
@@ -61,6 +61,9 @@ type L1BlockInfo struct {
 // | 32      | BatcherAddr              |
 // | 32      | L1FeeOverhead            |
 // | 32      | L1FeeScalar              |
+// | 32      | L1InfoJustificationOffset|
+// | 		 | (this is how dynamic     |
+// | 		 | types are ABI encoded)   |
 // | variable| Justification            |
 // +---------+--------------------------+
 
@@ -93,9 +96,28 @@ func (info *L1BlockInfo) MarshalBinary() ([]byte, error) {
 	if err := solabi.WriteEthBytes32(w, info.L1FeeScalar); err != nil {
 		return nil, err
 	}
-	if err := rlp.Encode(w, info.Justification); err != nil {
+
+	// For simplicity, we don't ABI-encode the whole structure of the Justification. We RLP-encode
+	// it and then ABI-encode the resulting byte string. This means the Justification can be
+	// accessed by parsing calldata, but cannot (easily) by inspected on-chain.
+	rlpBytes, err := rlp.EncodeToBytes(info.Justification)
+	if err != nil {
 		return nil, err
 	}
+	// The ABI-encoding of function parameters is that of a tuple, which requires that dynamic types
+	// (such as `bytes`) are represented in the initial list of items as a uint256 with the offset
+	// from the start of the encoding to the start of the payload of the dynamic type, which follows
+	// the initial list of static types and dynamic type offsets. In this case, we only have one
+	// item of dynamic type, and it is at the end of the list of items, so we will encode it by its
+	// offset, which is just the length of the static section of the list, followed by the item
+	// itself.
+	if err := solabi.WriteUint256(w, L1InfoJustificationOffset); err != nil {
+		return nil, err
+	}
+	if err := solabi.WriteBytes(w, rlpBytes); err != nil {
+		return nil, err
+	}
+
 	return w.Bytes(), nil
 }
 
@@ -131,15 +153,22 @@ func (info *L1BlockInfo) UnmarshalBinary(data []byte) error {
 		return err
 	}
 
-	// If the remaining bytes are the RLP encoding of an empty list (which represents a `nil`
-	// pointer) skip the Justification. The RLP library automatically handles `nil` pointers as
-	// struct fields with the `rlp:"nil"` attribute, but here it is not a nested field which might
-	// be `nil` but the top-level object, and the RLP library does not allow that.
-	rlpBytes, err := io.ReadAll(reader)
+	// Read the offset of the Justification bytes followed by the bytes themselves.
+	rlpOffset, err := solabi.ReadUint256(reader)
 	if err != nil {
 		return err
 	}
-	// If not RLP encoding of empty list...
+	if rlpOffset.Cmp(L1InfoJustificationOffset) != 0 {
+		return fmt.Errorf("invalid justification offset (%d, expected %d)", rlpOffset, L1InfoJustificationOffset)
+	}
+	rlpBytes, err := solabi.ReadBytes(reader)
+	if err != nil {
+		return err
+	}
+	// If the remaining bytes are the RLP encoding of an empty list (0xc, which represents a `nil`
+	// pointer) skip the Justification. The RLP library automatically handles `nil` pointers as
+	// struct fields with the `rlp:"nil"` attribute, but here it is not a nested field which might
+	// be `nil` but the top-level object, and the RLP library does not allow that.
 	if !(len(rlpBytes) == 1 && rlpBytes[0] == 0xc0) {
 		if err := rlp.DecodeBytes(rlpBytes, &info.Justification); err != nil {
 			return err

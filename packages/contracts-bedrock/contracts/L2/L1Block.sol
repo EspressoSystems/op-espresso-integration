@@ -51,6 +51,7 @@ contract L1Block is Semver {
     /// @param _batcherHash    Versioned hash to authenticate batcher by.
     /// @param _l1FeeOverhead  L1 fee overhead.
     /// @param _l1FeeScalar    L1 fee scalar.
+    /// @param _justification  The RLP-encoded L2 batch justification.
     function setL1BlockValues(
         uint64 _number,
         uint64 _timestamp,
@@ -59,7 +60,8 @@ contract L1Block is Semver {
         uint64 _sequenceNumber,
         bytes32 _batcherHash,
         uint256 _l1FeeOverhead,
-        uint256 _l1FeeScalar
+        uint256 _l1FeeScalar,
+        bytes calldata _justification
     ) external {
         require(
             msg.sender == DEPOSITOR_ACCOUNT,

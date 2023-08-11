@@ -46,7 +46,7 @@ func FuzzParseL1InfoDepositTxDataValid(f *testing.F) {
 		require.Equal(t, res.BatcherAddr, sysCfg.BatcherAddr)
 		require.Equal(t, res.L1FeeOverhead, sysCfg.Overhead)
 		require.Equal(t, res.L1FeeScalar, sysCfg.Scalar)
-		require.Equal(t, res.Justification, justification)
+		require.Equal(t, res.Justification, &justification)
 	})
 }
 

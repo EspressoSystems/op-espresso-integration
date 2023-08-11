@@ -26,7 +26,8 @@ contract L1BlockTest is CommonTest {
             _sequenceNumber: uint64(4),
             _batcherHash: bytes32(0),
             _l1FeeOverhead: 2,
-            _l1FeeScalar: 3
+            _l1FeeScalar: 3,
+            _justification: "0xc0"
         });
     }
 
@@ -42,7 +43,7 @@ contract L1BlockTest is CommonTest {
         uint256 fs
     ) external {
         vm.prank(depositor);
-        lb.setL1BlockValues(n, t, b, h, s, bt, fo, fs);
+        lb.setL1BlockValues(n, t, b, h, s, bt, fo, fs, "0xc0");
         assertEq(lb.number(), n);
         assertEq(lb.timestamp(), t);
         assertEq(lb.basefee(), b);
@@ -89,7 +90,8 @@ contract L1BlockTest is CommonTest {
             _sequenceNumber: type(uint64).max,
             _batcherHash: bytes32(type(uint256).max),
             _l1FeeOverhead: type(uint256).max,
-            _l1FeeScalar: type(uint256).max
+            _l1FeeScalar: type(uint256).max,
+            _justification: hex"c0"
         });
     }
 }

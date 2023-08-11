@@ -82,6 +82,7 @@ func FuzzL1InfoAgainstContract(f *testing.F) {
 			BatcherAddr:    common.BytesToAddress(batcherHash),
 			L1FeeOverhead:  eth.Bytes32(common.BytesToHash(l1FeeOverhead)),
 			L1FeeScalar:    eth.Bytes32(common.BytesToHash(l1FeeScalar)),
+			Justification:  nil,
 		}
 
 		// Setup opts
@@ -100,6 +101,9 @@ func FuzzL1InfoAgainstContract(f *testing.F) {
 			common.BytesToAddress(batcherHash).Hash(),
 			common.BytesToHash(l1FeeOverhead).Big(),
 			common.BytesToHash(l1FeeScalar).Big(),
+			// Since we set `Justification: nil`, the RLP encoded bytes will encode an empty list.
+			// This is encoded by `c0` to signify a list followed by no elements.
+			[]byte{0xc0},
 		)
 		if err != nil {
 			t.Fatalf("Failed to create the transaction: %v", err)
