@@ -1710,28 +1710,28 @@ workflows:
             - oplabs-gcr
           requires:
             - hold
-  scheduled-fpp:
-    triggers:
-      - schedule:
-          # run every 4 hours
-          cron: "0 0,6,12,18 * * *"
-          filters:
-            branches:
-              only: ["develop"]
-    jobs:
-      - fpp-verify:
-          context:
-            - slack
-            - oplabs-fpp-nodes
+  # scheduled-fpp:
+  #   triggers:
+  #     - schedule:
+  #         # run every 4 hours
+  #         cron: "0 0,6,12,18 * * *"
+  #         filters:
+  #           branches:
+  #             only: ["develop"]
+  #   jobs:
+  #     - fpp-verify:
+  #         context:
+  #           - slack
+  #           - oplabs-fpp-nodes
 
-  scheduled-link-check:
-    triggers:
-      - schedule:
-          # Run once a day, only on the develop branch
-          cron: "0 0 * * *"
-          filters:
-            branches:
-              only: ["develop"]
-    jobs:
-      - bedrock-markdown-links:
-          context: slack
+  # scheduled-link-check:
+  #   triggers:
+  #     - schedule:
+  #         # Run once a day, only on the develop branch
+  #         cron: "0 0 * * *"
+  #         filters:
+  #           branches:
+  #             only: ["develop"]
+  #   jobs:
+  #     - bedrock-markdown-links:
+  #         context: slack
