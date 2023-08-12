@@ -131,14 +131,6 @@ func (m *FakeEngineControl) Reset() {
 
 var _ derive.ResettableEngineControl = (*FakeEngineControl)(nil)
 
-type testAttrBuilderFn func(ctx context.Context, l2Parent eth.L2BlockRef, epoch eth.BlockID, justification *eth.L2BatchJustification) (attrs *eth.PayloadAttributes, err error)
-
-func (fn testAttrBuilderFn) PreparePayloadAttributes(ctx context.Context, l2Parent eth.L2BlockRef, epoch eth.BlockID, justification *eth.L2BatchJustification) (attrs *eth.PayloadAttributes, err error) {
-	return fn(ctx, l2Parent, epoch, justification)
-}
-
-var _ derive.AttributesBuilder = (testAttrBuilderFn)(nil)
-
 type testOriginSelectorFn func(ctx context.Context, l2Head eth.L2BlockRef) (eth.L1BlockRef, error)
 
 func (fn testOriginSelectorFn) FindL1Origin(ctx context.Context, l2Head eth.L2BlockRef) (eth.L1BlockRef, error) {
@@ -150,6 +142,7 @@ var _ L1OriginSelectorIface = (testOriginSelectorFn)(nil)
 type FakeEspressoClient struct{}
 
 type TestSequencer struct {
+	t   *testing.T
 	rng *rand.Rand
 
 	cfg        rollup.Config
@@ -165,26 +158,77 @@ type TestSequencer struct {
 	originErr error
 }
 
+// Implement AttributeBuilder interface for TestSequencer.
+
+// We keep attribute building simple, we don't talk to a real execution engine in this test.
+// Sometimes we fake an error in the attributes preparation.
+func (s *TestSequencer) PreparePayloadAttributes(ctx context.Context, l2Parent eth.L2BlockRef, epoch eth.BlockID, justification *eth.L2BatchJustification) (attrs *eth.PayloadAttributes, err error) {
+	if s.attrsErr != nil {
+		return nil, s.attrsErr
+	}
+	seqNr := l2Parent.SequenceNumber + 1
+	if epoch != l2Parent.L1Origin {
+		seqNr = 0
+	}
+	l1Info := &testutils.MockBlockInfo{
+		InfoHash:        epoch.Hash,
+		InfoParentHash:  mockL1Hash(epoch.Number - 1),
+		InfoCoinbase:    common.Address{},
+		InfoRoot:        common.Hash{},
+		InfoNum:         epoch.Number,
+		InfoTime:        s.l1Times[epoch],
+		InfoMixDigest:   [32]byte{},
+		InfoBaseFee:     big.NewInt(1234),
+		InfoReceiptRoot: common.Hash{},
+	}
+	infoDep, err := derive.L1InfoDepositBytes(seqNr, l1Info, s.cfg.Genesis.SystemConfig, justification, false)
+	require.NoError(s.t, err)
+
+	testGasLimit := eth.Uint64Quantity(10_000_000)
+	return &eth.PayloadAttributes{
+		Timestamp:             eth.Uint64Quantity(l2Parent.Time + s.cfg.BlockTime),
+		PrevRandao:            eth.Bytes32{},
+		SuggestedFeeRecipient: common.Address{},
+		Transactions:          []eth.Data{infoDep},
+		NoTxPool:              false,
+		GasLimit:              &testGasLimit,
+	}, nil
+}
+
+// The system config never changes in this test, so we just read whether Espresso is enabled or not from the genesis config.
+// Sometimes we fake an error.
+func (s *TestSequencer) ChildNeedsJustification(ctx context.Context, parent eth.L2BlockRef) (bool, error) {
+	if s.attrsErr != nil {
+		return false, s.attrsErr
+	}
+	return s.cfg.Genesis.SystemConfig.Espresso, nil
+}
+
+var _ derive.AttributesBuilder = (*TestSequencer)(nil)
+
+func mockL1Hash(num uint64) (out common.Hash) {
+	out[31] = 1
+	binary.BigEndian.PutUint64(out[:], num)
+	return
+}
+
+func mockL2Hash(num uint64) (out common.Hash) {
+	out[31] = 2
+	binary.BigEndian.PutUint64(out[:], num)
+	return
+}
+
+func mockL1ID(num uint64) eth.BlockID {
+	return eth.BlockID{Hash: mockL1Hash(num), Number: num}
+}
+
+func mockL2ID(num uint64) eth.BlockID {
+	return eth.BlockID{Hash: mockL2Hash(num), Number: num}
+}
+
 func SetupSequencer(t *testing.T, useEspresso bool) *TestSequencer {
 	s := new(TestSequencer)
-
-	mockL1Hash := func(num uint64) (out common.Hash) {
-		out[31] = 1
-		binary.BigEndian.PutUint64(out[:], num)
-		return
-	}
-	mockL2Hash := func(num uint64) (out common.Hash) {
-		out[31] = 2
-		binary.BigEndian.PutUint64(out[:], num)
-		return
-	}
-	mockL1ID := func(num uint64) eth.BlockID {
-		return eth.BlockID{Hash: mockL1Hash(num), Number: num}
-	}
-	mockL2ID := func(num uint64) eth.BlockID {
-		return eth.BlockID{Hash: mockL2Hash(num), Number: num}
-	}
-
+	s.t = t
 	s.rng = rand.New(rand.NewSource(12345))
 
 	l1Time := uint64(100000)
@@ -249,41 +293,6 @@ func SetupSequencer(t *testing.T, useEspresso bool) *TestSequencer {
 		}
 	}
 
-	// We keep attribute building simple, we don't talk to a real execution engine in this test.
-	// Sometimes we fake an error in the attributes preparation.
-	attrBuilder := testAttrBuilderFn(func(ctx context.Context, l2Parent eth.L2BlockRef, epoch eth.BlockID, justification *eth.L2BatchJustification) (attrs *eth.PayloadAttributes, err error) {
-		if s.attrsErr != nil {
-			return nil, s.attrsErr
-		}
-		seqNr := l2Parent.SequenceNumber + 1
-		if epoch != l2Parent.L1Origin {
-			seqNr = 0
-		}
-		l1Info := &testutils.MockBlockInfo{
-			InfoHash:        epoch.Hash,
-			InfoParentHash:  mockL1Hash(epoch.Number - 1),
-			InfoCoinbase:    common.Address{},
-			InfoRoot:        common.Hash{},
-			InfoNum:         epoch.Number,
-			InfoTime:        s.l1Times[epoch],
-			InfoMixDigest:   [32]byte{},
-			InfoBaseFee:     big.NewInt(1234),
-			InfoReceiptRoot: common.Hash{},
-		}
-		infoDep, err := derive.L1InfoDepositBytes(seqNr, l1Info, s.cfg.Genesis.SystemConfig, justification, false)
-		require.NoError(t, err)
-
-		testGasLimit := eth.Uint64Quantity(10_000_000)
-		return &eth.PayloadAttributes{
-			Timestamp:             eth.Uint64Quantity(l2Parent.Time + s.cfg.BlockTime),
-			PrevRandao:            eth.Bytes32{},
-			SuggestedFeeRecipient: common.Address{},
-			Transactions:          []eth.Data{infoDep},
-			NoTxPool:              false,
-			GasLimit:              &testGasLimit,
-		}, nil
-	})
-
 	maxL1BlockTimeGap := uint64(100)
 	// The origin selector just generates random L1 blocks based on RNG
 	originSelector := testOriginSelectorFn(func(ctx context.Context, l2Head eth.L2BlockRef) (eth.L1BlockRef, error) {
@@ -324,7 +333,7 @@ func SetupSequencer(t *testing.T, useEspresso bool) *TestSequencer {
 		s.espresso = new(FakeEspressoClient)
 	}
 
-	s.seq = NewSequencer(log, &s.cfg, &s.engControl, attrBuilder, originSelector, s.espresso, metrics.NoopMetrics)
+	s.seq = NewSequencer(log, &s.cfg, &s.engControl, s, originSelector, s.espresso, metrics.NoopMetrics)
 	s.seq.timeNow = s.clockFn
 
 	return s
@@ -408,7 +417,7 @@ func SequencerChaosMonkey(t *testing.T, useEspresso bool) {
 	require.Greater(t, s.engControl.avgTxsPerBlock(), 3.0, "We expect at least 1 system tx per block, but with a mocked 0-10 txs we expect an higher avg")
 }
 
-func TestSequencerChaosMonkey(t *testing.T) {
+func TestSequencerChaosMonkeyLegacy(t *testing.T) {
 	SequencerChaosMonkey(t, false)
 }
 
