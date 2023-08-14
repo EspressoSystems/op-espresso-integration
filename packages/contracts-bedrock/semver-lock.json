@@ -7,7 +7,7 @@
   "contracts/L1/SystemConfig.sol": "0xbd2be6c19e6e85eae73ddf3cd6304a395e2a41d86aee1c15b6b0f044bf54232e",
   "contracts/L2/BaseFeeVault.sol": "0xc7bf7c43dd5362f6474fc3da8bb38d1c616ed2a3396486446482acf62cacfc2f",
   "contracts/L2/GasPriceOracle.sol": "0x712134045fba966b0d0cc28019f5c2bd298d999649f387d989f744b274020a82",
-  "contracts/L2/L1Block.sol": "0x64d2517a595a5b5af7eef1070920eb90aa595871ec55ba8b6d6aa323043ac000",
+  "contracts/L2/L1Block.sol": "0x8950e9740a5ad942508523ab97bcdb118185f306e595320f94463434acf9a9d7",
   "contracts/L2/L1FeeVault.sol": "0x49f6a1a89e83467e84110232f9e3c5fb2d0fad373f12afeef6b15d135a605659",
   "contracts/L2/L2CrossDomainMessenger.sol": "0xd1e057fe1889e0701f447af8016e4a201febdc28f640138878435746b3c6f647",
   "contracts/L2/L2ERC721Bridge.sol": "0x2a0c241efb516161a12625e23d1e5aa32da815892e4fcc52f3b12d41cdff53b2",
