@@ -20,7 +20,7 @@ const ENV_PREFIX = "OP_GETH_PROXY"
 
 var (
 	fs            = flag.NewFlagSet("proxy", flag.ContinueOnError)
-	fromAddr      = fs.String("listen-addr", "127.0.0.1:9090", "proxy's listening address")
+	listenAddr    = fs.String("listen-addr", "127.0.0.1:9090", "proxy's listening address")
 	sequencerAddr = fs.String("seq-addr", "http://127.0.0.1:50000", "address of espresso sequencer")
 	gethAddr      = fs.String("geth-addr", "http://127.0.0.1:8545", "address of the op-geth node")
 	vm_id         = fs.Int("vm-id", 1, "VM ID of the OP rollup instance")
@@ -117,9 +117,9 @@ func main() {
 	h := &baseHandle{}
 	http.Handle("/", h)
 
-	log.Println("Starting proxy server on", *fromAddr)
+	log.Println("Starting proxy server on", *listenAddr)
 	server := &http.Server{
-		Addr:    *fromAddr,
+		Addr:    *listenAddr,
 		Handler: h,
 	}
 	log.Fatal(server.ListenAndServe())
