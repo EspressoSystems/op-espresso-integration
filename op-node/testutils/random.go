@@ -6,8 +6,8 @@ import (
 	"math/big"
 	"math/rand"
 
-	"github.com/ethereum-optimism/optimism/op-node/espresso"
-	"github.com/ethereum-optimism/optimism/op-node/eth"
+	"github.com/ethereum-optimism/optimism/op-service/espresso"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -267,6 +267,7 @@ func RandomOutputResponse(rng *rand.Rand) *eth.OutputResponse {
 			UnsafeL2:           RandomL2BlockRef(rng),
 			SafeL2:             RandomL2BlockRef(rng),
 			FinalizedL2:        RandomL2BlockRef(rng),
+			EngineSyncTarget:   RandomL2BlockRef(rng),
 		},
 	}
 }
@@ -299,4 +300,12 @@ func RandomNmtRoot(rng *rand.Rand) espresso.NmtRoot {
 	var bytes [32]byte
 	rng.Read(bytes[:])
 	return bytes[:]
+}
+
+func RandomOutputV0(rng *rand.Rand) *eth.OutputV0 {
+	return &eth.OutputV0{
+		StateRoot:                eth.Bytes32(RandomHash(rng)),
+		MessagePasserStorageRoot: eth.Bytes32(RandomHash(rng)),
+		BlockHash:                RandomHash(rng),
+	}
 }
