@@ -21,6 +21,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-node/testlog"
 	"github.com/ethereum-optimism/optimism/op-node/testutils"
+	"github.com/ethereum-optimism/optimism/op-service/espresso"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
 
@@ -50,6 +51,8 @@ type FakeEngineControl struct {
 	totalBuildingTime time.Duration
 	totalBuiltBlocks  int
 	totalTxs          int
+
+	l2Batches []*eth.ExecutionPayload
 }
 
 func (m *FakeEngineControl) avgBuildingTime() time.Duration {
@@ -92,6 +95,7 @@ func (m *FakeEngineControl) ConfirmPayload(ctx context.Context) (out *eth.Execut
 
 	m.resetBuildingState()
 	m.totalTxs += len(payload.Transactions)
+	m.l2Batches = append(m.l2Batches, payload)
 	return payload, derive.BlockInsertOK, nil
 }
 
@@ -139,7 +143,14 @@ func (fn testOriginSelectorFn) FindL1Origin(ctx context.Context, l2Head eth.L2Bl
 
 var _ L1OriginSelectorIface = (testOriginSelectorFn)(nil)
 
-type FakeEspressoClient struct{}
+type FakeEspressoClient struct {
+	Blocks []FakeEspressoBlock
+}
+
+type FakeEspressoBlock struct {
+	Header       espresso.Header
+	Transactions [][]byte
+}
 
 type TestSequencer struct {
 	t   *testing.T
@@ -342,8 +353,8 @@ func SetupSequencer(t *testing.T, useEspresso bool) *TestSequencer {
 // SequencerChaosMonkey runs the sequencer in a mocked adversarial environment with
 // repeated random errors in dependencies and poor clock timing.
 // At the end the health of the chain is checked to show that the sequencer kept the chain in shape.
-func SequencerChaosMonkey(t *testing.T, useEspresso bool) {
-	s := SetupSequencer(t, useEspresso)
+func SequencerChaosMonkey(s *TestSequencer) {
+	t := s.t
 
 	// try to build 1000 blocks, with 5x as many planning attempts, to handle errors and clock problems
 	desiredBlocks := 1000
@@ -418,9 +429,93 @@ func SequencerChaosMonkey(t *testing.T, useEspresso bool) {
 }
 
 func TestSequencerChaosMonkeyLegacy(t *testing.T) {
-	SequencerChaosMonkey(t, false)
+	SequencerChaosMonkey(SetupSequencer(t, false))
 }
 
 func TestSequencerChaosMonkeyEspresso(t *testing.T) {
-	SequencerChaosMonkey(t, true)
+	s := SetupSequencer(t, true)
+	SequencerChaosMonkey(s)
+
+	// After running the chaos monkey, check that the sequenced blocks satisfy the additional
+	// constraints of Espresso mode.
+	prevL1Origin := uint64(0)
+	for i := range s.engControl.l2Batches {
+		payload := s.engControl.l2Batches[i]
+
+		var tx types.Transaction
+		require.NoError(t, tx.UnmarshalBinary(payload.Transactions[0]))
+		info, err := derive.L1InfoDepositTxData(tx.Data())
+		require.NoError(t, err)
+
+		jst := info.Justification
+		l1Origin := info.Number
+		require.NotNil(t, jst, "batch ", i, " missing justification")
+
+		// Check that the headers defining the start of the included block range match the output of
+		// the Espresso Sequencer.
+		require.Equal(t, jst.FirstBlock.Commit(), s.espresso.Blocks[jst.FirstBlockNumber].Header.Commit())
+		if jst.FirstBlockNumber > 0 {
+			require.Equal(t, jst.PrevBatchLastBlock.Commit(), s.espresso.Blocks[jst.FirstBlockNumber-1].Header.Commit())
+			// Check that the purported last block of the previous batch indeed falls before the
+			// time window for this batch.
+			require.Less(t, jst.PrevBatchLastBlock.Timestamp, payload.Timestamp)
+		}
+
+		if jst.Payload != nil {
+			// Happy path: the batch includes all transactions in a range of Espresso blocks, with
+			// proofs. First, check that the start of the range is correctly defined.
+			require.GreaterOrEqual(t, jst.FirstBlock.Timestamp, payload.Timestamp)
+			// Check that the headers defining the end of the range match the output of the sequencer.
+			require.Greater(t, len(jst.Payload.NmtProofs), 0)
+			lastBlockNumber := jst.FirstBlockNumber + uint64(len(jst.Payload.NmtProofs)) - 1
+			require.Equal(t, jst.Payload.LastBlock.Commit(), s.espresso.Blocks[lastBlockNumber].Header.Commit())
+			require.Equal(t, jst.Payload.NextBatchFirstBlock.Commit(), s.espresso.Blocks[lastBlockNumber+1].Header.Commit())
+			// Check that the end of the range is correctly defined.
+			require.Less(t, jst.Payload.LastBlock.Timestamp, uint64(payload.Timestamp)+s.cfg.BlockTime)
+			require.GreaterOrEqual(t, jst.Payload.NextBatchFirstBlock.Timestamp, uint64(payload.Timestamp)+s.cfg.BlockTime)
+			// Check that we have all the correct transactions.
+			offset := 0
+			for block := jst.FirstBlockNumber; block <= lastBlockNumber; block += 1 {
+				for txn := range s.espresso.Blocks[block].Transactions {
+					require.Equal(t, s.espresso.Blocks[block].Transactions[txn], payload.Transactions[offset+txn])
+				}
+				offset += len(s.espresso.Blocks[block].Transactions)
+			}
+			// Check that the L1 origin was chosen by Espresso.
+			require.Equal(t, l1Origin, s.espresso.Blocks[jst.FirstBlockNumber].Header.L1Block.Number)
+			prevL1Origin = l1Origin
+			continue
+		}
+
+		// We allow three exceptions to sequencing a payload determined by Espresso. In all of these
+		// cases, the batch must be empty except for L1 deposits.
+		require.Equal(t, len(payload.Transactions), 0)
+
+		// Exception 1: there are no Espresso blocks in the L2 batch time window.
+		if jst.FirstBlock.Timestamp >= uint64(payload.Timestamp)+s.cfg.BlockTime {
+			// In this case, we use the same L1 origin as the previous batch.
+			require.Equal(t, l1Origin, prevL1Origin)
+			prevL1Origin = l1Origin
+			continue
+		}
+
+		// Exception 2: Espresso has chosen an L1 origin which is too old. In this case, we advance
+		// the L1 origin so we can try to catch up to the current L1 head.
+		if s.espresso.Blocks[jst.FirstBlockNumber].Header.L1Block.Timestamp.Uint64()+s.cfg.MaxSequencerDrift < uint64(payload.Timestamp) {
+			require.Equal(t, l1Origin, prevL1Origin+1)
+			prevL1Origin = l1Origin
+			continue
+		}
+
+		// Exception 3: Espresso has skipped an L1 block. In this case, the sequencer must insert
+		// empty L2 batches for each L1 origin which was skipped. We require that the L1 origin is
+		// advanced for each empty block so that we catch up to Espresso as fast as we can.
+		if s.espresso.Blocks[jst.FirstBlockNumber].Header.L1Block.Number > prevL1Origin+1 {
+			require.Equal(t, l1Origin, prevL1Origin+1)
+			prevL1Origin = l1Origin
+			continue
+		}
+
+		t.Fatalf("L2 batch %v does not satisfy any of the allowed exceptions", payload)
+	}
 }
