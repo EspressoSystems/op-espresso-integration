@@ -367,6 +367,7 @@ contract Deploy is Deployer {
             _scalar: cfg.gasPriceOracleScalar(),
             _batcherHash: batcherHash,
             _gasLimit: uint64(cfg.l2GenesisBlockGasLimit()),
+            _espresso: cfg.espresso(),
             _unsafeBlockSigner: cfg.p2pSequencerAddress(),
             _config: Constants.DEFAULT_RESOURCE_CONFIG()
         });
@@ -480,6 +481,7 @@ contract Deploy is Deployer {
                     cfg.gasPriceOracleScalar(),
                     batcherHash,
                     uint64(cfg.l2GenesisBlockGasLimit()),
+                    cfg.espresso(),
                     cfg.p2pSequencerAddress(),
                     Constants.DEFAULT_RESOURCE_CONFIG()
                 )
