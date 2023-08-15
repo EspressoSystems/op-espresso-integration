@@ -22,14 +22,18 @@ type BlockHeader struct {
 	ParentHash common.Hash `gorm:"serializer:json"`
 	Number     U256
 	Timestamp  uint64
+
+	RLPHeader *RLPHeader `gorm:"serializer:rlp;column:rlp_bytes"`
 }
 
-func BlockHeaderFromGethHeader(header *types.Header) BlockHeader {
+func BlockHeaderFromHeader(header *types.Header) BlockHeader {
 	return BlockHeader{
 		Hash:       header.Hash(),
 		ParentHash: header.ParentHash,
 		Number:     U256{Int: header.Number},
 		Timestamp:  header.Time,
+
+		RLPHeader: (*RLPHeader)(header),
 	}
 }
 
