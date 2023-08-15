@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/ethereum-optimism/optimism/op-challenger/config"
+	"github.com/ethereum-optimism/optimism/op-node/chaincfg"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
@@ -15,13 +16,15 @@ import (
 var (
 	l1EthRpc                = "http://example.com:8545"
 	gameAddressValue        = "0xaa00000000000000000000000000000000000000"
+	cannonNetwork           = chaincfg.AvailableNetworks()[0]
+	otherCannonNetwork      = chaincfg.AvailableNetworks()[1]
 	cannonBin               = "./bin/cannon"
+	cannonServer            = "./bin/op-program"
 	cannonPreState          = "./pre.json"
 	cannonDatadir           = "./test_data"
 	cannonL2                = "http://example.com:9545"
 	alphabetTrace           = "abcdefghijz"
 	agreeWithProposedOutput = "true"
-	gameDepth               = "4"
 )
 
 func TestLogLevel(t *testing.T) {
@@ -41,14 +44,14 @@ func TestLogLevel(t *testing.T) {
 
 func TestDefaultCLIOptionsMatchDefaultConfig(t *testing.T) {
 	cfg := configForArgs(t, addRequiredArgs(config.TraceTypeAlphabet))
-	defaultCfg := config.NewConfig(l1EthRpc, common.HexToAddress(gameAddressValue), config.TraceTypeAlphabet, true, 4)
+	defaultCfg := config.NewConfig(l1EthRpc, common.HexToAddress(gameAddressValue), config.TraceTypeAlphabet, true)
 	// Add in the extra CLI options required when using alphabet trace type
 	defaultCfg.AlphabetTrace = alphabetTrace
 	require.Equal(t, defaultCfg, cfg)
 }
 
 func TestDefaultConfigIsValid(t *testing.T) {
-	cfg := config.NewConfig(l1EthRpc, common.HexToAddress(gameAddressValue), config.TraceTypeAlphabet, true, 4)
+	cfg := config.NewConfig(l1EthRpc, common.HexToAddress(gameAddressValue), config.TraceTypeAlphabet, true)
 	// Add in options that are required based on the specific trace type
 	// To avoid needing to specify unused options, these aren't included in the params for NewConfig
 	cfg.AlphabetTrace = alphabetTrace
@@ -126,18 +129,6 @@ func TestAgreeWithProposedOutput(t *testing.T) {
 	})
 }
 
-func TestGameDepth(t *testing.T) {
-	t.Run("Required", func(t *testing.T) {
-		verifyArgsInvalid(t, "flag game-depth is required", addRequiredArgsExcept(config.TraceTypeAlphabet, "--game-depth"))
-	})
-
-	t.Run("Valid", func(t *testing.T) {
-		value := "4"
-		cfg := configForArgs(t, addRequiredArgsExcept(config.TraceTypeAlphabet, "--game-depth", "--game-depth="+value))
-		require.Equal(t, value, fmt.Sprint(cfg.GameDepth))
-	})
-}
-
 func TestCannonBin(t *testing.T) {
 	t.Run("NotRequiredForAlphabetTrace", func(t *testing.T) {
 		configForArgs(t, addRequiredArgsExcept(config.TraceTypeAlphabet, "--cannon-bin"))
@@ -150,6 +141,21 @@ func TestCannonBin(t *testing.T) {
 	t.Run("Valid", func(t *testing.T) {
 		cfg := configForArgs(t, addRequiredArgsExcept(config.TraceTypeCannon, "--cannon-bin", "--cannon-bin=./cannon"))
 		require.Equal(t, "./cannon", cfg.CannonBin)
+	})
+}
+
+func TestCannonServer(t *testing.T) {
+	t.Run("NotRequiredForAlphabetTrace", func(t *testing.T) {
+		configForArgs(t, addRequiredArgsExcept(config.TraceTypeAlphabet, "--cannon-server"))
+	})
+
+	t.Run("Required", func(t *testing.T) {
+		verifyArgsInvalid(t, "flag cannon-server is required", addRequiredArgsExcept(config.TraceTypeCannon, "--cannon-server"))
+	})
+
+	t.Run("Valid", func(t *testing.T) {
+		cfg := configForArgs(t, addRequiredArgsExcept(config.TraceTypeCannon, "--cannon-server", "--cannon-server=./op-program"))
+		require.Equal(t, "./op-program", cfg.CannonServer)
 	})
 }
 
@@ -198,6 +204,79 @@ func TestCannonL2(t *testing.T) {
 	})
 }
 
+func TestCannonSnapshotFreq(t *testing.T) {
+	t.Run("UsesDefault", func(t *testing.T) {
+		cfg := configForArgs(t, addRequiredArgs(config.TraceTypeCannon))
+		require.Equal(t, config.DefaultCannonSnapshotFreq, cfg.CannonSnapshotFreq)
+	})
+
+	t.Run("Valid", func(t *testing.T) {
+		cfg := configForArgs(t, addRequiredArgs(config.TraceTypeCannon, "--cannon-snapshot-freq=1234"))
+		require.Equal(t, uint(1234), cfg.CannonSnapshotFreq)
+	})
+}
+
+func TestRequireEitherCannonNetworkOrRollupAndGenesis(t *testing.T) {
+	verifyArgsInvalid(
+		t,
+		"flag cannon-network or cannon-rollup-config and cannon-l2-genesis is required",
+		addRequiredArgsExcept(config.TraceTypeCannon, "--cannon-network"))
+	verifyArgsInvalid(
+		t,
+		"flag cannon-network or cannon-rollup-config and cannon-l2-genesis is required",
+		addRequiredArgsExcept(config.TraceTypeCannon, "--cannon-network", "--cannon-rollup-config=rollup.json"))
+	verifyArgsInvalid(
+		t,
+		"flag cannon-network or cannon-rollup-config and cannon-l2-genesis is required",
+		addRequiredArgsExcept(config.TraceTypeCannon, "--cannon-network", "--cannon-l2-genesis=gensis.json"))
+}
+
+func TestMustNotSpecifyNetworkAndRollup(t *testing.T) {
+	verifyArgsInvalid(
+		t,
+		"flag cannon-network can not be used with cannon-rollup-config and cannon-l2-genesis",
+		addRequiredArgsExcept(config.TraceTypeCannon, "--cannon-network",
+			"--cannon-network", cannonNetwork, "--cannon-rollup-config=rollup.json"))
+}
+
+func TestCannonNetwork(t *testing.T) {
+	t.Run("NotRequiredForAlphabetTrace", func(t *testing.T) {
+		configForArgs(t, addRequiredArgsExcept(config.TraceTypeAlphabet, "--cannon-network"))
+	})
+
+	t.Run("NotRequiredWhenRollupAndGenesIsSpecified", func(t *testing.T) {
+		configForArgs(t, addRequiredArgsExcept(config.TraceTypeCannon, "--cannon-network",
+			"--cannon-rollup-config=rollup.json", "--cannon-l2-genesis=genesis.json"))
+	})
+
+	t.Run("Valid", func(t *testing.T) {
+		cfg := configForArgs(t, addRequiredArgsExcept(config.TraceTypeCannon, "--cannon-network", "--cannon-network", otherCannonNetwork))
+		require.Equal(t, otherCannonNetwork, cfg.CannonNetwork)
+	})
+}
+
+func TestCannonRollupConfig(t *testing.T) {
+	t.Run("NotRequiredForAlphabetTrace", func(t *testing.T) {
+		configForArgs(t, addRequiredArgsExcept(config.TraceTypeAlphabet, "--cannon-rollup-config"))
+	})
+
+	t.Run("Valid", func(t *testing.T) {
+		cfg := configForArgs(t, addRequiredArgsExcept(config.TraceTypeCannon, "--cannon-network", "--cannon-rollup-config=rollup.json", "--cannon-l2-genesis=genesis.json"))
+		require.Equal(t, "rollup.json", cfg.CannonRollupConfigPath)
+	})
+}
+
+func TestCannonL2Genesis(t *testing.T) {
+	t.Run("NotRequiredForAlphabetTrace", func(t *testing.T) {
+		configForArgs(t, addRequiredArgsExcept(config.TraceTypeAlphabet, "--cannon-l2-genesis"))
+	})
+
+	t.Run("Valid", func(t *testing.T) {
+		cfg := configForArgs(t, addRequiredArgsExcept(config.TraceTypeCannon, "--cannon-network", "--cannon-rollup-config=rollup.json", "--cannon-l2-genesis=genesis.json"))
+		require.Equal(t, "genesis.json", cfg.CannonL2GenesisPath)
+	})
+}
+
 func verifyArgsInvalid(t *testing.T, messageContains string, cliArgs []string) {
 	_, _, err := runWithArgs(cliArgs)
 	require.ErrorContains(t, err, messageContains)
@@ -235,7 +314,6 @@ func addRequiredArgsExcept(traceType config.TraceType, name string, optionalArgs
 
 func requiredArgs(traceType config.TraceType) map[string]string {
 	args := map[string]string{
-		"--game-depth":                 gameDepth,
 		"--agree-with-proposed-output": agreeWithProposedOutput,
 		"--l1-eth-rpc":                 l1EthRpc,
 		"--game-address":               gameAddressValue,
@@ -245,7 +323,9 @@ func requiredArgs(traceType config.TraceType) map[string]string {
 	case config.TraceTypeAlphabet:
 		args["--alphabet"] = alphabetTrace
 	case config.TraceTypeCannon:
+		args["--cannon-network"] = cannonNetwork
 		args["--cannon-bin"] = cannonBin
+		args["--cannon-server"] = cannonServer
 		args["--cannon-prestate"] = cannonPreState
 		args["--cannon-datadir"] = cannonDatadir
 		args["--cannon-l2"] = cannonL2

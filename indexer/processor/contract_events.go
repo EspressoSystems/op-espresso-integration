@@ -9,20 +9,17 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-
-	"github.com/google/uuid"
 )
 
 type ProcessedContractEventLogIndexKey struct {
-	header common.Hash
-	index  uint
+	blockHash common.Hash
+	index     uint
 }
 
 type ProcessedContractEvents struct {
 	events            []*database.ContractEvent
 	eventsBySignature map[common.Hash][]*database.ContractEvent
 	eventByLogIndex   map[ProcessedContractEventLogIndexKey]*database.ContractEvent
-	eventLog          map[uuid.UUID]*types.Log
 }
 
 func NewProcessedContractEvents() *ProcessedContractEvents {
@@ -30,19 +27,20 @@ func NewProcessedContractEvents() *ProcessedContractEvents {
 		events:            []*database.ContractEvent{},
 		eventsBySignature: make(map[common.Hash][]*database.ContractEvent),
 		eventByLogIndex:   make(map[ProcessedContractEventLogIndexKey]*database.ContractEvent),
-		eventLog:          make(map[uuid.UUID]*types.Log),
 	}
 }
 
 func (p *ProcessedContractEvents) AddLog(log *types.Log, time uint64) *database.ContractEvent {
-	contractEvent := database.ContractEventFromGethLog(log, time)
+	event := database.ContractEventFromLog(log, time)
+	emptyHash := common.Hash{}
 
-	p.events = append(p.events, &contractEvent)
-	p.eventsBySignature[contractEvent.EventSignature] = append(p.eventsBySignature[contractEvent.EventSignature], &contractEvent)
-	p.eventByLogIndex[ProcessedContractEventLogIndexKey{log.BlockHash, log.Index}] = &contractEvent
-	p.eventLog[contractEvent.GUID] = log
+	p.events = append(p.events, &event)
+	p.eventByLogIndex[ProcessedContractEventLogIndexKey{log.BlockHash, log.Index}] = &event
+	if event.EventSignature != emptyHash {
+		p.eventsBySignature[event.EventSignature] = append(p.eventsBySignature[event.EventSignature], &event)
+	}
 
-	return &contractEvent
+	return &event
 }
 
 func UnpackLog(out interface{}, log *types.Log, name string, contractAbi *abi.ABI) error {

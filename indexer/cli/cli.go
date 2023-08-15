@@ -23,15 +23,16 @@ type Cli struct {
 }
 
 func runIndexer(ctx *cli.Context) error {
+	logger := log.NewLogger(log.ReadCLIConfig(ctx))
+
 	configPath := ctx.String(ConfigFlag.Name)
 	cfg, err := config.LoadConfig(configPath)
 	if err != nil {
+		logger.Error("failed to load config", "err", err)
 		return err
 	}
 
-	// setup logger
-	cfg.Logger = log.NewLogger(log.ReadCLIConfig(ctx))
-
+	cfg.Logger = logger
 	indexer, err := indexer.NewIndexer(cfg)
 	if err != nil {
 		return err
@@ -47,17 +48,20 @@ func runIndexer(ctx *cli.Context) error {
 }
 
 func runApi(ctx *cli.Context) error {
+	logger := log.NewLogger(log.ReadCLIConfig(ctx))
+
 	configPath := ctx.String(ConfigFlag.Name)
-	conf, err := config.LoadConfig(configPath)
-
-	fmt.Println(conf)
-
+	cfg, err := config.LoadConfig(configPath)
 	if err != nil {
-		panic(err)
+		logger.Error("failed to load config", "err", err)
+		return err
 	}
 
+	cfg.Logger = logger
+	fmt.Println(cfg)
+
 	// finish me
-	return nil
+	return err
 }
 
 var (
@@ -67,15 +71,6 @@ var (
 		Aliases: []string{"c"},
 		Usage:   "path to config file",
 		EnvVars: []string{"INDEXER_CONFIG"},
-	}
-	// Not used yet.  Use this flag to run legacy app instead
-	// Remove me after indexer is released
-	IndexerRefreshFlag = &cli.BoolFlag{
-		Name:    "indexer-refresh",
-		Value:   false,
-		Aliases: []string{"i"},
-		Usage:   "run new unreleased indexer by passing in flag",
-		EnvVars: []string{"INDEXER_REFRESH"},
 	}
 )
 
