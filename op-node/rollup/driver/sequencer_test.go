@@ -135,21 +135,13 @@ func (m *FakeEngineControl) Reset() {
 
 var _ derive.ResettableEngineControl = (*FakeEngineControl)(nil)
 
-type testOriginSelectorFn func(ctx context.Context, l2Head eth.L2BlockRef) (eth.L1BlockRef, error)
-
-func (fn testOriginSelectorFn) FindL1Origin(ctx context.Context, l2Head eth.L2BlockRef) (eth.L1BlockRef, error) {
-	return fn(ctx, l2Head)
-}
-
-var _ L1OriginSelectorIface = (testOriginSelectorFn)(nil)
-
 type FakeEspressoClient struct {
 	Blocks []FakeEspressoBlock
 }
 
 type FakeEspressoBlock struct {
 	Header       espresso.Header
-	Transactions [][]byte
+	Transactions []espresso.Bytes
 }
 
 type TestSequencer struct {
@@ -165,8 +157,9 @@ type TestSequencer struct {
 	clockFn   func() time.Time
 	l1Times   map[eth.BlockID]uint64
 
-	attrsErr  error
-	originErr error
+	attrsErr    error
+	originErr   error
+	espressoErr error
 }
 
 // Implement AttributeBuilder interface for TestSequencer.
@@ -216,6 +209,245 @@ func (s *TestSequencer) ChildNeedsJustification(ctx context.Context, parent eth.
 }
 
 var _ derive.AttributesBuilder = (*TestSequencer)(nil)
+
+// Implement L1OriginSelector interface for TestSequencer.
+
+// The origin selector just generates random L1 blocks based on RNG
+func (s *TestSequencer) FindL1Origin(ctx context.Context, l2Head eth.L2BlockRef) (eth.L1BlockRef, error) {
+	if s.originErr != nil {
+		return eth.L1BlockRef{}, s.originErr
+	}
+
+	origin := eth.L1BlockRef{
+		Hash:       mockL1Hash(l2Head.L1Origin.Number),
+		Number:     l2Head.L1Origin.Number,
+		ParentHash: mockL1Hash(l2Head.L1Origin.Number),
+		Time:       s.l1Times[l2Head.L1Origin],
+	}
+	// randomly make a L1 origin appear, if we can even select it
+	nextL2Time := l2Head.Time + s.cfg.BlockTime
+	if nextL2Time <= origin.Time {
+		return origin, nil
+	}
+	if s.rng.Intn(10) == 0 {
+		return s.nextOrigin(origin, l2Head.Time), nil
+	} else {
+		return origin, nil
+	}
+}
+
+func (s *TestSequencer) FindL1OriginByNumber(ctx context.Context, number uint64) (eth.L1BlockRef, error) {
+	if s.originErr != nil {
+		return eth.L1BlockRef{}, s.originErr
+	}
+	return s.l1BlockByNumber(number), nil
+}
+
+// Infallible version of `FindL1OriginByNumber`. This is used internally by other mock functions
+// which do their own error injection, to avoid doubling up mock errors.
+func (s *TestSequencer) l1BlockByNumber(number uint64) eth.L1BlockRef {
+	if number <= s.cfg.Genesis.L1.Number {
+		return eth.L1BlockRef{
+			Hash:       s.cfg.Genesis.L1.Hash,
+			Number:     s.cfg.Genesis.L1.Number,
+			ParentHash: s.cfg.Genesis.L1.Hash,
+			Time:       s.l1Times[s.cfg.Genesis.L1],
+		}
+	}
+
+	parent := s.l1BlockByNumber(number - 1)
+	id := eth.BlockID{
+		Number: number,
+		Hash:   mockL1Hash(number),
+	}
+	if s.l1Times[id] == 0 {
+		return s.nextOrigin(parent, s.engControl.UnsafeL2Head().Time)
+	} else {
+		return eth.L1BlockRef{
+			Hash:       id.Hash,
+			Number:     id.Number,
+			ParentHash: parent.Hash,
+			Time:       s.l1Times[id],
+		}
+	}
+}
+
+func (s *TestSequencer) nextOrigin(prevOrigin eth.L1BlockRef, prevL2Time uint64) eth.L1BlockRef {
+	// Find the first L2 block time which is greater than the previous origin time.
+	nextL2Time := prevL2Time + s.cfg.BlockTime
+	if nextL2Time <= prevOrigin.Time {
+		// Get the amount of time we need to increment by to reach `prevOrigin.Time`, rounded up to
+		// a multiple of the L2 block time
+		delta := ((prevOrigin.Time-nextL2Time)/s.cfg.BlockTime + 1) * s.cfg.BlockTime
+		nextL2Time += delta
+	}
+
+	maxL1BlockTimeGap := uint64(100)
+	maxTimeIncrement := nextL2Time - prevOrigin.Time
+	if maxTimeIncrement > maxL1BlockTimeGap {
+		maxTimeIncrement = maxL1BlockTimeGap
+	}
+	nextOrigin := eth.L1BlockRef{
+		Hash:       mockL1Hash(prevOrigin.Number + 1),
+		Number:     prevOrigin.Number + 1,
+		ParentHash: prevOrigin.Hash,
+		Time:       prevOrigin.Time + 1 + uint64(s.rng.Int63n(int64(maxTimeIncrement))),
+	}
+	s.l1Times[nextOrigin.ID()] = nextOrigin.Time
+	return nextOrigin
+}
+
+var _ L1OriginSelectorIface = (*TestSequencer)(nil)
+
+// Implement Espresso interface for TestSequencer.
+
+func (s *TestSequencer) FetchHeadersForWindow(ctx context.Context, start uint64, end uint64) ([]espresso.Header, uint64, error) {
+	// Find the start of the range.
+	for i := uint64(0); ; i += 1 {
+		header := s.espressoBlock(ctx, i)
+		if header == nil {
+			// New headers not available.
+			return make([]espresso.Header, 0), 0, nil
+		}
+		if header.Timestamp >= start {
+			from := i
+			// Start from the block just before the desired window.
+			if from > 0 {
+				from -= 1
+			}
+			headers, err := s.FetchRemainingHeadersForWindow(ctx, from, end)
+			if err != nil {
+				return nil, 0, err
+			} else {
+				return headers, from, nil
+			}
+		}
+	}
+}
+
+func (s *TestSequencer) FetchRemainingHeadersForWindow(ctx context.Context, from uint64, end uint64) ([]espresso.Header, error) {
+	// Inject errors.
+	if s.espressoErr != nil {
+		return nil, s.espressoErr
+	}
+
+	headers := make([]espresso.Header, 0)
+	for i := from; ; i += 1 {
+		header := s.espressoBlock(ctx, i)
+		if header == nil {
+			// New headers not available.
+			return headers, nil
+		}
+		headers = append(headers, *header)
+		if header.Timestamp >= end {
+			return headers, nil
+		}
+	}
+}
+
+func (s *TestSequencer) FetchTransactionsInBlock(ctx context.Context, block uint64, header *espresso.Header) ([]espresso.Bytes, espresso.NmtProof, error) {
+	// Inject errors.
+	if s.espressoErr != nil {
+		return nil, nil, s.espressoErr
+	}
+
+	if int(block) >= len(s.espresso.Blocks) {
+		return nil, nil, fmt.Errorf("invalid block number %d total blocks %d", block, len(s.espresso.Blocks))
+	}
+	if s.espresso.Blocks[block].Header.Commit() != header.Commit() {
+		return nil, nil, fmt.Errorf("wrong header for block %d header %v expected %v", block, header, s.espresso.Blocks[block].Header)
+	}
+	txs := s.espresso.Blocks[block].Transactions
+
+	// Fake an NMT proof.
+	proof := espresso.NmtProof{}
+	return txs, proof, nil
+}
+
+func (s *TestSequencer) espressoBlock(ctx context.Context, i uint64) *espresso.Header {
+	// Insert blocks as necessary.
+	for uint64(len(s.espresso.Blocks)) <= i {
+		if s.nextEspressoBlock(ctx) == nil {
+			return nil
+		}
+	}
+	return &s.espresso.Blocks[i].Header
+}
+
+func (s *TestSequencer) nextEspressoBlock(ctx context.Context) *espresso.Header {
+	var prev espresso.Header
+	if len(s.espresso.Blocks) > 0 {
+		prev = s.espresso.Blocks[len(s.espresso.Blocks)-1].Header
+	} else {
+		// Set a timestamp for the genesis that is near the L2 genesis.
+		prev.Timestamp = s.cfg.Genesis.L2Time
+	}
+
+	// Advance the timestamp by a random amount between 0 and 150% of the L2 block time. This
+	// should lead to some L2 batches having multiple Espresso blocks, some having only 1, and some
+	// being empty entirely.
+	timestamp := prev.Timestamp + uint64(s.rng.Intn(int(s.cfg.BlockTime+s.cfg.BlockTime/2+1)))
+	// Don't produce blocks in the future.
+	now := uint64(s.clockTime.Unix())
+	if timestamp > now {
+		return nil
+	}
+
+	// Fake an NMT root, but ensure it is unique.
+	root := espresso.NmtRoot{
+		Root: make([]byte, 8),
+	}
+	binary.LittleEndian.PutUint64(root.Root, uint64(len(s.espresso.Blocks)))
+
+	l1OriginNumber := prev.L1Block.Number
+	switch s.rng.Intn(10) {
+	case 0:
+		// 10%: advance L1 origin
+		l1OriginNumber += 1
+	case 1:
+		// 10%: skip ahead to the latest possible L1 origin
+		for {
+			l1Origin := s.l1BlockByNumber(l1OriginNumber + 1)
+			if l1Origin.Time >= timestamp {
+				break
+			}
+			l1OriginNumber += 1
+		}
+	default:
+		// 80%: use old L1 origin
+		break
+	}
+
+	l1Origin := s.l1BlockByNumber(l1OriginNumber)
+	if l1Origin.Time >= timestamp {
+		// If the chosen L1 origin is newer than the corresponding Espresso block, use an old L1
+		// origin.
+		l1Origin = s.l1BlockByNumber(prev.L1Block.Number)
+	}
+
+	header := espresso.Header{
+		Timestamp: timestamp,
+		L1Block: espresso.L1BlockInfo{
+			Number:    l1Origin.Number,
+			Timestamp: *espresso.NewU256().SetUint64(l1Origin.Time),
+		},
+		TransactionsRoot: root,
+	}
+
+	// Randomly generate between 0 and 10 transactions.
+	txs := make([]espresso.Bytes, 0)
+	for i := 0; i < s.rng.Intn(10); i++ {
+		txs = append(txs, []byte(fmt.Sprintf("mock sequenced tx %d", i)))
+	}
+
+	s.espresso.Blocks = append(s.espresso.Blocks, FakeEspressoBlock{
+		Header:       header,
+		Transactions: txs,
+	})
+	return &header
+}
+
+var _ EspressoIface = (*TestSequencer)(nil)
 
 func mockL1Hash(num uint64) (out common.Hash) {
 	out[31] = 1
@@ -304,47 +536,12 @@ func SetupSequencer(t *testing.T, useEspresso bool) *TestSequencer {
 		}
 	}
 
-	maxL1BlockTimeGap := uint64(100)
-	// The origin selector just generates random L1 blocks based on RNG
-	originSelector := testOriginSelectorFn(func(ctx context.Context, l2Head eth.L2BlockRef) (eth.L1BlockRef, error) {
-		if s.originErr != nil {
-			return eth.L1BlockRef{}, s.originErr
-		}
-		origin := eth.L1BlockRef{
-			Hash:       mockL1Hash(l2Head.L1Origin.Number),
-			Number:     l2Head.L1Origin.Number,
-			ParentHash: mockL1Hash(l2Head.L1Origin.Number),
-			Time:       s.l1Times[l2Head.L1Origin],
-		}
-		// randomly make a L1 origin appear, if we can even select it
-		nextL2Time := l2Head.Time + s.cfg.BlockTime
-		if nextL2Time <= origin.Time {
-			return origin, nil
-		}
-		maxTimeIncrement := nextL2Time - origin.Time
-		if maxTimeIncrement > maxL1BlockTimeGap {
-			maxTimeIncrement = maxL1BlockTimeGap
-		}
-		if s.rng.Intn(10) == 0 {
-			nextOrigin := eth.L1BlockRef{
-				Hash:       mockL1Hash(origin.Number + 1),
-				Number:     origin.Number + 1,
-				ParentHash: origin.Hash,
-				Time:       origin.Time + 1 + uint64(s.rng.Int63n(int64(maxTimeIncrement))),
-			}
-			s.l1Times[nextOrigin.ID()] = nextOrigin.Time
-			return nextOrigin, nil
-		} else {
-			return origin, nil
-		}
-	})
-
 	// Set up a fake Espresso client if necessary.
 	if useEspresso {
 		s.espresso = new(FakeEspressoClient)
 	}
 
-	s.seq = NewSequencer(log, &s.cfg, &s.engControl, s, originSelector, s.espresso, metrics.NoopMetrics)
+	s.seq = NewSequencer(log, &s.cfg, &s.engControl, s, s, s, metrics.NoopMetrics)
 	s.seq.timeNow = s.clockFn
 
 	return s
@@ -377,6 +574,7 @@ func SequencerChaosMonkey(s *TestSequencer) {
 		// reset errors
 		s.originErr = nil
 		s.attrsErr = nil
+		s.espressoErr = nil
 		if s.engControl.err != mockResetErr { // the mockResetErr requires the sequencer to Reset() to recover.
 			s.engControl.err = nil
 		}
@@ -396,6 +594,8 @@ func SequencerChaosMonkey(s *TestSequencer) {
 			s.engControl.errTyp = derive.BlockInsertPrestateErr
 		case 8:
 			s.engControl.err = mockResetErr
+		case 9:
+			s.espressoErr = errors.New("mock espresso client error")
 		default:
 			// no error
 		}
@@ -423,24 +623,52 @@ func SequencerChaosMonkey(s *TestSequencer) {
 	require.Equal(t, l2Head.Time, s.cfg.Genesis.L2Time+uint64(desiredBlocks)*s.cfg.BlockTime, "reached desired L2 block timestamp")
 	require.GreaterOrEqual(t, l2Head.Time, s.l1Times[l2Head.L1Origin], "the L2 time >= the L1 time")
 	require.Less(t, l2Head.Time-s.l1Times[l2Head.L1Origin], uint64(100), "The L1 origin time is close to the L2 time")
-	require.Less(t, s.clockTime.Sub(time.Unix(int64(l2Head.Time), 0)).Abs(), 2*time.Second, "L2 time is accurate, within 2 seconds of wallclock")
-	require.Greater(t, s.engControl.avgBuildingTime(), time.Second, "With 2 second block time and 1 second error backoff and healthy-on-average errors, building time should at least be a second")
 	require.Greater(t, s.engControl.avgTxsPerBlock(), 3.0, "We expect at least 1 system tx per block, but with a mocked 0-10 txs we expect an higher avg")
 }
 
 func TestSequencerChaosMonkeyLegacy(t *testing.T) {
-	SequencerChaosMonkey(SetupSequencer(t, false))
+	s := SetupSequencer(t, false)
+	SequencerChaosMonkey(s)
+
+	l2Head := s.engControl.UnsafeL2Head()
+	require.Less(t, s.clockTime.Sub(time.Unix(int64(l2Head.Time), 0)).Abs(), 2*time.Second, "L2 time is accurate, within 2 seconds of wallclock")
+	require.Greater(t, s.engControl.avgBuildingTime(), time.Second, "With 2 second block time and 1 second error backoff and healthy-on-average errors, building time should at least be a second")
 }
 
 func TestSequencerChaosMonkeyEspresso(t *testing.T) {
 	s := SetupSequencer(t, true)
 	SequencerChaosMonkey(s)
 
+	// Check that the L2 block time is accurate. The tolerance here is slightly higher than for the
+	// legacy sequencer, since the Espresso mode sequencer has to wait for one additional HotShot
+	// block to be sequenced after the time window for an L2 batch ends, before it can sequence that
+	// batch. This problem is exacerbated with the chaos monkey, since it may take even more wall
+	// clock time to fetch that last Espresso block due to injected errors.
+	l2Head := s.engControl.UnsafeL2Head()
+	require.Less(t, s.clockTime.Sub(time.Unix(int64(l2Head.Time), 0)).Abs(), 4*time.Second, "L2 time is accurate, within 4 seconds of wallclock")
+	// Here, the legacy test checks `avgBuildingTime()`. This stat is meaningless for the Espresso
+	// mode sequencer, since it builds blocks locally rather than in the engine.
+
 	// After running the chaos monkey, check that the sequenced blocks satisfy the additional
-	// constraints of Espresso mode.
-	prevL1Origin := uint64(0)
+	// constraints of Espresso mode. Check how many times we hit each case.
+	prevL1Origin := s.cfg.Genesis.L1.Number
+	happyPath := 0
+	noEspressoBlocks := 0
+	oldL1Origin := 0
+	skippedL1Origin := 0
 	for i := range s.engControl.l2Batches {
 		payload := s.engControl.l2Batches[i]
+
+		// Find the number of deposit transactions in the L2 block, or, equivalently, the offset of
+		// the first transaction produced by Espresso.
+		numDepositTxs := 0
+		for tx := range payload.Transactions {
+			if payload.Transactions[tx][0] == uint8(types.DepositTxType) {
+				numDepositTxs += 1
+			} else {
+				break
+			}
+		}
 
 		var tx types.Transaction
 		require.NoError(t, tx.UnmarshalBinary(payload.Transactions[0]))
@@ -449,7 +677,6 @@ func TestSequencerChaosMonkeyEspresso(t *testing.T) {
 
 		jst := info.Justification
 		l1Origin := info.Number
-		require.NotNil(t, jst, "batch ", i, " missing justification")
 
 		// Check that the headers defining the start of the included block range match the output of
 		// the Espresso Sequencer.
@@ -463,10 +690,11 @@ func TestSequencerChaosMonkeyEspresso(t *testing.T) {
 
 		if jst.Payload != nil {
 			// Happy path: the batch includes all transactions in a range of Espresso blocks, with
-			// proofs. First, check that the start of the range is correctly defined.
+			// proofs.
+			require.Greater(t, len(jst.Payload.NmtProofs), 0)
+			// Check that the start of the range is correctly defined.
 			require.GreaterOrEqual(t, jst.FirstBlock.Timestamp, payload.Timestamp)
 			// Check that the headers defining the end of the range match the output of the sequencer.
-			require.Greater(t, len(jst.Payload.NmtProofs), 0)
 			lastBlockNumber := jst.FirstBlockNumber + uint64(len(jst.Payload.NmtProofs)) - 1
 			require.Equal(t, jst.Payload.LastBlock.Commit(), s.espresso.Blocks[lastBlockNumber].Header.Commit())
 			require.Equal(t, jst.Payload.NextBatchFirstBlock.Commit(), s.espresso.Blocks[lastBlockNumber+1].Header.Commit())
@@ -477,25 +705,27 @@ func TestSequencerChaosMonkeyEspresso(t *testing.T) {
 			offset := 0
 			for block := jst.FirstBlockNumber; block <= lastBlockNumber; block += 1 {
 				for txn := range s.espresso.Blocks[block].Transactions {
-					require.Equal(t, s.espresso.Blocks[block].Transactions[txn], payload.Transactions[offset+txn])
+					require.Equal(t, []byte(s.espresso.Blocks[block].Transactions[txn]), []byte(payload.Transactions[numDepositTxs+offset+txn]))
 				}
 				offset += len(s.espresso.Blocks[block].Transactions)
 			}
 			// Check that the L1 origin was chosen by Espresso.
 			require.Equal(t, l1Origin, s.espresso.Blocks[jst.FirstBlockNumber].Header.L1Block.Number)
 			prevL1Origin = l1Origin
+			happyPath += 1
 			continue
 		}
 
 		// We allow three exceptions to sequencing a payload determined by Espresso. In all of these
 		// cases, the batch must be empty except for L1 deposits.
-		require.Equal(t, len(payload.Transactions), 0)
+		require.Equal(t, numDepositTxs, len(payload.Transactions))
 
 		// Exception 1: there are no Espresso blocks in the L2 batch time window.
 		if jst.FirstBlock.Timestamp >= uint64(payload.Timestamp)+s.cfg.BlockTime {
 			// In this case, we use the same L1 origin as the previous batch.
 			require.Equal(t, l1Origin, prevL1Origin)
 			prevL1Origin = l1Origin
+			noEspressoBlocks += 1
 			continue
 		}
 
@@ -504,6 +734,7 @@ func TestSequencerChaosMonkeyEspresso(t *testing.T) {
 		if s.espresso.Blocks[jst.FirstBlockNumber].Header.L1Block.Timestamp.Uint64()+s.cfg.MaxSequencerDrift < uint64(payload.Timestamp) {
 			require.Equal(t, l1Origin, prevL1Origin+1)
 			prevL1Origin = l1Origin
+			oldL1Origin += 1
 			continue
 		}
 
@@ -513,9 +744,16 @@ func TestSequencerChaosMonkeyEspresso(t *testing.T) {
 		if s.espresso.Blocks[jst.FirstBlockNumber].Header.L1Block.Number > prevL1Origin+1 {
 			require.Equal(t, l1Origin, prevL1Origin+1)
 			prevL1Origin = l1Origin
+			skippedL1Origin += 1
 			continue
 		}
 
 		t.Fatalf("L2 batch %v does not satisfy any of the allowed exceptions", payload)
 	}
+
+	t.Logf("Espresso sequencing case coverage:")
+	t.Logf("Happy path:         %d", happyPath)
+	t.Logf("No Espresso blocks: %d", noEspressoBlocks)
+	t.Logf("Old L1 origin:      %d", oldL1Origin)
+	t.Logf("Skipped L1 origin:  %d", skippedL1Origin)
 }

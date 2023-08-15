@@ -28,6 +28,10 @@ func (m *MockL1OriginSelector) FindL1Origin(ctx context.Context, l2Head eth.L2Bl
 	return m.actual.FindL1Origin(ctx, l2Head)
 }
 
+func (m *MockL1OriginSelector) FindL1OriginByNumber(ctx context.Context, number uint64) (eth.L1BlockRef, error) {
+	return m.actual.FindL1OriginByNumber(ctx, number)
+}
+
 // L2Sequencer is an actor that functions like a rollup node,
 // without the full P2P/API/Node stack, but just the derivation state, and simplified driver with sequencing ability.
 type L2Sequencer struct {
