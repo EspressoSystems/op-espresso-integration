@@ -23,16 +23,18 @@ type Agent struct {
 	solver                  *solver.Solver
 	loader                  Loader
 	responder               Responder
+	updater                 types.OracleUpdater
 	maxDepth                int
 	agreeWithProposedOutput bool
 	log                     log.Logger
 }
 
-func NewAgent(loader Loader, maxDepth int, trace types.TraceProvider, responder Responder, agreeWithProposedOutput bool, log log.Logger) *Agent {
+func NewAgent(loader Loader, maxDepth int, trace types.TraceProvider, responder Responder, updater types.OracleUpdater, agreeWithProposedOutput bool, log log.Logger) *Agent {
 	return &Agent{
 		solver:                  solver.NewSolver(maxDepth, trace),
 		loader:                  loader,
 		responder:               responder,
+		updater:                 updater,
 		maxDepth:                maxDepth,
 		agreeWithProposedOutput: agreeWithProposedOutput,
 		log:                     log,
@@ -95,7 +97,7 @@ func (a *Agent) newGameFromContracts(ctx context.Context) (types.Game, error) {
 
 // move determines & executes the next move given a claim
 func (a *Agent) move(ctx context.Context, claim types.Claim, game types.Game) error {
-	nextMove, err := a.solver.NextMove(claim, game.AgreeWithClaimLevel(claim))
+	nextMove, err := a.solver.NextMove(ctx, claim, game.AgreeWithClaimLevel(claim))
 	if err != nil {
 		return fmt.Errorf("execute next move: %w", err)
 	}
@@ -133,9 +135,16 @@ func (a *Agent) step(ctx context.Context, claim types.Claim, game types.Game) er
 	}
 
 	a.log.Info("Attempting step", "claim_depth", claim.Depth(), "maxDepth", a.maxDepth)
-	step, err := a.solver.AttemptStep(claim, agreeWithClaimLevel)
+	step, err := a.solver.AttemptStep(ctx, claim, agreeWithClaimLevel)
 	if err != nil {
 		return fmt.Errorf("attempt step: %w", err)
+	}
+
+	if step.OracleData != nil {
+		a.log.Info("Updating oracle data", "oracleKey", step.OracleData.OracleKey, "oracleData", step.OracleData.OracleData)
+		if err := a.updater.UpdateOracle(ctx, step.OracleData); err != nil {
+			return fmt.Errorf("failed to load oracle data: %w", err)
+		}
 	}
 
 	a.log.Info("Performing step", "is_attack", step.IsAttack,
