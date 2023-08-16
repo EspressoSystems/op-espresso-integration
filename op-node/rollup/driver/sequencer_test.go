@@ -137,6 +137,10 @@ func (fn testAttrBuilderFn) PreparePayloadAttributes(ctx context.Context, l2Pare
 	return fn(ctx, l2Parent, epoch, justification)
 }
 
+func (fn testAttrBuilderFn) ChildNeedsJustificaction(ctx context.Context, l2Parent eth.L2BlockRef) (bool, error) {
+	panic("Unimplemented")
+}
+
 var _ derive.AttributesBuilder = (testAttrBuilderFn)(nil)
 
 type testOriginSelectorFn func(ctx context.Context, l2Head eth.L2BlockRef) (eth.L1BlockRef, error)
