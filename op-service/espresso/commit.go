@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"unicode/utf8"
 
 	"github.com/ethereum/go-ethereum/crypto"
 )
@@ -26,6 +27,12 @@ func NewRawCommitmentBuilder(name string) *RawCommitmentBuilder {
 // the hash, which can lead to domain collisions when different strings with different lengths are
 // used depending on the input object.
 func (b *RawCommitmentBuilder) ConstantString(s string) *RawCommitmentBuilder {
+	// The commitment scheme is only designed to work with UTF-8 strings. In the reference
+	// implementation, written in Rust, all strings are UTF-8, but in Go we have to check.
+	if !utf8.Valid([]byte(s)) {
+		panic(fmt.Sprintf("ConstantString must only be called with valid UTF-8 strings: %v", s))
+	}
+
 	if _, err := io.WriteString(b.hasher, s); err != nil {
 		panic(fmt.Sprintf("KeccakState Writer is not supposed to fail, but it did: %v", err))
 	}
