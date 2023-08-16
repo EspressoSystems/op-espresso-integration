@@ -46,5 +46,6 @@
   "faultGameAbsolutePrestate": "0x41c7ae758795765c6664a5d39bf63841c71ff191e9189522bad8ebff5d4eca98",
   "faultGameMaxDepth": 30,
   "faultGameMaxDuration": 300,
-  "systemConfigStartBlock": 0
+  "systemConfigStartBlock": 0,
+  "espresso": false
 }

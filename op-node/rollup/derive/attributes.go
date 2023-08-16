@@ -38,6 +38,30 @@ func NewFetchingAttributesBuilder(cfg *rollup.Config, l1 L1ReceiptsFetcher, l2 S
 	}
 }
 
+// Whether an L2 block built on `l2Parent` needs an Espresso justification.
+//
+// This is determined by whether the `Espresso` flag is enabled in the system config after
+// `l2Parent`. Whether a block is an Espresso block is not determined by the system config in the
+// block itself because the system config in a block is determined by the block's L1 origin, and
+// opting in or out of the Espresso sequencer changes how the L1 origin for a block is chosen. Thus,
+// a block which is not being build by Espresso may have an L1 origin that causes the system config
+// to opt into Espresso. Rather than rebuild that block with Espresso (which again changes the
+// system config, and thus may result in an infinite loop) we simply say that changes to the value of
+// the `Espresso` flag affect the first block _after_ the block where the flag was changed.
+//
+// This function can be used by a node running in sequencer mode to check whether a block it is
+// about to build on top of `l2Parent` is an Espresso block (in which case the sequencer is subject
+// to additional constraints). It can also be used by validating nodes in the derivation  pipeline
+// to check whether a batch with a given parent is an Espresso batch, in which case the validators
+// must check the additional constraints against that batch.
+func (ba *FetchingAttributesBuilder) ChildNeedsJustificaction(ctx context.Context, l2Parent eth.L2BlockRef) (bool, error) {
+	sysConfig, err := ba.l2.SystemConfigByL2Hash(ctx, l2Parent.Hash)
+	if err != nil {
+		return false, NewTemporaryError(fmt.Errorf("failed to retrieve L2 parent block: %w", err))
+	}
+	return sysConfig.Espresso, nil
+}
+
 // PreparePayloadAttributes prepares a PayloadAttributes template that is ready to build a L2 block with deposits only, on top of the given l2Parent, with the given epoch as L1 origin.
 // The template defaults to NoTxPool=true, and no sequencer transactions: the caller has to modify the template to add transactions,
 // by setting NoTxPool=false as sequencer, or by appending batch transactions as verifier.

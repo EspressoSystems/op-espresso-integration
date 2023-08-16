@@ -320,5 +320,7 @@ type SystemConfig struct {
 	Scalar Bytes32 `json:"scalar"`
 	// GasLimit identifies the L2 block gas limit
 	GasLimit uint64 `json:"gasLimit"`
+	// Whether to use the Espresso sequencer
+	Espresso bool `json:"espresso"`
 	// More fields can be added for future SystemConfig versions.
 }

@@ -84,6 +84,9 @@ contract SystemConfig is OwnableUpgradeable, Semver {
     /// @notice L2 block gas limit.
     uint64 public gasLimit;
 
+    /// @notice Whether the Espresso Sequencer is enabled.
+    bool public espresso;
+
     /// @notice The configuration for the deposit fee market.
     ///         Used by the OptimismPortal to meter the cost of buying L2 gas on L1.
     ///         Set as internal with a getter so that the struct is returned instead of a tuple.
@@ -109,6 +112,7 @@ contract SystemConfig is OwnableUpgradeable, Semver {
             _scalar: 0,
             _batcherHash: bytes32(0),
             _gasLimit: 1,
+            _espresso: false,
             _unsafeBlockSigner: address(0),
             _config: ResourceMetering.ResourceConfig({
                 maxResourceLimit: 1,
@@ -153,6 +157,7 @@ contract SystemConfig is OwnableUpgradeable, Semver {
         uint256 _scalar,
         bytes32 _batcherHash,
         uint64 _gasLimit,
+        bool _espresso,
         address _unsafeBlockSigner,
         ResourceMetering.ResourceConfig memory _config,
         uint256 _startBlock,
@@ -169,6 +174,7 @@ contract SystemConfig is OwnableUpgradeable, Semver {
         scalar = _scalar;
         batcherHash = _batcherHash;
         gasLimit = _gasLimit;
+        espresso = _espresso;
 
         _setAddress(_unsafeBlockSigner, UNSAFE_BLOCK_SIGNER_SLOT);
         _setAddress(_batchInbox, BATCH_INBOX_SLOT);
