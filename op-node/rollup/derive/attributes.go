@@ -54,7 +54,7 @@ func NewFetchingAttributesBuilder(cfg *rollup.Config, l1 L1ReceiptsFetcher, l2 S
 // to additional constraints). It can also be used by validating nodes in the derivation  pipeline
 // to check whether a batch with a given parent is an Espresso batch, in which case the validators
 // must check the additional constraints against that batch.
-func (ba *FetchingAttributesBuilder) ChildNeedsJustificaction(ctx context.Context, l2Parent eth.L2BlockRef) (bool, error) {
+func (ba *FetchingAttributesBuilder) ChildNeedsJustification(ctx context.Context, l2Parent eth.L2BlockRef) (bool, error) {
 	sysConfig, err := ba.l2.SystemConfigByL2Hash(ctx, l2Parent.Hash)
 	if err != nil {
 		return false, NewTemporaryError(fmt.Errorf("failed to retrieve L2 parent block: %w", err))

@@ -25,7 +25,7 @@ import (
 
 type AttributesBuilder interface {
 	PreparePayloadAttributes(ctx context.Context, l2Parent eth.L2BlockRef, epoch eth.BlockID, justification *eth.L2BatchJustification) (attrs *eth.PayloadAttributes, err error)
-	ChildNeedsJustificaction(ctx context.Context, l2Parent eth.L2BlockRef) (bool, error)
+	ChildNeedsJustification(ctx context.Context, l2Parent eth.L2BlockRef) (bool, error)
 }
 
 type AttributesQueue struct {
@@ -52,7 +52,7 @@ func (aq *AttributesQueue) Origin() eth.L1BlockRef {
 func (aq *AttributesQueue) NextAttributes(ctx context.Context, l2SafeHead eth.L2BlockRef) (*eth.PayloadAttributes, error) {
 	// Get a batch if we need it
 	if aq.batch == nil {
-		usingEspresso, err := aq.builder.ChildNeedsJustificaction(ctx, l2SafeHead)
+		usingEspresso, err := aq.builder.ChildNeedsJustification(ctx, l2SafeHead)
 		if err != nil {
 			return nil, err
 		}

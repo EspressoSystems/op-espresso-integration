@@ -137,7 +137,7 @@ func (fn testAttrBuilderFn) PreparePayloadAttributes(ctx context.Context, l2Pare
 	return fn(ctx, l2Parent, epoch, justification)
 }
 
-func (fn testAttrBuilderFn) ChildNeedsJustificaction(ctx context.Context, l2Parent eth.L2BlockRef) (bool, error) {
+func (fn testAttrBuilderFn) ChildNeedsJustification(ctx context.Context, l2Parent eth.L2BlockRef) (bool, error) {
 	panic("Unimplemented")
 }
 
