@@ -14,7 +14,7 @@
 
   outputs = { self, flake-utils, nixpkgs, nixpkgs-geth, foundry, ... }:
     let
-      goVersion = 19; # Change this to update the whole stack
+      goVersion = 20; # Change this to update the whole stack
       overlays = [
         (final: prev: {
           go = prev."go_1_${toString goVersion}";
