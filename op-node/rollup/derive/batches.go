@@ -25,10 +25,15 @@ const (
 	BatchFuture
 )
 
+func CheckBatchEspresso() BatchValidity {
+	// TODO: verify batch constraints
+	return BatchAccept
+}
+
 // CheckBatch checks if the given batch can be applied on top of the given l2SafeHead, given the contextual L1 blocks the batch was included in.
 // The first entry of the l1Blocks should match the origin of the l2SafeHead. One or more consecutive l1Blocks should be provided.
 // In case of only a single L1 block, the decision whether a batch is valid may have to stay undecided.
-func CheckBatch(cfg *rollup.Config, log log.Logger, l1Blocks []eth.L1BlockRef, l2SafeHead eth.L2BlockRef, batch *BatchWithL1InclusionBlock) BatchValidity {
+func CheckBatch(cfg *rollup.Config, log log.Logger, l1Blocks []eth.L1BlockRef, l2SafeHead eth.L2BlockRef, batch *BatchWithL1InclusionBlock, usingEspresso bool) BatchValidity {
 	// add details to the log
 	log = log.New(
 		"batch_timestamp", batch.Batch.Timestamp,
@@ -138,6 +143,9 @@ func CheckBatch(cfg *rollup.Config, log log.Logger, l1Blocks []eth.L1BlockRef, l
 			return BatchDrop
 		}
 	}
-
-	return BatchAccept
+	if usingEspresso {
+		return CheckBatchEspresso()
+	} else {
+		return BatchAccept
+	}
 }
