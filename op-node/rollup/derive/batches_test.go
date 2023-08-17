@@ -584,7 +584,7 @@ func TestValidBatch(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.Name, func(t *testing.T) {
-			validity := CheckBatch(&conf, logger, testCase.L1Blocks, testCase.L2SafeHead, &testCase.Batch)
+			validity := CheckBatch(&conf, logger, testCase.L1Blocks, testCase.L2SafeHead, &testCase.Batch, false)
 			require.Equal(t, testCase.Expected, validity, "batch check must return expected validity level")
 		})
 	}
