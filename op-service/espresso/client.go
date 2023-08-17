@@ -15,14 +15,14 @@ func NewClient(url string) (*Client, error) {
 	return c, nil
 }
 
-func (c *Client) FetchHeadersForWindow(ctx context.Context, start uint64, end uint64) ([]Header, uint64, error) {
-	return nil, 0, fmt.Errorf("unimplemented: FetchHeadersForWindow")
+func (c *Client) FetchHeadersForWindow(ctx context.Context, start uint64, end uint64) (WindowStart, error) {
+	return WindowStart{}, fmt.Errorf("unimplemented: FetchHeadersForWindow")
 }
 
-func (c *Client) FetchRemainingHeadersForWindow(ctx context.Context, from uint64, end uint64) ([]Header, error) {
-	return nil, fmt.Errorf("unimplemented: FetchRemainingHeadersForWindow")
+func (c *Client) FetchRemainingHeadersForWindow(ctx context.Context, after uint64, end uint64) (WindowMore, error) {
+	return WindowMore{}, fmt.Errorf("unimplemented: FetchRemainingHeadersForWindow")
 }
 
-func (c *Client) FetchTransactionsInBlock(ctx context.Context, block uint64, header *Header) ([]Bytes, NmtProof, error) {
-	return nil, nil, fmt.Errorf("unimplemented: FetchTransactionsInBlock")
+func (c *Client) FetchTransactionsInBlock(ctx context.Context, block uint64, header *Header, namespace uint64) (TransactionsInBlock, error) {
+	return TransactionsInBlock{}, fmt.Errorf("unimplemented: FetchTransactionsInBlock")
 }

@@ -299,36 +299,40 @@ func (s *TestSequencer) nextOrigin(prevOrigin eth.L1BlockRef, prevL2Time uint64)
 
 var _ L1OriginSelectorIface = (*TestSequencer)(nil)
 
-// Implement Espresso interface for TestSequencer.
+// Implement Espresso QueryService interface for TestSequencer.
 
-func (s *TestSequencer) FetchHeadersForWindow(ctx context.Context, start uint64, end uint64) ([]espresso.Header, uint64, error) {
+func (s *TestSequencer) FetchHeadersForWindow(ctx context.Context, start uint64, end uint64) (espresso.WindowStart, error) {
 	// Find the start of the range.
 	for i := uint64(0); ; i += 1 {
 		header := s.espressoBlock(ctx, i)
 		if header == nil {
 			// New headers not available.
-			return make([]espresso.Header, 0), 0, nil
+			return espresso.WindowStart{}, nil
 		}
 		if header.Timestamp >= start {
-			from := i
-			// Start from the block just before the desired window.
-			if from > 0 {
-				from -= 1
-			}
-			headers, err := s.FetchRemainingHeadersForWindow(ctx, from, end)
+			res, err := s.FetchRemainingHeadersForWindow(ctx, i, end)
 			if err != nil {
-				return nil, 0, err
+				return espresso.WindowStart{}, err
 			} else {
-				return headers, from, nil
+				var prev *espresso.Header
+				if i > 0 {
+					prev = s.espressoBlock(ctx, i-1)
+				}
+				return espresso.WindowStart{
+					From:   i,
+					Window: res.Window,
+					Prev:   prev,
+					Next:   res.Next,
+				}, nil
 			}
 		}
 	}
 }
 
-func (s *TestSequencer) FetchRemainingHeadersForWindow(ctx context.Context, from uint64, end uint64) ([]espresso.Header, error) {
+func (s *TestSequencer) FetchRemainingHeadersForWindow(ctx context.Context, from uint64, end uint64) (espresso.WindowMore, error) {
 	// Inject errors.
 	if s.espressoErr != nil {
-		return nil, s.espressoErr
+		return espresso.WindowMore{}, s.espressoErr
 	}
 
 	headers := make([]espresso.Header, 0)
@@ -336,32 +340,44 @@ func (s *TestSequencer) FetchRemainingHeadersForWindow(ctx context.Context, from
 		header := s.espressoBlock(ctx, i)
 		if header == nil {
 			// New headers not available.
-			return headers, nil
+			return espresso.WindowMore{
+				Window: headers,
+				Next:   nil,
+			}, nil
+		}
+		if header.Timestamp >= end {
+			return espresso.WindowMore{
+				Window: headers,
+				Next:   header,
+			}, nil
 		}
 		headers = append(headers, *header)
-		if header.Timestamp >= end {
-			return headers, nil
-		}
 	}
 }
 
-func (s *TestSequencer) FetchTransactionsInBlock(ctx context.Context, block uint64, header *espresso.Header) ([]espresso.Bytes, espresso.NmtProof, error) {
+func (s *TestSequencer) FetchTransactionsInBlock(ctx context.Context, block uint64, header *espresso.Header, namespace uint64) (espresso.TransactionsInBlock, error) {
 	// Inject errors.
 	if s.espressoErr != nil {
-		return nil, nil, s.espressoErr
+		return espresso.TransactionsInBlock{}, s.espressoErr
 	}
 
+	// The sequencer should only ever ask for one namespace, that of the OP-chain.
+	require.Equal(s.t, namespace, s.cfg.L2ChainID.Uint64())
+
 	if int(block) >= len(s.espresso.Blocks) {
-		return nil, nil, fmt.Errorf("invalid block number %d total blocks %d", block, len(s.espresso.Blocks))
+		return espresso.TransactionsInBlock{}, fmt.Errorf("invalid block number %d total blocks %d", block, len(s.espresso.Blocks))
 	}
 	if s.espresso.Blocks[block].Header.Commit() != header.Commit() {
-		return nil, nil, fmt.Errorf("wrong header for block %d header %v expected %v", block, header, s.espresso.Blocks[block].Header)
+		return espresso.TransactionsInBlock{}, fmt.Errorf("wrong header for block %d header %v expected %v", block, header, s.espresso.Blocks[block].Header)
 	}
 	txs := s.espresso.Blocks[block].Transactions
 
 	// Fake an NMT proof.
 	proof := espresso.NmtProof{}
-	return txs, proof, nil
+	return espresso.TransactionsInBlock{
+		Transactions: txs,
+		Proof:        proof,
+	}, nil
 }
 
 func (s *TestSequencer) espressoBlock(ctx context.Context, i uint64) *espresso.Header {
@@ -447,7 +463,7 @@ func (s *TestSequencer) nextEspressoBlock(ctx context.Context) *espresso.Header 
 	return &header
 }
 
-var _ EspressoIface = (*TestSequencer)(nil)
+var _ espresso.QueryService = (*TestSequencer)(nil)
 
 func mockL1Hash(num uint64) (out common.Hash) {
 	out[31] = 1
@@ -488,6 +504,8 @@ func SetupSequencer(t *testing.T, useEspresso bool) *TestSequencer {
 				Espresso: useEspresso,
 			},
 		},
+		L1ChainID:         big.NewInt(900),
+		L2ChainID:         big.NewInt(901),
 		BlockTime:         2,
 		MaxSequencerDrift: 30,
 	}

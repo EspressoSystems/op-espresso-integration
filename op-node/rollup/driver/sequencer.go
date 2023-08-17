@@ -34,12 +34,6 @@ type L1OriginSelectorIface interface {
 	FindL1OriginByNumber(ctx context.Context, number uint64) (eth.L1BlockRef, error)
 }
 
-type EspressoIface interface {
-	FetchHeadersForWindow(ctx context.Context, start uint64, end uint64) ([]espresso.Header, uint64, error)
-	FetchRemainingHeadersForWindow(ctx context.Context, from uint64, end uint64) ([]espresso.Header, error)
-	FetchTransactionsInBlock(ctx context.Context, block uint64, header *espresso.Header) ([]espresso.Bytes, espresso.NmtProof, error)
-}
-
 type SequencerMetrics interface {
 	RecordSequencerInconsistentL1Origin(from eth.BlockID, to eth.BlockID)
 	RecordSequencerReset()
@@ -71,7 +65,7 @@ type Sequencer struct {
 
 	attrBuilder      derive.AttributesBuilder
 	l1OriginSelector L1OriginSelectorIface
-	espresso         EspressoIface
+	espresso         espresso.QueryService
 
 	metrics SequencerMetrics
 
@@ -84,7 +78,7 @@ type Sequencer struct {
 	espressoBatch *InProgressBatch
 }
 
-func NewSequencer(log log.Logger, cfg *rollup.Config, engine derive.ResettableEngineControl, attributesBuilder derive.AttributesBuilder, l1OriginSelector L1OriginSelectorIface, espresso EspressoIface, metrics SequencerMetrics) *Sequencer {
+func NewSequencer(log log.Logger, cfg *rollup.Config, engine derive.ResettableEngineControl, attributesBuilder derive.AttributesBuilder, l1OriginSelector L1OriginSelectorIface, espresso espresso.QueryService, metrics SequencerMetrics) *Sequencer {
 	return &Sequencer{
 		log:              log,
 		config:           cfg,
@@ -108,16 +102,9 @@ func (d *Sequencer) startBuildingEspressoBatch(ctx context.Context, l2Head eth.L
 
 	// Fetch the available HotShot blocks from this sequencing window. The first block in the window
 	// tells us what L1 origin we're going to be building for.
-	blocks, fromBlock, err := d.espresso.FetchHeadersForWindow(ctx, windowStart, windowEnd)
+	blocks, err := d.espresso.FetchHeadersForWindow(ctx, windowStart, windowEnd)
 	if err != nil {
 		return err
-	}
-	if len(blocks) < 2 {
-		// The first block should be one before the start of the window, as proof that we are
-		// including all the blocks in the window. In order to create the payload attributes, we
-		// need a second block which falls in the window to tell us the L1 origin. If we don't have
-		// that, return a temporary error so we try again shortly.
-		return derive.NewTemporaryError(fmt.Errorf("not enough blocks available to determine L1 origin of next L2 batch"))
 	}
 
 	batch := &InProgressBatch{
@@ -126,24 +113,30 @@ func (d *Sequencer) startBuildingEspressoBatch(ctx context.Context, l2Head eth.L
 		windowEnd:   windowEnd,
 	}
 
-	if fromBlock == 0 && blocks[0].Timestamp >= windowStart {
-		// Usually, `blocks` includes one block before the start of the L2 batch window. However, a
-		// special case is when the Espresso chain starts inside or after the window. In this case,
-		// `PrevBatchLastBlock` is meaningless, and `blocks[0]` is the first block of the L2 batch.
-		batch.jst = eth.L2BatchJustification{
-			FirstBlock:       blocks[0],
-			FirstBlockNumber: 0,
-		}
+	// Usually, `blocks` includes one block before the start of the L2 batch window. However, a
+	// special case is when the Espresso chain starts inside or after the window. In this case,
+	// `PrevBatchLastBlock` is meaningless.
+	if blocks.Prev != nil {
+		batch.jst.PrevBatchLastBlock = *blocks.Prev
 	} else {
-		batch.jst = eth.L2BatchJustification{
-			PrevBatchLastBlock: blocks[0],
-			FirstBlock:         blocks[1],
-			FirstBlockNumber:   fromBlock + 1,
+		// Sanity check that we are in the Espresso genesis case.
+		if blocks.From != 0 {
+			return derive.NewCriticalError(fmt.Errorf("inconsistent data from Espresso query service: Prev is nil but From is not 0 (%d)", blocks.From))
 		}
-		// In this case, we ignore `blocks[0]` and only include transactions from `blocks[1]` and
-		// onward in the L2 batch.
-		blocks = blocks[1:]
 	}
+
+	// Find the first block in the window, or just past it if the window is empty.
+	if len(blocks.Window) > 0 {
+		batch.jst.FirstBlock = blocks.Window[0]
+	} else if blocks.Next != nil {
+		batch.jst.FirstBlock = *blocks.Next
+	} else {
+		// Neither the first block in the window nor the end of the window is currently available,
+		// so we can't even determine metadata like the L1 origin to use for the batch. Return a
+		// temporary error so we try again shortly.
+		return derive.NewTemporaryError(fmt.Errorf("not enough blocks available to determine L1 origin of next L2 batch"))
+	}
+	batch.jst.FirstBlockNumber = blocks.From
 
 	// Before fetching the L1 origin determined by `jst.FirstBlock`, check for cases where Espresso
 	// did not provide an eligible L1 origin.
@@ -210,29 +203,34 @@ func (d *Sequencer) startBuildingEspressoBatch(ctx context.Context, l2Head eth.L
 		NmtProofs: nil,
 	}
 	d.espressoBatch = batch
-	return d.updateEspressoBatch(ctx, blocks)
+	return d.updateEspressoBatch(ctx, blocks.Window, blocks.Next)
 }
 
 // updateEspressoBatch appends the transactions contained in the Espresso blocks denoted by
-// `newHeaders` to the current in-progress batch. If the batch is complete (Espresso has sequenced
-// at least one block with a timestamp beyond the end of the current sequencing window) it will set
-// the `complete` flag.
-func (d *Sequencer) updateEspressoBatch(ctx context.Context, newHeaders []espresso.Header) error {
+// `newHeaders` to the current in-progress batch. If `end`, the first block after the window of this
+// batch, is available, it will be saved in the `NextBatchFirstBlock` field of the batch
+// justification.
+func (d *Sequencer) updateEspressoBatch(ctx context.Context, newHeaders []espresso.Header, end *espresso.Header) error {
 	batch := d.espressoBatch
 	for i := range newHeaders {
-		if newHeaders[i].Timestamp >= batch.windowEnd {
-			batch.jst.Payload.NextBatchFirstBlock = newHeaders[i]
-			return nil
+		header := &newHeaders[i]
+
+		// Validate that the given header is in the window.
+		if header.Timestamp >= batch.windowEnd {
+			return derive.NewCriticalError(fmt.Errorf("inconsistent data from Espresso query service: header %v in window has timestamp after window end %d", header, batch.windowEnd))
 		}
 
-		txs, proof, err := d.espresso.FetchTransactionsInBlock(ctx, batch.jst.FirstBlockNumber+uint64(len(batch.blocks)), &newHeaders[i])
+		txs, err := d.espresso.FetchTransactionsInBlock(ctx, batch.jst.FirstBlockNumber+uint64(len(batch.blocks)), header, d.config.L2ChainID.Uint64())
 		if err != nil {
 			return err
 		}
+		batch.jst.Payload.NmtProofs = append(batch.jst.Payload.NmtProofs, txs.Proof)
+		batch.blocks = append(batch.blocks, txs.Transactions)
+		batch.jst.Payload.LastBlock = *header
+	}
 
-		batch.jst.Payload.NmtProofs = append(batch.jst.Payload.NmtProofs, proof)
-		batch.blocks = append(batch.blocks, txs)
-		batch.jst.Payload.LastBlock = newHeaders[i]
+	if end != nil {
+		batch.jst.Payload.NextBatchFirstBlock = *end
 	}
 
 	return nil
@@ -250,7 +248,7 @@ func (d *Sequencer) tryToSealEspressoBatch(ctx context.Context) (*eth.ExecutionP
 		if err != nil {
 			return nil, err
 		}
-		if err := d.updateEspressoBatch(ctx, blocks); err != nil {
+		if err := d.updateEspressoBatch(ctx, blocks.Window, blocks.Next); err != nil {
 			return nil, err
 		}
 	}
