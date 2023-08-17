@@ -215,9 +215,15 @@ func (d *Sequencer) updateEspressoBatch(ctx context.Context, newHeaders []espres
 	for i := range newHeaders {
 		header := &newHeaders[i]
 
-		// Validate that the given header is in the window.
+		// Validate that the given header is in the window and in the right order.
 		if header.Timestamp >= batch.windowEnd {
 			return derive.NewCriticalError(fmt.Errorf("inconsistent data from Espresso query service: header %v in window has timestamp after window end %d", header, batch.windowEnd))
+		}
+		if header.Timestamp < batch.windowStart {
+			return derive.NewCriticalError(fmt.Errorf("inconsistent data from Espresso query service: header %v is before window start %d", header, batch.windowStart))
+		}
+		if header.Timestamp < batch.jst.Payload.LastBlock.Timestamp {
+			return derive.NewCriticalError(fmt.Errorf("inconsistent data from Espresso query service: header %v is before its predecessor %v", header, batch.jst.Payload.LastBlock))
 		}
 
 		txs, err := d.espresso.FetchTransactionsInBlock(ctx, batch.jst.FirstBlockNumber+uint64(len(batch.blocks)), header, d.config.L2ChainID.Uint64())
@@ -528,11 +534,13 @@ func (d *Sequencer) buildEspressoBatch(ctx context.Context) (*eth.ExecutionPaylo
 	// First, check if there has been a reorg. If so, drop the current block and restart.
 	head := d.engine.UnsafeL2Head()
 	if d.espressoBatch != nil && d.espressoBatch.onto.Hash != head.Hash {
+		d.log.Warn("reorg detected", d.espressoBatch.onto, "->", head, "dropping partial Espresso batch")
 		d.espressoBatch = nil
 	}
 
 	// Begin a new block if necessary.
 	if d.espressoBatch == nil {
+		d.log.Info("building new Espresso batch on", head)
 		if err := d.startBuildingEspressoBatch(ctx, head); err != nil {
 			return nil, d.handleNonEngineError("starting Espresso block", err)
 		}
@@ -546,11 +554,13 @@ func (d *Sequencer) buildEspressoBatch(ctx context.Context) (*eth.ExecutionPaylo
 	if block == nil {
 		// If we didn't seal the block, it means we reached the end of the Espresso block stream.
 		// Wait a reasonable amount of time before checking for more transactions.
+		d.log.Debug("Espresso batch was not ready to seal, will retry in 1 second")
 		d.nextAction = d.timeNow().Add(time.Second)
 		return nil, nil
 	} else {
 		// If we did seal the block, return it and do not set a delay, so that the scheduler will
 		// start the next action (starting the next block) immediately.
+		d.log.Info("sealed Espresso batch", block)
 		return block, nil
 	}
 }
@@ -601,8 +611,10 @@ func (d *Sequencer) detectMode(ctx context.Context) error {
 		return err
 	}
 	if espressoBatch {
+		d.log.Info("OP sequencer running in Espresso mode")
 		d.mode = Espresso
 	} else {
+		d.log.Info("OP sequencer running in legacy mode")
 		d.mode = Legacy
 	}
 	return nil
