@@ -79,3 +79,7 @@ func (los *L1OriginSelector) FindL1Origin(ctx context.Context, l2Head eth.L2Bloc
 
 	return currentOrigin, nil
 }
+
+func (los *L1OriginSelector) FindL1OriginByNumber(ctx context.Context, number uint64) (eth.L1BlockRef, error) {
+	return los.l1.L1BlockRefByNumber(ctx, number)
+}
