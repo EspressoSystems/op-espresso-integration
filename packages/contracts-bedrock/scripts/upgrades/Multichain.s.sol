@@ -463,7 +463,7 @@ contract Multichain is SafeBuilder {
                 (
                     payable(prox.SystemConfig), // proxy
                     SystemConfigImplementation, // implementation
-                    initializeCall              // data
+                    initializeCall // data
                 )
                 )
         });
