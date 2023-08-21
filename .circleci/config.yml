@@ -4,6 +4,7 @@ orbs:
   go: circleci/go@1.5.0
   gcp-cli: circleci/gcp-cli@3.0.1
   slack: circleci/slack@4.10.1
+
 commands:
   gcp-oidc-authenticate:
     description: "Authenticate with GCP using a CircleCI OIDC token."
@@ -1186,7 +1187,10 @@ jobs:
 workflows:
   main:
     jobs:
-      - pnpm-monorepo
+      - hold:
+          type: approval
+      - pnpm-monorepo:
+          requires: [ hold ]
       - js-lint-test:
           name: common-ts-tests
           coverage_flag: common-ts-tests
@@ -1199,16 +1203,20 @@ workflows:
           package_name: core-utils
           requires:
             - pnpm-monorepo
-      - contracts-bedrock-tests
-      - contracts-bedrock-coverage
+      - contracts-bedrock-tests:
+          requires: [ hold ]
+      - contracts-bedrock-coverage:
+          requires: [ hold ]
       - contracts-bedrock-checks:
           requires:
             - pnpm-monorepo
-      - contracts-bedrock-slither
+      - contracts-bedrock-slither:
+          requires: [ hold ]
       - contracts-bedrock-validate-spaces:
           requires:
             - pnpm-monorepo
-      - op-bindings-build
+      - op-bindings-build:
+          requires: [ hold ]
       - js-lint-test:
           name: chain-mon-tests
           coverage_flag: chain-mon-tests
@@ -1240,89 +1248,122 @@ workflows:
       - depcheck:
           requires:
             - pnpm-monorepo
-      - devnet
+      - devnet:
+          requires:
+            - pnpm-monorepo
       - go-lint-test-build:
           name: proxyd-tests
           binary_name: proxyd
           working_directory: proxyd
-      - indexer-tests
+          requires: [ hold ]
+      - indexer-tests:
+          requires: [ hold ]
       - go-lint-test-build:
           name: op-heartbeat tests
           binary_name: op-heartbeat
           working_directory: op-heartbeat
-      - semgrep-scan
-      - go-mod-tidy
-      - fuzz-op-node
-      - fuzz-op-service
-      - fuzz-op-chain-ops
-      - fuzz-cannon
-      - bedrock-markdown
+          requires: [ hold ]
+      - semgrep-scan:
+          requires: [ hold ]
+      - go-mod-tidy:
+          requires: [ hold ]
+      - fuzz-op-node:
+          requires: [ hold ]
+      - fuzz-op-service:
+          requires: [ hold ]
+      - fuzz-op-chain-ops:
+          requires: [ hold ]
+      - fuzz-cannon:
+          requires: [ hold ]
+      - bedrock-markdown:
+          requires: [ hold ]
       - go-lint:
           name: op-batcher-lint
           module: op-batcher
+          requires: [ hold ]
       - go-lint:
           name: op-bootnode-lint
           module: op-bootnode
+          requires: [ hold ]
       - go-lint:
           name: op-bindings-lint
           module: op-bindings
+          requires: [ hold ]
       - go-lint:
           name: op-chain-ops-lint
           module: op-chain-ops
+          requires: [ hold ]
       - go-lint:
           name: op-e2e-lint
           module: op-e2e
+          requires: [ hold ]
       - go-lint:
           name: op-node-lint
           module: op-node
+          requires: [ hold ]
       - go-lint:
           name: op-proposer-lint
           module: op-proposer
+          requires: [ hold ]
       - go-lint:
           name: op-challenger-lint
           module: op-challenger
+          requires: [ hold ]
       - go-lint:
           name: op-program-lint
           module: op-program
+          requires: [ hold ]
       - go-lint:
           name: op-service-lint
           module: op-service
+          requires: [ hold ]
       - go-lint:
           name: op-wheel-lint
           module: op-wheel
+          requires: [ hold ]
       - go-test:
           name: op-batcher-tests
           module: op-batcher
+          requires: [ hold ]
       - go-test:
           name: op-bindings-tests
           module: op-bindings
+          requires: [ hold ]
       - go-test:
           name: op-chain-ops-tests
           module: op-chain-ops
+          requires: [ hold ]
       - go-test:
           name: op-node-tests
           module: op-node
+          requires: [ hold ]
           # TODO: override resource class
       - go-test:
           name: op-proposer-tests
           module: op-proposer
+          requires: [ hold ]
       - go-test:
           name: op-challenger-tests
           module: op-challenger
+          requires: [ hold ]
       - go-test:
           name: op-program-tests
           module: op-program
+          requires: [ hold ]
       - go-test:
           name: op-service-tests
           module: op-service
+          requires: [ hold ]
       - go-e2e-test:
           name: op-e2e-WS-tests
           module: op-e2e
           use_http: "false"
+          requires: [ hold ]
       - go-e2e-test:
           name: op-e2e-HTTP-tests
           module: op-e2e
           use_http: "true"
+          requires: [ hold ]
       - bedrock-go-tests:
           requires:
             - op-batcher-lint
@@ -1351,6 +1392,7 @@ workflows:
           docker_name: op-node
           docker_tags: <<pipeline.git.revision>>,<<pipeline.git.branch>>
           docker_context: .
+          requires: [ hold ]
       # - docker-publish:
       #     name: op-node-docker-publish
       #     docker_name: op-node
@@ -1365,6 +1407,7 @@ workflows:
           docker_name: op-batcher
           docker_tags: <<pipeline.git.revision>>,<<pipeline.git.branch>>
           docker_context: .
+          requires: [ hold ]
       # - docker-publish:
       #     name: op-batcher-docker-publish
       #     docker_file: op-batcher/Dockerfile
@@ -1379,6 +1422,7 @@ workflows:
           docker_name: op-program
           docker_tags: <<pipeline.git.revision>>,<<pipeline.git.branch>>
           docker_context: .
+          requires: [ hold ]
       # - docker-publish:
       #     name: op-program-docker-publish
       #     docker_file: op-program/Dockerfile
@@ -1393,6 +1437,7 @@ workflows:
           docker_name: op-proposer
           docker_tags: <<pipeline.git.revision>>,<<pipeline.git.branch>>
           docker_context: .
+          requires: [ hold ]
       # - docker-publish:
       #     name: op-proposer-docker-publish
       #     docker_file: op-proposer/Dockerfile
@@ -1407,6 +1452,7 @@ workflows:
           docker_name: op-challenger
           docker_tags: <<pipeline.git.revision>>,<<pipeline.git.branch>>
           docker_context: .
+          requires: [ hold ]
       # - docker-publish:
       #     name: op-challenger-docker-publish
       #     docker_file: op-challenger/Dockerfile
@@ -1421,6 +1467,7 @@ workflows:
           docker_name: op-heartbeat
           docker_tags: <<pipeline.git.revision>>,<<pipeline.git.branch>>
           docker_context: .
+          requires: [ hold ]
       # - docker-publish:
       #     name: op-heartbeat-docker-publish
       #     docker_file: op-heartbeat/Dockerfile
@@ -1434,6 +1481,7 @@ workflows:
           docker_name: indexer
           docker_tags: <<pipeline.git.revision>>,<<pipeline.git.branch>>
           docker_context: .
+          requires: [ hold ]
       # - docker-publish:
       #     name: indexer-docker-publish
       #     docker_file: indexer/Dockerfile
@@ -1476,10 +1524,14 @@ workflows:
             - op-batcher-docker-build
             - op-proposer-docker-build
             - op-challenger-docker-build
-      - check-generated-mocks-op-node
-      - check-generated-mocks-op-service
-      - cannon-go-lint-and-test
-      - cannon-build-test-vectors
+      - check-generated-mocks-op-node:
+          requires: [ hold ]
+      - check-generated-mocks-op-service:
+          requires: [ hold ]
+      - cannon-go-lint-and-test:
+          requires: [ hold ]
+      - cannon-build-test-vectors:
+          requires: [ hold ]
   release:
     jobs:
       - hold:
