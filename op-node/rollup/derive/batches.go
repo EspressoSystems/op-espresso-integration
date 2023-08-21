@@ -2,6 +2,7 @@ package derive
 
 import (
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-service/espresso"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
@@ -25,15 +26,89 @@ const (
 	BatchFuture
 )
 
-func CheckBatchEspresso() BatchValidity {
-	// TODO: verify batch constraints
-	panic("Unimplemented")
+func CheckBatchEspresso(cfg *rollup.Config, log log.Logger, l1Blocks []eth.L1BlockRef, l2SafeHead eth.L2BlockRef, batch *BatchWithL1InclusionBlock, hotshot HotShotContractProvider) BatchValidity {
+	// First, validate the headers that represent the beginning of the L2 block range of this batch.
+	jst := batch.Batch.Justification
+	startHeaders :=
+		[]espresso.Header{jst.PrevBatchLastBlock, jst.FirstBlock}
+	headerHeights :=
+		[]uint64{jst.FirstBlockNumber - 1, jst.FirstBlockNumber}
+	err := hotshot.verifyHeaders(startHeaders, headerHeights)
+
+	// In the case that the headers aren't available yet (perhaps the validator's L1 client is behind), return BatchFuture so that we can try again later
+	// If the headers are available but invalid, drop the batch
+	if err != nil {
+		return BatchFuture
+		// TODO drop the batch
+	}
+
+	// First, check for cases where it is valid to have any empty batch.
+	windowStart := l2SafeHead.Time + cfg.BlockTime
+	windowEnd := windowStart + cfg.BlockTime
+	payload := jst.Payload
+
+	// If Espresso did not produce any blocks in this window, an empty batch is valid.
+	// In this case, the L1 origin must be the same as the previous block.
+	if payload == nil && jst.FirstBlock.Timestamp >= windowEnd {
+		if batch.L1InclusionBlock.Number != jst.PrevBatchLastBlock.L1Block.Number {
+			return BatchDrop
+		}
+		return BatchAccept
+	}
+
+	// An empty batch can also be valid if the L1 origin is too far behind (either due to lag, or because HotShot skipped a block)
+	// The stale origin case is already checked by the default validation logic, so we only need to check to see whether HotShot skipped a block
+	skippedL1Block := jst.FirstBlock.L1Block.Number > jst.PrevBatchLastBlock.L1Block.Number+1
+	if payload == nil && skippedL1Block {
+		// Verify that the L1 origin increased by one
+		if l1Blocks[0].Number != jst.PrevBatchLastBlock.L1Block.Number+1 {
+			return BatchDrop
+		}
+
+		return BatchAccept
+	}
+
+	// At this point, there is no valid reason to have an empty payload
+	if payload == nil {
+		return BatchDrop
+	}
+
+	// Now validate the transactions in the batch
+	numBlocks := len(payload.NmtProofs)
+
+	// Validate the headers representing the end of the batch window
+	endHeaders :=
+		[]espresso.Header{payload.LastBlock, payload.NextBatchFirstBlock}
+	headerHeights =
+		[]uint64{jst.FirstBlockNumber + uint64(numBlocks), jst.FirstBlockNumber + uint64(numBlocks) + 1}
+	err = hotshot.verifyHeaders(endHeaders, headerHeights)
+
+	// In the case that the headers aren't available yet (perhaps the validator's L1 client is behind), return BatchFuture so that we can try again later
+	// If the headers are available but invalid, drop the batch
+	if err != nil {
+		// TODO drop the batch
+		return BatchFuture
+	}
+
+	// Check that the range of HotShot blocks fall within the window
+	validRange :=
+		jst.PrevBatchLastBlock.Timestamp < windowStart &&
+			jst.FirstBlock.Timestamp >= windowStart &&
+			payload.LastBlock.Timestamp < windowEnd &&
+			payload.NextBatchFirstBlock.Timestamp >= windowEnd
+
+	if !validRange {
+		return BatchDrop
+	}
+
+	return BatchAccept
+
 }
 
 // CheckBatch checks if the given batch can be applied on top of the given l2SafeHead, given the contextual L1 blocks the batch was included in.
 // The first entry of the l1Blocks should match the origin of the l2SafeHead. One or more consecutive l1Blocks should be provided.
 // In case of only a single L1 block, the decision whether a batch is valid may have to stay undecided.
-func CheckBatch(cfg *rollup.Config, log log.Logger, l1Blocks []eth.L1BlockRef, l2SafeHead eth.L2BlockRef, batch *BatchWithL1InclusionBlock, usingEspresso bool) BatchValidity {
+func CheckBatch(cfg *rollup.Config, log log.Logger, l1Blocks []eth.L1BlockRef, l2SafeHead eth.L2BlockRef, batch *BatchWithL1InclusionBlock, usingEspresso bool, hotshot HotShotContractProvider) BatchValidity {
 	// add details to the log
 	log = log.New(
 		"batch_timestamp", batch.Batch.Timestamp,
@@ -144,7 +219,7 @@ func CheckBatch(cfg *rollup.Config, log log.Logger, l1Blocks []eth.L1BlockRef, l
 		}
 	}
 	if usingEspresso {
-		return CheckBatchEspresso()
+		return CheckBatchEspresso(cfg, log, l1Blocks, l2SafeHead, batch, hotshot)
 	} else {
 		return BatchAccept
 	}
