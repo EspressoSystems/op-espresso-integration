@@ -56,6 +56,7 @@ func CheckBatchEspresso(cfg *rollup.Config, log log.Logger, l1Blocks []eth.L1Blo
 	// In this case, the L1 origin must be the same as the previous block.
 	if payload == nil && jst.FirstBlock.Timestamp >= windowEnd {
 		if uint64(batch.Batch.EpochNum) != prevL1Origin.Number {
+			log.Warn("Dropping batch. When HotShot has not seqeuenced anything in the batch window, the L1 origin must be the same as the prior block")
 			return BatchDrop
 		}
 		return BatchAccept
@@ -198,7 +199,9 @@ func CheckBatch(cfg *rollup.Config, log log.Logger, l1Blocks []eth.L1BlockRef, l
 					return BatchUndecided
 				}
 				nextOrigin := l1Blocks[1]
-				if batch.Batch.Timestamp >= nextOrigin.Time { // check if the next L1 origin could have been adopted
+				// If Espresso is sequencing, the sequencer cannot adopt the next origin in the case
+				// that HotShot failed to sequence any blocks
+				if !usingEspresso && batch.Batch.Timestamp >= nextOrigin.Time { // check if the next L1 origin could have been adopted
 					log.Info("batch exceeded sequencer time drift without adopting next origin, and next L1 origin would have been valid")
 					return BatchDrop
 				} else {

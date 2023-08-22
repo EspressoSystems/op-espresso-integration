@@ -524,13 +524,9 @@ func TestValidBatchEspresso(t *testing.T) {
 				Batch: &BatchData{BatchV2{
 					BatchV1: BatchV1{
 						ParentHash: l2B0.ParentHash,
-						EpochNum:   rollup.Epoch(l2B0.L1Origin.Number),
-						EpochHash:  l2B0.L1Origin.Hash,
+						EpochNum:   rollup.Epoch(l2A0.L1Origin.Number),
+						EpochHash:  l2A0.L1Origin.Hash,
 						Timestamp:  l2B0.Time,
-						Transactions: []hexutil.Bytes{
-							[]byte{0x02, 0x42, 0x13, 0x37},
-							[]byte{0x02, 0xde, 0xad, 0xbe, 0xef},
-						},
 					},
 					Justification: &eth.L2BatchJustification{
 						FirstBlock: espresso.Header{
@@ -603,7 +599,7 @@ func TestValidBatchEspresso(t *testing.T) {
 	}
 
 	// Log level can be increased for debugging purposes
-	logger := testlog.Logger(t, log.LvlError)
+	logger := testlog.Logger(t, log.LvlWarn)
 
 	for _, testCase := range testCases {
 		t.Run(testCase.Name, func(t *testing.T) {
