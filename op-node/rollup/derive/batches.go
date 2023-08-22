@@ -63,6 +63,13 @@ func CheckBatchEspresso(cfg *rollup.Config, log log.Logger, l1Blocks []eth.L1Blo
 	payload := jst.Payload
 	prevL1Origin := l2SafeHead.L1Origin
 
+	// Ensure that the sequencer did not cheat by choosing a previous block that is within the sequencing window
+	// Slightly redundant to the validRange check, but we need this check first to ensure that we don't get incorrect empty batches in the nil cases below
+	if jst.FirstBlockNumber != 0 && jst.PrevBatchLastBlock.Timestamp >= windowStart {
+		log.Warn("Dropping batch. The previous batch last block cannot be past the start of the sequencing window")
+		return BatchDrop
+	}
+
 	// If Espresso did not produce any blocks in this window, an empty batch is valid.
 	// In this case, the L1 origin must be the same as the previous block.
 	if payload == nil && jst.FirstBlock.Timestamp >= windowEnd {
