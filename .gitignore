@@ -33,6 +33,7 @@ packages/contracts-bedrock/deployments/anvil
 *.log
 
 .devnet
+.devnet-espresso
 
 # Ignore local fuzzing results
 **/testdata/fuzz/

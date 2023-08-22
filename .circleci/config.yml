@@ -810,7 +810,12 @@ jobs:
             # Note: -parallel must be set to match the number of cores in the resource class
             OP_TESTLOG_DISABLE_COLOR=true OP_E2E_DISABLE_PARALLEL=false OP_E2E_USE_HTTP=<<parameters.use_http>>  gotestsum \
             --format=standard-verbose --junitfile=/tmp/test-results/<<parameters.module>>_http_<<parameters.use_http>>.xml \
-            -- -timeout=20m -parallel=8 ./...
+            -- \
+            -timeout=20m -parallel=8 \
+            -l1-allocs ../<<parameters.devnet>>/allocs-l1.json \
+            -l1-deployments ../<<parameters.devnet>>/addresses.json \
+            -deploy-config ../packages/contracts-bedrock/deploy-config/<<parameters.deploy-config>> \
+            ./...
           working_directory: <<parameters.module>>
       - store_test_results:
           path: /tmp/test-results
@@ -1310,14 +1315,32 @@ workflows:
           module: op-service
           requires: [ hold ]
       - go-e2e-test:
-          name: op-e2e-WS-tests
+          name: op-e2e-legacy-WS-tests
           module: op-e2e
           use_http: "false"
+          devnet: ".devnet"
+          deploy-config: "devnetL1.json"
           requires: [ hold ]
       - go-e2e-test:
-          name: op-e2e-HTTP-tests
+          name: op-e2e-legacy-HTTP-tests
           module: op-e2e
           use_http: "true"
+          devnet: ".devnet"
+          deploy-config: "devnetL1.json"
+          requires: [ hold ]
+      - go-e2e-test:
+          name: op-e2e-espresso-WS-tests
+          module: op-e2e
+          use_http: "false"
+          devnet: ".devnet-espresso"
+          deploy-config: "devnetL1-espresso.json"
+          requires: [ hold ]
+      - go-e2e-test:
+          name: op-e2e-espresso-HTTP-tests
+          module: op-e2e
+          use_http: "true"
+          devnet: ".devnet-espresso"
+          deploy-config: "devnetL1-espresso.json"
           requires: [ hold ]
       - bedrock-go-tests:
           requires:
