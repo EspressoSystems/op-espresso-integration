@@ -28,7 +28,7 @@ type EspressoValidBatchTestCase struct {
 type mockHotShotProvider struct {
 }
 
-func (m *mockHotShotProvider) verifyHeaders(headers []espresso.Header, heights []uint64) error {
+func (m *mockHotShotProvider) verifyHeaders(headers []espresso.Header, height uint64) error {
 	return nil
 }
 
@@ -562,14 +562,11 @@ func TestValidBatchEspresso(t *testing.T) {
 						FirstBlock: espresso.Header{
 							Timestamp: l2B0.Time,
 							L1Block: espresso.L1BlockInfo{
-								Number: 3,
+								Number: l2A3.L1Origin.Number + 2,
 							},
 						},
 						PrevBatchLastBlock: espresso.Header{
 							Timestamp: l2B0.Time - 1,
-							L1Block: espresso.L1BlockInfo{
-								Number: 1,
-							},
 						},
 						FirstBlockNumber: 1,
 					},
