@@ -230,6 +230,7 @@ func (d *Sequencer) updateEspressoBatch(ctx context.Context, newHeaders []espres
 		if err != nil {
 			return err
 		}
+		d.log.Info("adding new transactions from Espresso", "count", len(txs.Transactions))
 		batch.jst.Payload.NmtProofs = append(batch.jst.Payload.NmtProofs, txs.Proof)
 		batch.blocks = append(batch.blocks, txs.Transactions)
 		batch.jst.Payload.LastBlock = *header
@@ -638,10 +639,10 @@ func (d *Sequencer) handleNonEngineError(action string, err error) error {
 	if errors.Is(err, derive.ErrCritical) {
 		return err
 	} else if errors.Is(err, derive.ErrTemporary) {
-		d.log.Error("sequencer temporarily failed", "action", action, "err", err)
+		d.log.Error("sequencer encountered temporary error", "action", action, "err", err)
 		d.nextAction = d.timeNow().Add(time.Second)
 	} else {
-		d.log.Error("sequencer failed", "action", action, "err", err)
+		d.log.Error("sequencer encountered unclassified error", "action", action, "err", err)
 		d.nextAction = d.timeNow().Add(time.Second)
 	}
 	return nil
