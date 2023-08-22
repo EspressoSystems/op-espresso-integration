@@ -6,10 +6,14 @@ import (
 	"crypto/rand"
 	"fmt"
 	"math/big"
+	prng "math/rand"
 	"net"
 	"os"
+	"os/exec"
 	"path"
+	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -202,6 +206,8 @@ type System struct {
 
 	L2GenesisCfg *core.Genesis
 
+	Espresso *EspressoSystem
+
 	// Connections to running nodes
 	Nodes             map[string]*node.Node
 	Backends          map[string]*geth_eth.Ethereum
@@ -236,10 +242,34 @@ func (sys *System) Close() {
 	for _, node := range sys.RollupNodes {
 		node.Close()
 	}
+	if sys.Espresso != nil {
+		sys.Espresso.Close()
+	}
 	for _, node := range sys.Nodes {
 		node.Close()
 	}
 	sys.Mocknet.Close()
+}
+
+type EspressoSystem struct {
+	composeFile string
+	projectName string
+	port        uint16
+}
+
+func (e *EspressoSystem) Url() string {
+	return fmt.Sprintf("http://localhost:%d", e.port)
+}
+
+func (e *EspressoSystem) Close() {
+	// Kill the docker-compose environment.
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "docker", "compose", "--project-name", e.projectName,
+		"-f", e.composeFile, "down")
+	if err := cmd.Run(); err != nil {
+		fmt.Printf("failed to kill docker-compose: %v", err)
+	}
 }
 
 type systemConfigHook func(sCfg *SystemConfig, s *System)
@@ -417,12 +447,62 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 		}
 	}
 
+	// Start an Espresso sequencer network, if required.
+	if cfg.DeployConfig.Espresso {
+		// Find the docker-compose file.
+		cwd, err := os.Getwd()
+		if err != nil {
+			return nil, err
+		}
+		root, err := config.FindMonorepoRoot(cwd)
+		if err != nil {
+			return nil, err
+		}
+		composeFile := filepath.Join(root, "ops-bedrock", "docker-compose.yml")
+
+		// Generate a random project name to distinguish this docker-compose network from that of
+		// other tests running in parallel.
+		projectName := fmt.Sprintf("e2e-tests-%d", prng.Int63())
+
+		// Start the services.
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+		cmd := exec.CommandContext(ctx,
+			"docker", "compose", "--project-name", projectName, "-f", composeFile,
+			"up", "orchestrator", "da-server", "consensus-server", "sequencer0", "sequencer1",
+			"-V", "--force-recreate", "--wait")
+		if err := cmd.Run(); err != nil {
+			return nil, err
+		}
+
+		// Find the port which was randomly assigned to the sequencer API.
+		ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		cmd = exec.CommandContext(ctx,
+			"docker", "compose", "--project-name", projectName, "-f", composeFile, "port",
+			"sequencer0", "8080")
+		output, err := cmd.Output()
+		if err != nil {
+			return nil, err
+		}
+		port, err := strconv.Atoi(strings.TrimSpace(strings.Split(string(output), ":")[1]))
+		if err != nil {
+			return nil, err
+		}
+
+		sys.Espresso = &EspressoSystem{
+			projectName: projectName,
+			composeFile: composeFile,
+			port:        uint16(port),
+		}
+	}
+
 	// Configure connections to L1 and L2 for rollup nodes.
 	// TODO: refactor testing to use in-process rpc connections instead of websockets.
 
 	for name, rollupCfg := range cfg.Nodes {
 		configureL1(rollupCfg, l1Node)
-		configureL2(rollupCfg, sys.Nodes[name], cfg.JWTSecret)
+		configureL2(rollupCfg, sys.Nodes[name], sys.Espresso, cfg.JWTSecret)
 
 		rollupCfg.L2Sync = &rollupNode.PreparedL2SyncEndpoint{
 			Client:   nil,
@@ -698,7 +778,7 @@ func configureL1(rollupNodeCfg *rollupNode.Config, l1Node *node.Node) {
 		HttpPollInterval: time.Millisecond * 100,
 	}
 }
-func configureL2(rollupNodeCfg *rollupNode.Config, l2Node *node.Node, jwtSecret [32]byte) {
+func configureL2(rollupNodeCfg *rollupNode.Config, l2Node *node.Node, espresso *EspressoSystem, jwtSecret [32]byte) {
 	useHTTP := os.Getenv("OP_E2E_USE_HTTP") == "true"
 	l2EndpointConfig := l2Node.WSAuthEndpoint()
 	if useHTTP {
@@ -708,6 +788,9 @@ func configureL2(rollupNodeCfg *rollupNode.Config, l2Node *node.Node, jwtSecret 
 	rollupNodeCfg.L2 = &rollupNode.L2EndpointConfig{
 		L2EngineAddr:      l2EndpointConfig,
 		L2EngineJWTSecret: jwtSecret,
+	}
+	if espresso != nil {
+		rollupNodeCfg.EspressoUrl = espresso.Url()
 	}
 }
 

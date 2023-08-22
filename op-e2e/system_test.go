@@ -744,7 +744,7 @@ func TestSystemP2PAltSync(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, syncerL2Engine.Start())
 
-	configureL2(syncNodeCfg, syncerL2Engine, cfg.JWTSecret)
+	configureL2(syncNodeCfg, syncerL2Engine, sys.Espresso, cfg.JWTSecret)
 
 	syncerNode, err := rollupNode.New(context.Background(), syncNodeCfg, cfg.Loggers["syncer"], snapLog, "", metrics.NewMetrics(""))
 	require.NoError(t, err)
