@@ -8,6 +8,7 @@ import (
 	"math/big"
 	prng "math/rand"
 	"net"
+	"net/url"
 	"os"
 	"os/exec"
 	"path"
@@ -471,6 +472,7 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 			"docker", "compose", "--project-name", projectName, "-f", composeFile,
 			"up", "orchestrator", "da-server", "consensus-server", "sequencer0", "sequencer1",
 			"-V", "--force-recreate", "--wait")
+		cmd.Env = append(cmd.Env, fmt.Sprintf("ESPRESSO_SEQUENCER_L1_PROVIDER=%s", httpEndpointForDocker(l1Node)))
 		if err := cmd.Run(); err != nil {
 			return nil, err
 		}
@@ -765,6 +767,19 @@ func selectEndpoint(node *node.Node) string {
 		return node.HTTPEndpoint()
 	}
 	return node.WSEndpoint()
+}
+
+func httpEndpointForDocker(node *node.Node) string {
+	url, err := url.Parse(node.HTTPEndpoint())
+	if err != nil {
+		panic(fmt.Sprintf("geth HTTPEndpoint returned malformed URL (%v)", err))
+	}
+	port := url.Port()
+
+	// This is how Docker containers address services running on the host.
+	endpoint := fmt.Sprintf("http://host.docker.internal:%s", port)
+	fmt.Printf("GETH ENDPOINT %s", endpoint)
+	return endpoint
 }
 
 func configureL1(rollupNodeCfg *rollupNode.Config, l1Node *node.Node) {

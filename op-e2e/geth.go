@@ -127,6 +127,9 @@ func initL1Geth(cfg *SystemConfig, genesis *core.Genesis, c clock.Clock, opts ..
 		Name:        "l1-geth",
 		HTTPHost:    "127.0.0.1",
 		HTTPPort:    0,
+		// Allow the Espresso nodes (running on virtual Docker hosts) to talk to the L1 Geth instance.
+		HTTPVirtualHosts: []string{"*"},
+
 		WSHost:      "127.0.0.1",
 		WSPort:      0,
 		WSModules:   []string{"debug", "admin", "eth", "txpool", "net", "rpc", "web3", "personal", "engine"},

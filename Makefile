@@ -135,6 +135,10 @@ devnet-logs:
 	@(cd ./ops-bedrock && docker-compose logs -f)
 	.PHONY: devnet-logs
 
+devnet-pull:
+	@(cd ./ops-bedrock && docker-compose pull)
+	.PHONY: devnet-pull
+
 test-unit:
 	make -C ./op-node test
 	make -C ./op-proposer test
