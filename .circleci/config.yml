@@ -1368,8 +1368,10 @@ workflows:
             - op-challenger-tests
             - op-program-tests
             - op-service-tests
-            - op-e2e-WS-tests
-            - op-e2e-HTTP-tests
+            - op-e2e-legacy-WS-tests
+            - op-e2e-legacy-HTTP-tests
+            - op-e2e-espresso-WS-tests
+            - op-e2e-espresso-HTTP-tests
       - docker-build:
           name: op-node-docker-build
           docker_file: op-node/Dockerfile
