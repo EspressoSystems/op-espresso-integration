@@ -29,6 +29,10 @@ const (
 func CheckBatchEspresso(cfg *rollup.Config, log log.Logger, l1Blocks []eth.L1BlockRef, l2SafeHead eth.L2BlockRef, batch *BatchWithL1InclusionBlock, hotshot HotShotContractProvider) BatchValidity {
 	// First, validate the headers that represent the beginning of the L2 block range of this batch.
 	jst := batch.Batch.Justification
+	if jst == nil {
+		// Espresso blocks must have a justification
+		return BatchDrop
+	}
 	startHeaders :=
 		[]espresso.Header{jst.PrevBatchLastBlock, jst.FirstBlock}
 	headerHeights :=
@@ -39,32 +43,32 @@ func CheckBatchEspresso(cfg *rollup.Config, log log.Logger, l1Blocks []eth.L1Blo
 	// If the headers are available but invalid, drop the batch
 	if err != nil {
 		return BatchFuture
-		// TODO drop the batch
+		// TODO drop the batch if the header is invalid instead of unavailable
 	}
 
 	// First, check for cases where it is valid to have any empty batch.
 	windowStart := l2SafeHead.Time + cfg.BlockTime
 	windowEnd := windowStart + cfg.BlockTime
 	payload := jst.Payload
+	prevL1Origin := l1Blocks[0]
 
 	// If Espresso did not produce any blocks in this window, an empty batch is valid.
 	// In this case, the L1 origin must be the same as the previous block.
 	if payload == nil && jst.FirstBlock.Timestamp >= windowEnd {
-		if batch.L1InclusionBlock.Number != jst.PrevBatchLastBlock.L1Block.Number {
+		if uint64(batch.Batch.EpochNum) != prevL1Origin.Number {
 			return BatchDrop
 		}
 		return BatchAccept
 	}
 
 	// An empty batch can also be valid if the L1 origin is too far behind (either due to lag, or because HotShot skipped a block)
-	// The stale origin case is already checked by the default validation logic, so we only need to check to see whether HotShot skipped a block
+	// In these cases, the L1 origin must increase by one
+	// TODO check lag case
 	skippedL1Block := jst.FirstBlock.L1Block.Number > jst.PrevBatchLastBlock.L1Block.Number+1
 	if payload == nil && skippedL1Block {
-		// Verify that the L1 origin increased by one
-		if l1Blocks[0].Number != jst.PrevBatchLastBlock.L1Block.Number+1 {
+		if uint64(batch.Batch.EpochNum) != prevL1Origin.Number+1 {
 			return BatchDrop
 		}
-
 		return BatchAccept
 	}
 
@@ -86,7 +90,7 @@ func CheckBatchEspresso(cfg *rollup.Config, log log.Logger, l1Blocks []eth.L1Blo
 	// In the case that the headers aren't available yet (perhaps the validator's L1 client is behind), return BatchFuture so that we can try again later
 	// If the headers are available but invalid, drop the batch
 	if err != nil {
-		// TODO drop the batch
+		// TODO drop the batch if there is a true validation error
 		return BatchFuture
 	}
 
@@ -100,6 +104,8 @@ func CheckBatchEspresso(cfg *rollup.Config, log log.Logger, l1Blocks []eth.L1Blo
 	if !validRange {
 		return BatchDrop
 	}
+
+	// TODO validate NMT proofs
 
 	return BatchAccept
 
