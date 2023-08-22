@@ -779,6 +779,12 @@ jobs:
       use_http:
         description: If the op-e2e package should use HTTP clients
         type: string
+      devnet:
+        description: Devnet directory to use (.devnet or .devnet-espresso)
+        type: string
+      deploy-config:
+        description: Deployment config to use (devnetL1.json or devnetL1-espresso.json)
+        type: string
     docker:
       - image: us-docker.pkg.dev/oplabs-tools-artifacts/images/ci-builder:latest
     resource_class: xlarge
