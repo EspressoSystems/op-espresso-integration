@@ -149,7 +149,7 @@ func (d *Sequencer) startBuildingEspressoBatch(ctx context.Context, l2Head eth.L
 		l1OriginNumber := l2Head.L1Origin.Number
 		batch.l1Origin, err = d.l1OriginSelector.FindL1OriginByNumber(ctx, l1OriginNumber)
 		if err != nil {
-			d.log.Error("Error finding L1 origin with number", l1OriginNumber, "err", err)
+			d.log.Error("error finding L1 origin", "number", l1OriginNumber, "err", err)
 			return err
 		}
 		d.espressoBatch = batch
@@ -161,7 +161,7 @@ func (d *Sequencer) startBuildingEspressoBatch(ctx context.Context, l2Head eth.L
 		l1OriginNumber := l2Head.L1Origin.Number + 1
 		batch.l1Origin, err = d.l1OriginSelector.FindL1OriginByNumber(ctx, l1OriginNumber)
 		if err != nil {
-			d.log.Error("Error finding L1 origin with number", l1OriginNumber, "err", err)
+			d.log.Error("error finding L1 origin", "number", l1OriginNumber, "err", err)
 			return err
 		}
 		d.espressoBatch = batch
@@ -172,7 +172,7 @@ func (d *Sequencer) startBuildingEspressoBatch(ctx context.Context, l2Head eth.L
 	l1OriginNumber := batch.jst.FirstBlock.L1Block.Number
 	batch.l1Origin, err = d.l1OriginSelector.FindL1OriginByNumber(ctx, l1OriginNumber)
 	if err != nil {
-		d.log.Error("Error finding L1 origin with number", l1OriginNumber, "err", err)
+		d.log.Error("error finding L1 origin", "number", l1OriginNumber, "err", err)
 		return err
 	}
 
@@ -182,7 +182,7 @@ func (d *Sequencer) startBuildingEspressoBatch(ctx context.Context, l2Head eth.L
 		l1OriginNumber = l2Head.L1Origin.Number + 1
 		batch.l1Origin, err = d.l1OriginSelector.FindL1OriginByNumber(ctx, l1OriginNumber)
 		if err != nil {
-			d.log.Error("Error finding L1 origin with number", l1OriginNumber, "err", err)
+			d.log.Error("error finding L1 origin", "number", l1OriginNumber, "err", err)
 			return err
 		}
 		d.espressoBatch = batch
@@ -308,7 +308,7 @@ func (d *Sequencer) startBuildingLegacyBlock(ctx context.Context) error {
 	// Figure out which L1 origin block we're going to be building on top of.
 	l1Origin, err := d.l1OriginSelector.FindL1Origin(ctx, l2Head)
 	if err != nil {
-		d.log.Error("Error finding next L1 Origin", "err", err)
+		d.log.Error("error finding next L1 Origin", "err", err)
 		return err
 	}
 
@@ -534,13 +534,13 @@ func (d *Sequencer) buildEspressoBatch(ctx context.Context) (*eth.ExecutionPaylo
 	// First, check if there has been a reorg. If so, drop the current block and restart.
 	head := d.engine.UnsafeL2Head()
 	if d.espressoBatch != nil && d.espressoBatch.onto.Hash != head.Hash {
-		d.log.Warn("reorg detected", d.espressoBatch.onto, "->", head, "dropping partial Espresso batch")
+		d.log.Warn("reorg detected", "head", head, "onto", d.espressoBatch.onto)
 		d.espressoBatch = nil
 	}
 
 	// Begin a new block if necessary.
 	if d.espressoBatch == nil {
-		d.log.Info("building new Espresso batch on", head)
+		d.log.Info("building new Espresso batch", "onto", head)
 		if err := d.startBuildingEspressoBatch(ctx, head); err != nil {
 			return nil, d.handleNonEngineError("starting Espresso block", err)
 		}
@@ -560,7 +560,7 @@ func (d *Sequencer) buildEspressoBatch(ctx context.Context) (*eth.ExecutionPaylo
 	} else {
 		// If we did seal the block, return it and do not set a delay, so that the scheduler will
 		// start the next action (starting the next block) immediately.
-		d.log.Info("sealed Espresso batch", block)
+		d.log.Info("sealed Espresso batch", "payload", block)
 		return block, nil
 	}
 }
@@ -624,7 +624,7 @@ func (d *Sequencer) handlePossibleEngineError(action string, err error) error {
 	if errors.Is(err, derive.ErrCritical) {
 		return err
 	} else if errors.Is(err, derive.ErrReset) {
-		d.log.Error("sequencer failed ", action, ", requiring derivation reset", " err ", err)
+		d.log.Error("sequencer failed, requiring derivation reset", "action", action, "err", err)
 		d.metrics.RecordSequencerReset()
 		d.nextAction = d.timeNow().Add(time.Second * time.Duration(d.config.BlockTime)) // hold off from sequencing for a full block
 		d.engine.Reset()
@@ -638,10 +638,10 @@ func (d *Sequencer) handleNonEngineError(action string, err error) error {
 	if errors.Is(err, derive.ErrCritical) {
 		return err
 	} else if errors.Is(err, derive.ErrTemporary) {
-		d.log.Error("sequencer temporarily failed ", action, " err ", err)
+		d.log.Error("sequencer temporarily failed", "action", action, "err", err)
 		d.nextAction = d.timeNow().Add(time.Second)
 	} else {
-		d.log.Error("sequencer failed ", action, " err ", err)
+		d.log.Error("sequencer failed", "action", action, "err", err)
 		d.nextAction = d.timeNow().Add(time.Second)
 	}
 	return nil
