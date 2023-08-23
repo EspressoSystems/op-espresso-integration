@@ -153,6 +153,9 @@ func (d *Sequencer) startBuildingEspressoBatch(ctx context.Context, l2Head eth.L
 			return err
 		}
 		d.espressoBatch = batch
+		d.log.Info("building empty Espresso batch because Espresso produced no blocks",
+			"windowStart", windowStart, "windowEnd", windowEnd,
+			"PrevBatchLastBlock", batch.jst.PrevBatchLastBlock, "firstBlock", batch.jst.FirstBlock)
 		return nil
 	}
 	// 2) Espresso skipped an L1 block.
@@ -165,6 +168,8 @@ func (d *Sequencer) startBuildingEspressoBatch(ctx context.Context, l2Head eth.L
 			return err
 		}
 		d.espressoBatch = batch
+		d.log.Info("building empty Espresso batch because Espresso skipped an L1 block",
+			"firstBlockL1", batch.jst.FirstBlock.L1Block, "prevL1", l2Head.L1Origin.Number)
 		return nil
 	}
 
@@ -179,6 +184,7 @@ func (d *Sequencer) startBuildingEspressoBatch(ctx context.Context, l2Head eth.L
 	// Check for one more case where the L1 origin is ineligible: if it is too old, we produce an
 	// empty batch that advances the L1 origin by 1.
 	if batch.l1Origin.Time+d.config.MaxSequencerDrift < windowStart {
+		oldL1Origin := batch.l1Origin
 		l1OriginNumber = l2Head.L1Origin.Number + 1
 		batch.l1Origin, err = d.l1OriginSelector.FindL1OriginByNumber(ctx, l1OriginNumber)
 		if err != nil {
@@ -186,6 +192,9 @@ func (d *Sequencer) startBuildingEspressoBatch(ctx context.Context, l2Head eth.L
 			return err
 		}
 		d.espressoBatch = batch
+		d.log.Info("building empty Espresso batch because L1 origin is too far behind",
+			"windowStart", windowStart, "MaxSequencerDrift", d.config.MaxSequencerDrift,
+			"suggestedOrigin", oldL1Origin)
 		return nil
 	}
 
@@ -226,11 +235,12 @@ func (d *Sequencer) updateEspressoBatch(ctx context.Context, newHeaders []espres
 			return derive.NewCriticalError(fmt.Errorf("inconsistent data from Espresso query service: header %v is before its predecessor %v", header, batch.jst.Payload.LastBlock))
 		}
 
-		txs, err := d.espresso.FetchTransactionsInBlock(ctx, batch.jst.FirstBlockNumber+uint64(len(batch.blocks)), header, d.config.L2ChainID.Uint64())
+		blockNum := batch.jst.FirstBlockNumber+uint64(len(batch.blocks))
+		txs, err := d.espresso.FetchTransactionsInBlock(ctx, blockNum, header, d.config.L2ChainID.Uint64())
 		if err != nil {
 			return err
 		}
-		d.log.Info("adding new transactions from Espresso", "count", len(txs.Transactions))
+		d.log.Info("adding new transactions from Espresso", "block", blockNum, "count", len(txs.Transactions))
 		batch.jst.Payload.NmtProofs = append(batch.jst.Payload.NmtProofs, txs.Proof)
 		batch.blocks = append(batch.blocks, txs.Transactions)
 		batch.jst.Payload.LastBlock = *header
