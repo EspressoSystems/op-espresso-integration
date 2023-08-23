@@ -27,7 +27,7 @@ const (
 
 func CheckBatchEspresso() BatchValidity {
 	// TODO: verify batch constraints
-	panic("Unimplemented")
+	return BatchAccept
 }
 
 // CheckBatch checks if the given batch can be applied on top of the given l2SafeHead, given the contextual L1 blocks the batch was included in.
