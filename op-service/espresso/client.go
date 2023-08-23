@@ -52,10 +52,9 @@ func (c *Client) FetchTransactionsInBlock(ctx context.Context, block uint64, hea
 	return res.Validate(header, namespace)
 }
 
-// Capture the full NMT proof as raw bytes, since the OP node currently doesn't interpret the
-// contents of this proof.
 type NamespaceResponse struct {
-	Proof json.RawMessage
+	Proof        json.RawMessage
+	Transactions []Transaction
 }
 
 // Validate a NamespaceResponse and extract the transactions.
@@ -64,23 +63,9 @@ func (res *NamespaceResponse) Validate(header *Header, namespace uint64) (Transa
 	proof := NmtProof(res.Proof)
 	// TODO validate `proof` against `header.TransactionsRoot`
 
-	// Inspect the inner structure of `proof` so we can get the transactions out of it.
-	var decoded NamespaceProof
-	if err := json.Unmarshal(proof, &decoded); err != nil {
-		return TransactionsInBlock{}, fmt.Errorf("failed to parse NMT proof as json: %v, proof: %s", err, string(proof))
-	}
-
 	// Extract the transactions.
 	var txs []Bytes
-	for i, merkleProof := range decoded.Proofs {
-		path := merkleProof.Proof
-		if len(path) == 0 {
-			return TransactionsInBlock{}, fmt.Errorf("transaction %d has empty Merkle path", i)
-		}
-		tx := path[0].Elem
-		if tx == nil {
-			return TransactionsInBlock{}, fmt.Errorf("transaction %d path is not terminated with a leaf node", i)
-		}
+	for i, tx := range res.Transactions {
 		if tx.Vm != namespace {
 			return TransactionsInBlock{}, fmt.Errorf("transaction %d has wrong namespace (%d, expected %d)", i, tx.Vm, namespace)
 		}
@@ -91,20 +76,6 @@ func (res *NamespaceResponse) Validate(header *Header, namespace uint64) (Transa
 		Transactions: txs,
 		Proof:        proof,
 	}, nil
-}
-
-// This struct can be used to unmarshal a `NamespaceResponse.proof`, capturing only the fields we
-// need to extract the transactions from within the proof.
-type NamespaceProof struct {
-	Proofs []MerkleProof
-}
-
-type MerkleProof struct {
-	Proof []MerkleNode
-}
-
-type MerkleNode struct {
-	Elem *Transaction `json:",omitempty"`
 }
 
 type Transaction struct {
