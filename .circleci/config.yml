@@ -805,6 +805,9 @@ jobs:
           name: print go's available MIPS targets
           command: go tool dist list | grep mips
       - run:
+          name: Pull Espresso Docker images
+          command: make devnet-pull
+      - run:
           name: Run all init steps for op-e2e
           command: make pre-test
           working_directory: <<parameters.module>>

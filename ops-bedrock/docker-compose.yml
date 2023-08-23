@@ -168,6 +168,9 @@ services:
       - OP_GETH_PROXY_GETH_ADDR
       - OP_GETH_PROXY_LISTEN_ADDR=0.0.0.0:9090
       - OP_GETH_PROXY_SEQ_ADDR
+      - OP_GETH_PROXY_VM_ID
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   orchestrator:
     image: ghcr.io/espressosystems/espresso-sequencer/orchestrator:main

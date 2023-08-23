@@ -191,6 +191,10 @@ func initL2Geth(name string, l2ChainID *big.Int, genesis *core.Genesis, jwtPath 
 		},
 	}
 	nodeConfig := defaultNodeConfig(fmt.Sprintf("l2-geth-%v", name), jwtPath)
+
+	// Allow the Espresso nodes (running on virtual Docker hosts) to talk to the L2 Geth instance.
+	nodeConfig.HTTPVirtualHosts = []string{"*"}
+
 	return createGethNode(true, nodeConfig, ethConfig, nil, opts...)
 }
 
