@@ -11,7 +11,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/testutils"
 	"github.com/ethereum-optimism/optimism/op-service/espresso"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
@@ -31,9 +30,6 @@ type mockHotShotProvider struct {
 func (m *mockHotShotProvider) verifyHeaders(headers []espresso.Header, height uint64) error {
 	return nil
 }
-
-var EspressoHashA = common.Hash{0x0a}
-var EspressoHashB = common.Hash{0x0b}
 
 func TestValidBatchEspresso(t *testing.T) {
 	conf := rollup.Config{
@@ -508,6 +504,53 @@ func TestValidBatchEspresso(t *testing.T) {
 							},
 							NextBatchFirstBlock: espresso.Header{
 								Timestamp: l2B0.Time + conf.BlockTime,
+							},
+							NmtProofs: []espresso.Bytes{
+								[]byte{0x02, 0x42, 0x13, 0x37},
+								[]byte{0x02, 0xde, 0xad, 0xbe, 0xef},
+							},
+						},
+					},
+				}},
+			},
+			Expected: BatchAccept,
+		},
+		{
+			Name:       "valid batch where hotshot transactions fall within the window and there is a block in between first and last block",
+			L1Blocks:   []eth.L1BlockRef{l1A, l1B, l1C},
+			L2SafeHead: l2A3,
+			Batch: BatchWithL1InclusionBlock{
+				L1InclusionBlock: l1A,
+				Batch: &BatchData{BatchV2{
+					BatchV1: BatchV1{
+						ParentHash: l2B0.ParentHash,
+						EpochNum:   rollup.Epoch(l2B0.L1Origin.Number),
+						EpochHash:  l2B0.L1Origin.Hash,
+						Timestamp:  l2B0.Time,
+						Transactions: []hexutil.Bytes{
+							[]byte{0x02, 0x42, 0x13, 0x37},
+							[]byte{0x02, 0xde, 0xad, 0xbe, 0xef},
+						},
+					},
+					Justification: &eth.L2BatchJustification{
+						FirstBlock: espresso.Header{
+							Timestamp: l2B0.Time,
+						},
+						PrevBatchLastBlock: espresso.Header{
+							Timestamp: l2B0.Time - 1,
+						},
+						FirstBlockNumber: 1,
+						Payload: &eth.L2BatchPayloadJustification{
+							LastBlock: espresso.Header{
+								Timestamp: l2B0.Time + conf.BlockTime - 1,
+							},
+							NextBatchFirstBlock: espresso.Header{
+								Timestamp: l2B0.Time + conf.BlockTime,
+							},
+							NmtProofs: []espresso.Bytes{
+								[]byte{0x02, 0x42, 0x13, 0x37},
+								[]byte{0x02, 0x42, 0x13, 0x37},
+								[]byte{0x02, 0xde, 0xad, 0xbe, 0xef},
 							},
 						},
 					},

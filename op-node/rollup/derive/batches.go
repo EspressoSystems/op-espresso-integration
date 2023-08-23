@@ -121,7 +121,23 @@ func CheckBatchEspresso(cfg *rollup.Config, log log.Logger, l1Blocks []eth.L1Blo
 		return BatchDrop
 	}
 
-	// TODO validate NMT proofs
+	// Sanity check that the number of NMT proofs is at least 1 if the first and last block in the range are the same,
+	// and at least 2 otherwise. This check would redundant to the ValidateBatchTransactions function below if
+	// that function weren't mocked.
+	var minimumNMTProofs = 1
+	if jst.FirstBlock.Timestamp != jst.Payload.LastBlock.Timestamp {
+		minimumNMTProofs = 2
+	}
+
+	if len(payload.NmtProofs) < minimumNMTProofs {
+		return BatchDrop
+	}
+
+	// Validate the transactions against the NMT proofs
+	err = espresso.ValidateBatchTransactions(batch.Batch.Transactions, payload.NmtProofs, jst.FirstBlock, payload.LastBlock, jst.FirstBlockNumber)
+	if err != nil {
+		return BatchDrop
+	}
 
 	return BatchAccept
 
