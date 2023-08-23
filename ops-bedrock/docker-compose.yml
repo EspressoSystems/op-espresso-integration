@@ -163,11 +163,11 @@ services:
       context: ../
       dockerfile: ./op-geth-proxy/Dockerfile
     ports:
-      - "9090:9090"
+      - "9090"
     environment:
-      OP_GETH_PROXY_GETH_ADDR: http://l2:8545
-      OP_GETH_PROXY_LISTEN_ADDR: 0.0.0.0:9090
-      OP_GETH_PROXY_SEQ_ADDR: http://sequencer0:8080
+      - OP_GETH_PROXY_GETH_ADDR
+      - OP_GETH_PROXY_LISTEN_ADDR=0.0.0.0:9090
+      - OP_GETH_PROXY_SEQ_ADDR
 
   orchestrator:
     image: ghcr.io/espressosystems/espresso-sequencer/orchestrator:main

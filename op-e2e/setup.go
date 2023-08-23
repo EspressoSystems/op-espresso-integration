@@ -1,6 +1,7 @@
 package op_e2e
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/rand"
@@ -253,13 +254,19 @@ func (sys *System) Close() {
 }
 
 type EspressoSystem struct {
-	composeFile string
-	projectName string
-	port        uint16
+	composeFile   string
+	projectName   string
+	sequencerPort uint16
+	proxyPort     uint16
+	logsProcess   *exec.Cmd
 }
 
-func (e *EspressoSystem) Url() string {
-	return fmt.Sprintf("http://localhost:%d", e.port)
+func (e *EspressoSystem) SequencerUrl() string {
+	return fmt.Sprintf("http://localhost:%d", e.sequencerPort)
+}
+
+func (e *EspressoSystem) ProxyUrl() string {
+	return fmt.Sprintf("http://localhost:%d", e.proxyPort)
 }
 
 func (e *EspressoSystem) Close() {
@@ -267,10 +274,35 @@ func (e *EspressoSystem) Close() {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "docker", "compose", "--project-name", e.projectName,
-		"-f", e.composeFile, "down")
+		"-f", e.composeFile, "down", "-v")
 	if err := cmd.Run(); err != nil {
 		fmt.Printf("failed to kill docker-compose: %v", err)
 	}
+
+	// Kill the logs process.
+	if err := e.logsProcess.Process.Kill(); err != nil {
+		fmt.Printf("failed to kill docker-compose logs: %v", err)
+	}
+	if err := e.logsProcess.Wait(); err != nil {
+		fmt.Printf("failed to wait for docker-compose logs: %v", err)
+	}
+}
+
+func dockerComposePort(projectName string, composeFile string, service string, internalPort uint16) (uint16, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx,
+		"docker", "compose", "--project-name", projectName, "-f", composeFile, "port",
+		service, strconv.Itoa(int(internalPort)))
+	output, err := cmd.Output()
+	if err != nil {
+		return 0, fmt.Errorf("docker compose port failed: %w, %v", err, cmd)
+	}
+	port, err := strconv.Atoi(strings.TrimSpace(strings.Split(string(output), ":")[1]))
+	if err != nil {
+		return 0, err
+	}
+	return uint16(port), nil
 }
 
 type systemConfigHook func(sCfg *SystemConfig, s *System)
@@ -471,31 +503,44 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 		cmd := exec.CommandContext(ctx,
 			"docker", "compose", "--project-name", projectName, "-f", composeFile,
 			"up", "orchestrator", "da-server", "consensus-server", "sequencer0", "sequencer1",
-			"-V", "--force-recreate", "--wait")
+			"op-geth-proxy", "-V", "--force-recreate", "--wait")
+		stderr := bytes.Buffer{}
+		cmd.Stderr = &stderr
+		cmd.Stdout = &stderr
+		// Point the sequencer at the L1 Geth node.
 		cmd.Env = append(cmd.Env, fmt.Sprintf("ESPRESSO_SEQUENCER_L1_PROVIDER=%s", httpEndpointForDocker(l1Node)))
+		// Point the L2 RPC proxy at the OP sequencer Geth node.
+		cmd.Env = append(cmd.Env, fmt.Sprintf("OP_GETH_PROXY_GETH_ADDR=%s", httpEndpointForDocker(sys.Nodes["sequencer"])))
+		// Enable INFO level logging for Rust services.
+		cmd.Env = append(cmd.Env, "RUST_LOG=info")
 		if err := cmd.Run(); err != nil {
+			return nil, fmt.Errorf("docker compose up (%v) error: %w output: %s", cmd, err, stderr.String())
+		}
+
+		// Find the ports which were randomly assigned to the services.
+		sequencerPort, err := dockerComposePort(projectName, composeFile, "sequencer0", 8080)
+		if err != nil {
+			return nil, err
+		}
+		proxyPort, err := dockerComposePort(projectName, composeFile, "op-geth-proxy", 9090)
+		if err != nil {
 			return nil, err
 		}
 
-		// Find the port which was randomly assigned to the sequencer API.
-		ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		cmd = exec.CommandContext(ctx,
-			"docker", "compose", "--project-name", projectName, "-f", composeFile, "port",
-			"sequencer0", "8080")
-		output, err := cmd.Output()
-		if err != nil {
-			return nil, err
-		}
-		port, err := strconv.Atoi(strings.TrimSpace(strings.Split(string(output), ":")[1]))
-		if err != nil {
-			return nil, err
+		// Forward service logs to our stdout.
+		logs := exec.Command("docker", "compose", "--project-name", projectName, "-f", composeFile, "logs", "-f")
+		logs.Stdout = os.Stdout
+		logs.Stderr = os.Stderr
+		if err := logs.Start(); err != nil {
+			return nil, fmt.Errorf("failed to attach to docker compose logs (%v): %w", logs, err)
 		}
 
 		sys.Espresso = &EspressoSystem{
-			projectName: projectName,
-			composeFile: composeFile,
-			port:        uint16(port),
+			projectName:   projectName,
+			composeFile:   composeFile,
+			sequencerPort: sequencerPort,
+			proxyPort:     proxyPort,
+			logsProcess:   logs,
 		}
 	}
 
@@ -523,7 +568,16 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 	l1Client := ethclient.NewClient(rpc.DialInProc(l1Srv))
 	sys.Clients["l1"] = l1Client
 	for name, node := range sys.Nodes {
-		client, err := ethclient.DialContext(ctx, node.WSEndpoint())
+		var endpoint string
+		if sys.Espresso != nil && name == "sequencer" {
+			// In Espresso mode, clients should talk to the sequencer through the proxy RPC, which
+			// forwards submitted transactions to the Espresso sequencer.
+			endpoint = sys.Espresso.ProxyUrl()
+		} else {
+			endpoint = node.WSEndpoint()
+		}
+
+		client, err := ethclient.DialContext(ctx, endpoint)
 		if err != nil {
 			didErrAfterStart = true
 			return nil, err
@@ -777,9 +831,7 @@ func httpEndpointForDocker(node *node.Node) string {
 	port := url.Port()
 
 	// This is how Docker containers address services running on the host.
-	endpoint := fmt.Sprintf("http://host.docker.internal:%s", port)
-	fmt.Printf("GETH ENDPOINT %s", endpoint)
-	return endpoint
+	return fmt.Sprintf("http://host.docker.internal:%s", port)
 }
 
 func configureL1(rollupNodeCfg *rollupNode.Config, l1Node *node.Node) {
@@ -805,7 +857,7 @@ func configureL2(rollupNodeCfg *rollupNode.Config, l2Node *node.Node, espresso *
 		L2EngineJWTSecret: jwtSecret,
 	}
 	if espresso != nil {
-		rollupNodeCfg.EspressoUrl = espresso.Url()
+		rollupNodeCfg.EspressoUrl = espresso.SequencerUrl()
 	}
 }
 

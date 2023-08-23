@@ -127,13 +127,13 @@ func initL1Geth(cfg *SystemConfig, genesis *core.Genesis, c clock.Clock, opts ..
 		Name:        "l1-geth",
 		HTTPHost:    "127.0.0.1",
 		HTTPPort:    0,
-		// Allow the Espresso nodes (running on virtual Docker hosts) to talk to the L1 Geth instance.
-		HTTPVirtualHosts: []string{"*"},
-
 		WSHost:      "127.0.0.1",
 		WSPort:      0,
 		WSModules:   []string{"debug", "admin", "eth", "txpool", "net", "rpc", "web3", "personal", "engine"},
 		HTTPModules: []string{"debug", "admin", "eth", "txpool", "net", "rpc", "web3", "personal", "engine"},
+
+		// Allow the Espresso nodes (running on virtual Docker hosts) to talk to the L1 Geth instance.
+		HTTPVirtualHosts: []string{"*"},
 	}
 
 	l1Node, l1Eth, err := createGethNode(false, nodeConfig, ethConfig, []*ecdsa.PrivateKey{cfg.Secrets.CliqueSigner}, opts...)
