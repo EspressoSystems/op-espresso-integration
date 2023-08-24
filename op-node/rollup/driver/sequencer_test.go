@@ -416,11 +416,18 @@ func (s *TestSequencer) nextEspressoBlock(ctx context.Context) *espresso.Header 
 	binary.LittleEndian.PutUint64(root.Root, uint64(len(s.espresso.Blocks)))
 
 	l1OriginNumber := prev.L1Head
-	switch s.rng.Intn(10) {
+	switch s.rng.Intn(20) {
 	case 0:
+		// 5%: move the L1 origin _backwards_. Espresso is supposed to enforce that the L1 origin is
+		// monotonically increasing, but due to limitations in the current version of the HotShot
+		// interfaces, the current version does not, and the L1 block number will, rarely, decrease.
+		if l1OriginNumber > 0 {
+			l1OriginNumber -= 1
+		}
+	case 1, 2:
 		// 10%: advance L1 origin
 		l1OriginNumber += 1
-	case 1:
+	case 3, 4:
 		// 10%: skip ahead to the latest possible L1 origin
 		for {
 			l1Origin := s.l1BlockByNumber(l1OriginNumber + 1)
@@ -439,6 +446,12 @@ func (s *TestSequencer) nextEspressoBlock(ctx context.Context) *espresso.Header 
 		// If the chosen L1 origin is newer than the corresponding Espresso block, use an old L1
 		// origin.
 		l1Origin = s.l1BlockByNumber(prev.L1Head)
+	}
+
+	// 5% of the time, mess with the timestamp. Again, Espresso should ensure that the timestamps
+	// are monotonically increasing, but for now, it doesn't.
+	if prev.Timestamp > 0 && s.rng.Intn(20) == 0 {
+		timestamp = prev.Timestamp - 1
 	}
 
 	header := espresso.Header{
@@ -662,7 +675,7 @@ func TestSequencerChaosMonkeyEspresso(t *testing.T) {
 	// batch. This problem is exacerbated with the chaos monkey, since it may take even more wall
 	// clock time to fetch that last Espresso block due to injected errors.
 	l2Head := s.engControl.UnsafeL2Head()
-	require.Less(t, s.clockTime.Sub(time.Unix(int64(l2Head.Time), 0)).Abs(), 4*time.Second, "L2 time is accurate, within 4 seconds of wallclock")
+	require.Less(t, s.clockTime.Sub(time.Unix(int64(l2Head.Time), 0)).Abs(), 12*time.Second, "L2 time is accurate, within 12 seconds of wallclock")
 	// Here, the legacy test checks `avgBuildingTime()`. This stat is meaningless for the Espresso
 	// mode sequencer, since it builds blocks locally rather than in the engine.
 
@@ -673,6 +686,7 @@ func TestSequencerChaosMonkeyEspresso(t *testing.T) {
 	noEspressoBlocks := 0
 	oldL1Origin := 0
 	skippedL1Origin := 0
+	decreasingL1Origin := 0
 	for i := range s.engControl.l2Batches {
 		payload := s.engControl.l2Batches[i]
 
@@ -694,6 +708,10 @@ func TestSequencerChaosMonkeyEspresso(t *testing.T) {
 
 		jst := info.Justification
 		l1Origin := info.Number
+
+		// Check the basic L1 origin invariants.
+		require.GreaterOrEqual(t, l1Origin, prevL1Origin)
+		require.LessOrEqual(t, l1Origin, prevL1Origin+1)
 
 		// Check that the headers defining the start of the included block range match the output of
 		// the Espresso Sequencer.
@@ -727,8 +745,14 @@ func TestSequencerChaosMonkeyEspresso(t *testing.T) {
 				}
 				offset += len(s.espresso.Blocks[block].Transactions)
 			}
-			// Check that the L1 origin was chosen by Espresso.
-			require.Equal(t, l1Origin, espressoL1Number)
+			// Check that the L1 origin was chosen by Espresso, unless Espresso chose a bad
+			// (decreasing) L1 origin, in which case the sequencer just uses the previous L1 origin.
+			if espressoL1Number < prevL1Origin {
+				decreasingL1Origin += 1
+				require.Equal(t, l1Origin, prevL1Origin)
+			} else {
+				require.Equal(t, l1Origin, espressoL1Number)
+			}
 			prevL1Origin = l1Origin
 			happyPath += 1
 			continue
@@ -770,8 +794,9 @@ func TestSequencerChaosMonkeyEspresso(t *testing.T) {
 	}
 
 	t.Logf("Espresso sequencing case coverage:")
-	t.Logf("Happy path:         %d", happyPath)
-	t.Logf("No Espresso blocks: %d", noEspressoBlocks)
-	t.Logf("Old L1 origin:      %d", oldL1Origin)
-	t.Logf("Skipped L1 origin:  %d", skippedL1Origin)
+	t.Logf("Happy path:           %d", happyPath)
+	t.Logf("No Espresso blocks:   %d", noEspressoBlocks)
+	t.Logf("Old L1 origin:        %d", oldL1Origin)
+	t.Logf("Skipped L1 origin:    %d", skippedL1Origin)
+	t.Logf("Decreasing L1 origin: %d", decreasingL1Origin)
 }

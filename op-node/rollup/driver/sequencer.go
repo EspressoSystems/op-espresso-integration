@@ -175,6 +175,13 @@ func (d *Sequencer) startBuildingEspressoBatch(ctx context.Context, l2Head eth.L
 
 	// Fetch the L1 origin determined by the first Espresso block.
 	l1OriginNumber := batch.jst.FirstBlock.L1Head
+	// While Espresso _should_ guarantee that L1 origin numbers are monotonically increasing, a
+	// limitation in the current design means that on rare occasions the L1 origin number can
+	// decrease. As a temporary work-around, we detect this case and handle it as if Espresso had
+	// simply chosen the same L1 origin as the previous block.
+	if l1OriginNumber < l2Head.L1Origin.Number {
+		l1OriginNumber = l2Head.L1Origin.Number
+	}
 	batch.l1Origin, err = d.l1OriginSelector.FindL1OriginByNumber(ctx, l1OriginNumber)
 	if err != nil {
 		d.log.Error("error finding L1 origin", "number", l1OriginNumber, "err", err)
@@ -229,10 +236,14 @@ func (d *Sequencer) updateEspressoBatch(ctx context.Context, newHeaders []espres
 			return derive.NewCriticalError(fmt.Errorf("inconsistent data from Espresso query service: header %v in window has timestamp after window end %d", header, batch.windowEnd))
 		}
 		if header.Timestamp < batch.windowStart {
-			return derive.NewCriticalError(fmt.Errorf("inconsistent data from Espresso query service: header %v is before window start %d", header, batch.windowStart))
+			// Eventually, we should return an error here. However due to a limitation in the
+			// current implementation of HotShot/Espresso, block timestamps will sometimes decrease.
+			d.log.Error("inconsistent data from Espresso query service: header", header, "is before window start", batch.windowStart)
 		}
 		if header.Timestamp < batch.jst.Payload.LastBlock.Timestamp {
-			return derive.NewCriticalError(fmt.Errorf("inconsistent data from Espresso query service: header %v is before its predecessor %v", header, batch.jst.Payload.LastBlock))
+			// Similarly, this should eventually be an error, but can happen with the current
+			// version of Espresso.
+			d.log.Error("inconsistent data from Espresso query service: header", header, "is before its predecessor", batch.jst.Payload.LastBlock)
 		}
 
 		blockNum := batch.jst.FirstBlockNumber + uint64(len(batch.blocks))
