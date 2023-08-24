@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,12 +25,16 @@ var ReferenceNmtRoot NmtRoot = NmtRoot{
 var ReferenceL1BLockInfo L1BlockInfo = L1BlockInfo{
 	Number:    123,
 	Timestamp: *NewU256().SetUint64(0x456),
+	Hash:      common.Hash{0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef},
 }
 
 var ReferenceHeader Header = Header{
-	Timestamp:        789,
-	L1Block:          ReferenceL1BLockInfo,
 	TransactionsRoot: ReferenceNmtRoot,
+	Metadata: Metadata{
+		Timestamp:   789,
+		L1Head:      124,
+		L1Finalized: &ReferenceL1BLockInfo,
+	},
 }
 
 func TestEspressoTypesNmtRootJson(t *testing.T) {
@@ -54,7 +60,8 @@ func TestEspressoTypesNmtRootJson(t *testing.T) {
 func TestEspressoTypesL1BLockInfoJson(t *testing.T) {
 	data := []byte(removeWhitespace(`{
 		"number": 123,
-		"timestamp": "0x456"
+		"timestamp": "0x456",
+		"hash": "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 	}`))
 
 	// Check encoding.
@@ -74,13 +81,17 @@ func TestEspressoTypesL1BLockInfoJson(t *testing.T) {
 
 func TestEspressoTypesHeaderJson(t *testing.T) {
 	data := []byte(removeWhitespace(`{
-		"timestamp": 789,
-		"l1_block": {
-			"number": 123,
-			"timestamp": "0x456"
-		},
 		"transactions_root": {
 			"root": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+		},
+		"metadata": {
+			"timestamp": 789,
+			"l1_head": 124,
+			"l1_finalized": {
+				"number": 123,
+				"timestamp": "0x456",
+				"hash": "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+			}
 		}
 	}`))
 
@@ -107,9 +118,9 @@ func TestEspressoTypesNmtRootCommit(t *testing.T) {
 }
 
 func TestEspressoTypesL1BlockInfoCommit(t *testing.T) {
-	require.Equal(t, ReferenceL1BLockInfo.Commit(), Commitment{139, 253, 167, 177, 129, 217, 11, 21, 181, 233, 68, 140, 237, 249, 195, 175, 40, 72, 77, 226, 12, 14, 75, 33, 137, 188, 230, 107, 186, 225, 150, 201})
+	require.Equal(t, ReferenceL1BLockInfo.Commit(), Commitment{224, 122, 115, 150, 226, 202, 216, 139, 51, 221, 23, 79, 54, 243, 107, 12, 12, 144, 113, 99, 133, 217, 207, 73, 120, 182, 115, 84, 210, 230, 126, 148})
 }
 
 func TestEspressoTypesHeaderCommit(t *testing.T) {
-	require.Equal(t, ReferenceHeader.Commit(), Commitment{219, 19, 178, 0, 171, 225, 163, 206, 36, 8, 34, 84, 163, 96, 248, 52, 233, 85, 254, 89, 93, 249, 113, 142, 95, 204, 102, 103, 74, 250, 45, 103})
+	require.Equal(t, ReferenceHeader.Commit(), Commitment{26, 77, 186, 162, 251, 241, 135, 23, 132, 5, 196, 207, 131, 64, 207, 215, 141, 144, 146, 65, 158, 30, 169, 102, 251, 183, 101, 149, 168, 173, 161, 149})
 }

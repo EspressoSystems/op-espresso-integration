@@ -4,32 +4,49 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+
+	"github.com/ethereum/go-ethereum/common"
 )
 
 type Header struct {
-	Timestamp        uint64      `json:"timestamp"`
-	L1Block          L1BlockInfo `json:"l1_block"`
-	TransactionsRoot NmtRoot     `json:"transactions_root"`
+	TransactionsRoot NmtRoot `json:"transactions_root"`
+
+	Metadata `json:"metadata"`
 }
 
 func (self *Header) Commit() Commitment {
+	var l1FinalizedComm *Commitment
+	if self.L1Finalized != nil {
+		comm := self.L1Finalized.Commit()
+		l1FinalizedComm = &comm
+	}
+
 	return NewRawCommitmentBuilder("BLOCK").
 		Uint64Field("timestamp", self.Timestamp).
-		Field("l1_block", self.L1Block.Commit()).
+		Uint64Field("l1_head", self.L1Head).
+		OptionalField("l1_finalized", l1FinalizedComm).
 		Field("transactions_root", self.TransactionsRoot.Commit()).
 		Finalize()
 
 }
 
+type Metadata struct {
+	Timestamp   uint64       `json:"timestamp"`
+	L1Head      uint64       `json:"l1_head"`
+	L1Finalized *L1BlockInfo `json:"l1_finalized" rlp:"nil"`
+}
+
 type L1BlockInfo struct {
-	Number    uint64 `json:"number"`
-	Timestamp U256   `json:"timestamp"`
+	Number    uint64      `json:"number"`
+	Timestamp U256        `json:"timestamp"`
+	Hash      common.Hash `json:"hash"`
 }
 
 func (self *L1BlockInfo) Commit() Commitment {
 	return NewRawCommitmentBuilder("L1BLOCK").
 		Uint64Field("number", self.Number).
 		Uint256Field("timestamp", &self.Timestamp).
+		FixedSizeField("hash", self.Hash[:]).
 		Finalize()
 }
 

@@ -159,7 +159,7 @@ func (d *Sequencer) startBuildingEspressoBatch(ctx context.Context, l2Head eth.L
 		return nil
 	}
 	// 2) Espresso skipped an L1 block.
-	if batch.jst.FirstBlock.L1Block.Number > l2Head.L1Origin.Number+1 {
+	if batch.jst.FirstBlock.L1Head > l2Head.L1Origin.Number+1 {
 		// Produce an empty batch that advances the L1 origin by 1, so we can catch up to Espresso.
 		l1OriginNumber := l2Head.L1Origin.Number + 1
 		batch.l1Origin, err = d.l1OriginSelector.FindL1OriginByNumber(ctx, l1OriginNumber)
@@ -169,12 +169,12 @@ func (d *Sequencer) startBuildingEspressoBatch(ctx context.Context, l2Head eth.L
 		}
 		d.espressoBatch = batch
 		d.log.Info("building empty Espresso batch because Espresso skipped an L1 block",
-			"firstBlockL1", batch.jst.FirstBlock.L1Block, "prevL1", l2Head.L1Origin.Number)
+			"firstBlockL1", batch.jst.FirstBlock.L1Head, "prevL1", l2Head.L1Origin.Number)
 		return nil
 	}
 
 	// Fetch the L1 origin determined by the first Espresso block.
-	l1OriginNumber := batch.jst.FirstBlock.L1Block.Number
+	l1OriginNumber := batch.jst.FirstBlock.L1Head
 	batch.l1Origin, err = d.l1OriginSelector.FindL1OriginByNumber(ctx, l1OriginNumber)
 	if err != nil {
 		d.log.Error("error finding L1 origin", "number", l1OriginNumber, "err", err)
@@ -235,7 +235,7 @@ func (d *Sequencer) updateEspressoBatch(ctx context.Context, newHeaders []espres
 			return derive.NewCriticalError(fmt.Errorf("inconsistent data from Espresso query service: header %v is before its predecessor %v", header, batch.jst.Payload.LastBlock))
 		}
 
-		blockNum := batch.jst.FirstBlockNumber+uint64(len(batch.blocks))
+		blockNum := batch.jst.FirstBlockNumber + uint64(len(batch.blocks))
 		txs, err := d.espresso.FetchTransactionsInBlock(ctx, blockNum, header, d.config.L2ChainID.Uint64())
 		if err != nil {
 			return err
