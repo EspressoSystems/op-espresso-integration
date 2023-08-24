@@ -808,6 +808,9 @@ jobs:
           name: Pull Espresso Docker images
           command: make devnet-pull
       - run:
+          name: Build local Docker images
+          command: make devnet-build
+      - run:
           name: Run all init steps for op-e2e
           command: make pre-test
           working_directory: <<parameters.module>>

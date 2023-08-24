@@ -135,6 +135,10 @@ devnet-logs:
 	@(cd ./ops-bedrock && docker-compose logs -f)
 	.PHONY: devnet-logs
 
+devnet-build:
+	@(cd ./ops-bedrock && docker-compose build)
+	.PHONY: devnet-build
+
 devnet-pull:
 	@(cd ./ops-bedrock && docker-compose pull)
 	.PHONY: devnet-pull
