@@ -806,6 +806,9 @@ jobs:
           name: print go's available MIPS targets
           command: go tool dist list | grep mips
       - run:
+          name: Pull Espresso Docker images
+          command: make devnet-pull
+      - run:
           name: Run all init steps for op-e2e
           command: make pre-test
           working_directory: <<parameters.module>>
@@ -907,23 +910,6 @@ jobs:
           name: Build
           command: make indexer
           working_directory: indexer
-
-  devnet-pull:
-    devnet:
-    machine:
-      image: ubuntu-2204:2022.10.2
-    environment:
-      DOCKER_BUILDKIT: 1
-    steps:
-      - checkout
-      - check-changed:
-          patterns: op-(.+),packages,ops-bedrock
-      - run:
-          name: git submodules
-          command: git submodule update --init --recursive
-      - run:
-          name: Bring up the stack
-          command: make devnet-pull
 
   devnet:
     machine:
@@ -1358,14 +1344,14 @@ workflows:
           use_http: "false"
           devnet: ".devnet-espresso"
           deploy-config: "devnetL1-espresso.json"
-          requires: [ hold, op-geth-proxy-docker-build, devnet-pull ]
+          requires: [ hold, op-geth-proxy-docker-build ]
       - go-e2e-test:
           name: op-e2e-espresso-HTTP-tests
           module: op-e2e
           use_http: "true"
           devnet: ".devnet-espresso"
           deploy-config: "devnetL1-espresso.json"
-          requires: [ hold, op-geth-proxy-docker-build, devnet-pull ]
+          requires: [ hold, op-geth-proxy-docker-build ]
       - bedrock-go-tests:
           requires:
             - op-batcher-lint
