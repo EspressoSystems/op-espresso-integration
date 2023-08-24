@@ -133,15 +133,15 @@ devnet-allocs-espresso:
 
 devnet-logs:
 	@(cd ./ops-bedrock && docker-compose logs -f)
-	.PHONY: devnet-logs
+.PHONY: devnet-logs
 
 devnet-build:
 	@(cd ./ops-bedrock && docker-compose build)
-	.PHONY: devnet-build
+.PHONY: devnet-build
 
 devnet-pull:
 	@(cd ./ops-bedrock && docker-compose pull)
-	.PHONY: devnet-pull
+.PHONY: devnet-pull
 
 test-unit:
 	make -C ./op-node test
