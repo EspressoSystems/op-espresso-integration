@@ -785,9 +785,10 @@ jobs:
       deploy-config:
         description: Deployment config to use (devnetL1.json or devnetL1-espresso.json)
         type: string
-    docker:
-      - image: us-docker.pkg.dev/oplabs-tools-artifacts/images/ci-builder:latest
-    resource_class: xlarge
+    machine:
+      image: ubuntu-2204:2022.10.2
+    environment:
+      DOCKER_BUILDKIT: 1
     steps:
       - checkout
       - check-changed:
@@ -804,12 +805,6 @@ jobs:
       - run:
           name: print go's available MIPS targets
           command: go tool dist list | grep mips
-      - run:
-          name: Pull Espresso Docker images
-          command: make devnet-pull
-      - run:
-          name: Build local Docker images
-          command: make devnet-build
       - run:
           name: Run all init steps for op-e2e
           command: make pre-test
@@ -912,6 +907,23 @@ jobs:
           name: Build
           command: make indexer
           working_directory: indexer
+
+  devnet-pull:
+    devnet:
+    machine:
+      image: ubuntu-2204:2022.10.2
+    environment:
+      DOCKER_BUILDKIT: 1
+    steps:
+      - checkout
+      - check-changed:
+          patterns: op-(.+),packages,ops-bedrock
+      - run:
+          name: git submodules
+          command: git submodule update --init --recursive
+      - run:
+          name: Bring up the stack
+          command: make devnet-pull
 
   devnet:
     machine:
@@ -1346,14 +1358,14 @@ workflows:
           use_http: "false"
           devnet: ".devnet-espresso"
           deploy-config: "devnetL1-espresso.json"
-          requires: [ hold ]
+          requires: [ hold, op-geth-proxy-docker-build, devnet-pull ]
       - go-e2e-test:
           name: op-e2e-espresso-HTTP-tests
           module: op-e2e
           use_http: "true"
           devnet: ".devnet-espresso"
           deploy-config: "devnetL1-espresso.json"
-          requires: [ hold ]
+          requires: [ hold, op-geth-proxy-docker-build, devnet-pull ]
       - bedrock-go-tests:
           requires:
             - op-batcher-lint
@@ -1489,6 +1501,13 @@ workflows:
       #     docker_target: wd-mon
       #     context:
       #       - oplabs-gcr
+      - docker-build:
+          name: op-geth-proxy-docker-build
+          docker_file: op-geth-proxy/Dockerfile
+          docker_name: op-geth-proxy
+          docker_tags: <<pipeline.git.revision>>,<<pipeline.git.branch>>
+          docker_context: .
+          requires: [ hold ]
       - hive-test:
           name: hive-test-rpc
           version: <<pipeline.git.revision>>
