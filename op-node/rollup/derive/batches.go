@@ -55,6 +55,9 @@ func CheckBatchEspresso(cfg *rollup.Config, log log.Logger, l1Blocks []eth.L1Blo
 	if err != nil {
 		return BatchFuture
 		// TODO drop the batch if the header is invalid instead of unavailable
+		// Check for the right error type when:
+		// https://github.com/EspressoSystems/op-espresso-integration/issues/50
+		// is implemented
 	}
 
 	// First, check for cases where it is valid to have any empty batch.
@@ -107,6 +110,7 @@ func CheckBatchEspresso(cfg *rollup.Config, log log.Logger, l1Blocks []eth.L1Blo
 	// If the headers are available but invalid, drop the batch
 	if err != nil {
 		// TODO drop the batch if there is a true validation error
+		// https://github.com/EspressoSystems/op-espresso-integration/issues/50
 		return BatchFuture
 	}
 
@@ -134,7 +138,12 @@ func CheckBatchEspresso(cfg *rollup.Config, log log.Logger, l1Blocks []eth.L1Blo
 	}
 
 	// Validate the transactions against the NMT proofs
-	err = espresso.ValidateBatchTransactions(batch.Batch.Transactions, payload.NmtProofs, jst.FirstBlock, payload.LastBlock, jst.FirstBlockNumber)
+	headers, err := hotshot.getHeadersFromHeight(firstBlockHeight, uint64(len(payload.NmtProofs)))
+	if err != nil {
+		// If we couldn't fetch headers, try again later
+		return BatchFuture
+	}
+	err = espresso.ValidateBatchTransactions(batch.Batch.Transactions, payload.NmtProofs, headers)
 	if err != nil {
 		return BatchDrop
 	}

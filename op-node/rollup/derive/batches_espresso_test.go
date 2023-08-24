@@ -12,23 +12,18 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/espresso"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 )
-
-type EspressoValidBatchTestCase struct {
-	Name       string
-	L1Blocks   []eth.L1BlockRef
-	L2SafeHead eth.L2BlockRef
-	Batch      BatchWithL1InclusionBlock
-	Expected   BatchValidity
-}
 
 type mockHotShotProvider struct {
 }
 
 func (m *mockHotShotProvider) verifyHeaders(headers []espresso.Header, height uint64) error {
 	return nil
+}
+
+func (m *mockHotShotProvider) getHeadersFromHeight(firstBlockHeight uint64, numHeaders uint64) ([]espresso.Header, error) {
+	return []espresso.Header{}, nil
 }
 
 func TestValidBatchEspresso(t *testing.T) {
@@ -55,24 +50,6 @@ func TestValidBatchEspresso(t *testing.T) {
 		Number:     l1B.Number + 1,
 		ParentHash: l1B.Hash,
 		Time:       l1B.Time + 7,
-	}
-	l1D := eth.L1BlockRef{
-		Hash:       testutils.RandomHash(rng),
-		Number:     l1C.Number + 1,
-		ParentHash: l1C.Hash,
-		Time:       l1C.Time + 7,
-	}
-	l1E := eth.L1BlockRef{
-		Hash:       testutils.RandomHash(rng),
-		Number:     l1D.Number + 1,
-		ParentHash: l1D.Hash,
-		Time:       l1D.Time + 7,
-	}
-	l1F := eth.L1BlockRef{
-		Hash:       testutils.RandomHash(rng),
-		Number:     l1E.Number + 1,
-		ParentHash: l1E.Hash,
-		Time:       l1E.Time + 7,
 	}
 
 	l2A0 := eth.L2BlockRef{
@@ -120,359 +97,7 @@ func TestValidBatchEspresso(t *testing.T) {
 		SequenceNumber: 0,
 	}
 
-	l1X := eth.L1BlockRef{
-		Hash:       testutils.RandomHash(rng),
-		Number:     42,
-		ParentHash: testutils.RandomHash(rng),
-		Time:       10_000,
-	}
-	l1Y := eth.L1BlockRef{
-		Hash:       testutils.RandomHash(rng),
-		Number:     l1X.Number + 1,
-		ParentHash: l1X.Hash,
-		Time:       l1X.Time + 12,
-	}
-	l1Z := eth.L1BlockRef{
-		Hash:       testutils.RandomHash(rng),
-		Number:     l1Y.Number + 1,
-		ParentHash: l1Y.Hash,
-		Time:       l1Y.Time + 12,
-	}
-	l2X0 := eth.L2BlockRef{
-		Hash:           testutils.RandomHash(rng),
-		Number:         1000,
-		ParentHash:     testutils.RandomHash(rng),
-		Time:           10_000 + 12 + 6 - 1, // add one block, and you get ahead of next l1 block by more than the drift
-		L1Origin:       l1X.ID(),
-		SequenceNumber: 0,
-	}
-	l2Y0 := eth.L2BlockRef{
-		Hash:           testutils.RandomHash(rng),
-		Number:         l2X0.Number + 1,
-		ParentHash:     l2X0.Hash,
-		Time:           l2X0.Time + conf.BlockTime, // exceeds sequencer time drift, forced to be empty block
-		L1Origin:       l1Y.ID(),
-		SequenceNumber: 0,
-	}
-
-	l2A4 := eth.L2BlockRef{
-		Hash:           testutils.RandomHash(rng),
-		Number:         l2A3.Number + 1,
-		ParentHash:     l2A3.Hash,
-		Time:           l2A3.Time + conf.BlockTime, // 4*2 = 8, higher than seq time drift
-		L1Origin:       l1A.ID(),
-		SequenceNumber: 4,
-	}
-
-	testCases := []EspressoValidBatchTestCase{
-		{
-			Name:       "missing L1 info",
-			L1Blocks:   []eth.L1BlockRef{},
-			L2SafeHead: l2A0,
-			Batch: BatchWithL1InclusionBlock{
-				L1InclusionBlock: l1B,
-				Batch: &BatchData{BatchV2{
-					BatchV1: BatchV1{
-						ParentHash:   l2A1.ParentHash,
-						EpochNum:     rollup.Epoch(l2A1.L1Origin.Number),
-						EpochHash:    l2A1.L1Origin.Hash,
-						Timestamp:    l2A1.Time,
-						Transactions: nil,
-					},
-					Justification: nil,
-				}},
-			},
-			Expected: BatchUndecided,
-		},
-		{
-			Name:       "future timestamp",
-			L1Blocks:   []eth.L1BlockRef{l1A, l1B, l1C},
-			L2SafeHead: l2A0,
-			Batch: BatchWithL1InclusionBlock{
-				L1InclusionBlock: l1B,
-				Batch: &BatchData{BatchV2{
-					BatchV1: BatchV1{
-						ParentHash:   l2A1.ParentHash,
-						EpochNum:     rollup.Epoch(l2A1.L1Origin.Number),
-						EpochHash:    l2A1.L1Origin.Hash,
-						Timestamp:    l2A1.Time + 1, // 1 too high
-						Transactions: nil,
-					},
-					Justification: nil,
-				}},
-			},
-			Expected: BatchFuture,
-		},
-		{
-			Name:       "old timestamp",
-			L1Blocks:   []eth.L1BlockRef{l1A, l1B, l1C},
-			L2SafeHead: l2A0,
-			Batch: BatchWithL1InclusionBlock{
-				L1InclusionBlock: l1B,
-				Batch: &BatchData{BatchV2{
-					BatchV1: BatchV1{
-						ParentHash:   l2A1.ParentHash,
-						EpochNum:     rollup.Epoch(l2A1.L1Origin.Number),
-						EpochHash:    l2A1.L1Origin.Hash,
-						Timestamp:    l2A0.Time, // repeating the same time
-						Transactions: nil,
-					},
-					Justification: nil,
-				}},
-			},
-			Expected: BatchDrop,
-		},
-		{
-			Name:       "misaligned timestamp",
-			L1Blocks:   []eth.L1BlockRef{l1A, l1B, l1C},
-			L2SafeHead: l2A0,
-			Batch: BatchWithL1InclusionBlock{
-				L1InclusionBlock: l1B,
-				Batch: &BatchData{BatchV2{
-					BatchV1: BatchV1{
-						ParentHash:   l2A1.ParentHash,
-						EpochNum:     rollup.Epoch(l2A1.L1Origin.Number),
-						EpochHash:    l2A1.L1Origin.Hash,
-						Timestamp:    l2A1.Time - 1, // block time is 2, so this is 1 too low
-						Transactions: nil,
-					},
-					Justification: nil,
-				}},
-			},
-			Expected: BatchDrop,
-		},
-		{
-			Name:       "invalid parent block hash",
-			L1Blocks:   []eth.L1BlockRef{l1A, l1B, l1C},
-			L2SafeHead: l2A0,
-			Batch: BatchWithL1InclusionBlock{
-				L1InclusionBlock: l1B,
-				Batch: &BatchData{BatchV2{
-					BatchV1: BatchV1{
-						ParentHash:   testutils.RandomHash(rng),
-						EpochNum:     rollup.Epoch(l2A1.L1Origin.Number),
-						EpochHash:    l2A1.L1Origin.Hash,
-						Timestamp:    l2A1.Time,
-						Transactions: nil,
-					},
-					Justification: nil,
-				}},
-			},
-			Expected: BatchDrop,
-		},
-		{
-			Name:       "sequence window expired",
-			L1Blocks:   []eth.L1BlockRef{l1A, l1B, l1C, l1D, l1E, l1F},
-			L2SafeHead: l2A0,
-			Batch: BatchWithL1InclusionBlock{
-				L1InclusionBlock: l1F, // included in 5th block after epoch of batch, while seq window is 4
-				Batch: &BatchData{BatchV2{
-					BatchV1: BatchV1{
-						ParentHash:   l2A1.ParentHash,
-						EpochNum:     rollup.Epoch(l2A1.L1Origin.Number),
-						EpochHash:    l2A1.L1Origin.Hash,
-						Timestamp:    l2A1.Time,
-						Transactions: nil,
-					},
-					Justification: nil,
-				}},
-			},
-			Expected: BatchDrop,
-		},
-		{
-			Name:       "epoch too old, but good parent hash and timestamp", // repeat of now outdated l2A3 data
-			L1Blocks:   []eth.L1BlockRef{l1B, l1C, l1D},
-			L2SafeHead: l2B0, // we already moved on to B
-			Batch: BatchWithL1InclusionBlock{
-				L1InclusionBlock: l1C,
-				Batch: &BatchData{BatchV2{
-					BatchV1: BatchV1{
-						ParentHash:   l2B0.Hash,                          // build on top of safe head to continue
-						EpochNum:     rollup.Epoch(l2A3.L1Origin.Number), // epoch A is no longer valid
-						EpochHash:    l2A3.L1Origin.Hash,
-						Timestamp:    l2B0.Time + conf.BlockTime, // pass the timestamp check to get too epoch check
-						Transactions: nil,
-					},
-					Justification: nil,
-				}},
-			},
-			Expected: BatchDrop,
-		},
-		{
-			Name:       "insufficient L1 info for eager derivation",
-			L1Blocks:   []eth.L1BlockRef{l1A}, // don't know about l1B yet
-			L2SafeHead: l2A3,
-			Batch: BatchWithL1InclusionBlock{
-				L1InclusionBlock: l1C,
-				Batch: &BatchData{BatchV2{
-					BatchV1: BatchV1{
-						ParentHash:   l2B0.ParentHash,
-						EpochNum:     rollup.Epoch(l2B0.L1Origin.Number),
-						EpochHash:    l2B0.L1Origin.Hash,
-						Timestamp:    l2B0.Time,
-						Transactions: nil,
-					},
-					Justification: nil,
-				}},
-			},
-			Expected: BatchUndecided,
-		},
-		{
-			Name:       "epoch too new",
-			L1Blocks:   []eth.L1BlockRef{l1A, l1B, l1C, l1D},
-			L2SafeHead: l2A3,
-			Batch: BatchWithL1InclusionBlock{
-				L1InclusionBlock: l1D,
-				Batch: &BatchData{BatchV2{
-					BatchV1: BatchV1{
-						ParentHash:   l2B0.ParentHash,
-						EpochNum:     rollup.Epoch(l1C.Number), // invalid, we need to adopt epoch B before C
-						EpochHash:    l1C.Hash,
-						Timestamp:    l2B0.Time,
-						Transactions: nil,
-					},
-					Justification: nil,
-				}},
-			},
-			Expected: BatchDrop,
-		},
-		{
-			Name:       "epoch hash wrong",
-			L1Blocks:   []eth.L1BlockRef{l1A, l1B},
-			L2SafeHead: l2A3,
-			Batch: BatchWithL1InclusionBlock{
-				L1InclusionBlock: l1C,
-				Batch: &BatchData{BatchV2{
-					BatchV1: BatchV1{
-						ParentHash:   l2B0.ParentHash,
-						EpochNum:     rollup.Epoch(l2B0.L1Origin.Number),
-						EpochHash:    l1A.Hash, // invalid, epoch hash should be l1B
-						Timestamp:    l2B0.Time,
-						Transactions: nil,
-					},
-					Justification: nil,
-				}},
-			},
-			Expected: BatchDrop,
-		},
-		{
-			Name:       "sequencer time drift on same epoch with non-empty txs",
-			L1Blocks:   []eth.L1BlockRef{l1A, l1B},
-			L2SafeHead: l2A3,
-			Batch: BatchWithL1InclusionBlock{
-				L1InclusionBlock: l1B,
-				Batch: &BatchData{BatchV2{
-					BatchV1: BatchV1{ // we build l2A4, which has a timestamp of 2*4 = 8 higher than l2A0
-						ParentHash:   l2A4.ParentHash,
-						EpochNum:     rollup.Epoch(l2A4.L1Origin.Number),
-						EpochHash:    l2A4.L1Origin.Hash,
-						Timestamp:    l2A4.Time,
-						Transactions: []hexutil.Bytes{[]byte("sequencer should not include this tx")},
-					},
-					Justification: nil,
-				}},
-			},
-			Expected: BatchDrop,
-		},
-		{
-			Name:       "sequencer time drift on changing epoch with non-empty txs",
-			L1Blocks:   []eth.L1BlockRef{l1X, l1Y, l1Z},
-			L2SafeHead: l2X0,
-			Batch: BatchWithL1InclusionBlock{
-				L1InclusionBlock: l1Z,
-				Batch: &BatchData{BatchV2{
-					BatchV1: BatchV1{
-						ParentHash:   l2Y0.ParentHash,
-						EpochNum:     rollup.Epoch(l2Y0.L1Origin.Number),
-						EpochHash:    l2Y0.L1Origin.Hash,
-						Timestamp:    l2Y0.Time, // valid, but more than 6 ahead of l1Y.Time
-						Transactions: []hexutil.Bytes{[]byte("sequencer should not include this tx")},
-					},
-					Justification: nil,
-				}},
-			},
-			Expected: BatchDrop,
-		},
-		{
-			Name:       "sequencer time drift on same epoch with empty txs and no next epoch in sight yet",
-			L1Blocks:   []eth.L1BlockRef{l1A},
-			L2SafeHead: l2A3,
-			Batch: BatchWithL1InclusionBlock{
-				L1InclusionBlock: l1B,
-				Batch: &BatchData{BatchV2{
-					BatchV1: BatchV1{ // we build l2A4, which has a timestamp of 2*4 = 8 higher than l2A0
-						ParentHash:   l2A4.ParentHash,
-						EpochNum:     rollup.Epoch(l2A4.L1Origin.Number),
-						EpochHash:    l2A4.L1Origin.Hash,
-						Timestamp:    l2A4.Time,
-						Transactions: nil,
-					},
-					Justification: nil,
-				}},
-			},
-			Expected: BatchUndecided, // we have to wait till the next epoch is in sight to check the time
-		},
-		{
-			Name:       "sequencer time drift on same epoch with empty txs and but in-sight epoch that invalidates it",
-			L1Blocks:   []eth.L1BlockRef{l1A, l1B, l1C},
-			L2SafeHead: l2A3,
-			Batch: BatchWithL1InclusionBlock{
-				L1InclusionBlock: l1C,
-				Batch: &BatchData{BatchV2{
-					BatchV1: BatchV1{ // we build l2A4, which has a timestamp of 2*4 = 8 higher than l2A0
-						ParentHash:   l2A4.ParentHash,
-						EpochNum:     rollup.Epoch(l2A4.L1Origin.Number),
-						EpochHash:    l2A4.L1Origin.Hash,
-						Timestamp:    l2A4.Time,
-						Transactions: nil,
-					},
-					Justification: nil,
-				}},
-			},
-			Expected: BatchDrop, // dropped because it could have advanced the epoch to B
-		},
-		{
-			Name:       "empty tx included",
-			L1Blocks:   []eth.L1BlockRef{l1A, l1B},
-			L2SafeHead: l2A0,
-			Batch: BatchWithL1InclusionBlock{
-				L1InclusionBlock: l1B,
-				Batch: &BatchData{BatchV2{
-					BatchV1: BatchV1{
-						ParentHash: l2A1.ParentHash,
-						EpochNum:   rollup.Epoch(l2A1.L1Origin.Number),
-						EpochHash:  l2A1.L1Origin.Hash,
-						Timestamp:  l2A1.Time,
-						Transactions: []hexutil.Bytes{
-							[]byte{}, // empty tx data
-						},
-					},
-					Justification: nil,
-				}},
-			},
-			Expected: BatchDrop,
-		},
-		{
-			Name:       "deposit tx included",
-			L1Blocks:   []eth.L1BlockRef{l1A, l1B},
-			L2SafeHead: l2A0,
-			Batch: BatchWithL1InclusionBlock{
-				L1InclusionBlock: l1B,
-				Batch: &BatchData{BatchV2{
-					BatchV1: BatchV1{
-						ParentHash: l2A1.ParentHash,
-						EpochNum:   rollup.Epoch(l2A1.L1Origin.Number),
-						EpochHash:  l2A1.L1Origin.Hash,
-						Timestamp:  l2A1.Time,
-						Transactions: []hexutil.Bytes{
-							[]byte{types.DepositTxType, 0}, // piece of data alike to a deposit
-						},
-					},
-					Justification: nil,
-				}},
-			},
-			Expected: BatchDrop,
-		},
+	testCases := []ValidBatchTestCase{
 		{
 			Name:       "valid batch where hotshot transactions fall within the window",
 			L1Blocks:   []eth.L1BlockRef{l1A, l1B, l1C},
@@ -617,25 +242,6 @@ func TestValidBatchEspresso(t *testing.T) {
 			},
 			Expected: BatchAccept,
 		},
-		{
-			Name:       "batch with L2 time before L1 time",
-			L1Blocks:   []eth.L1BlockRef{l1A, l1B, l1C},
-			L2SafeHead: l2A2,
-			Batch: BatchWithL1InclusionBlock{
-				L1InclusionBlock: l1B,
-				Batch: &BatchData{BatchV2{
-					BatchV1: BatchV1{ // we build l2B0', which starts a new epoch too early
-						ParentHash:   l2A2.Hash,
-						EpochNum:     rollup.Epoch(l2B0.L1Origin.Number),
-						EpochHash:    l2B0.L1Origin.Hash,
-						Timestamp:    l2A2.Time + conf.BlockTime,
-						Transactions: nil,
-					},
-					Justification: nil,
-				}},
-			},
-			Expected: BatchDrop,
-		},
 	}
 
 	// Log level can be increased for debugging purposes
@@ -647,4 +253,8 @@ func TestValidBatchEspresso(t *testing.T) {
 			require.Equal(t, testCase.Expected, validity, "batch check must return expected validity level")
 		})
 	}
+}
+
+func TestDefaultBatchCasesEspresso(t *testing.T) {
+	ValidBatch(t, true)
 }

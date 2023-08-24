@@ -36,6 +36,9 @@ type NextBatchProvider interface {
 type HotShotContractProvider interface {
 	// Verifies a sequence of consecutive headers against the HotShot contract
 	verifyHeaders(headers []espresso.Header, firstHeight uint64) error
+
+	// Returns a sequence of consecutive HotShot headers from a given height
+	getHeadersFromHeight(firstHeight uint64, numHeaders uint64) ([]espresso.Header, error)
 }
 
 // BatchQueue contains a set of batches for every L1 block.
