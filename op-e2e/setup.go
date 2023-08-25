@@ -516,6 +516,8 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 		cmd.Stdout = &stderr
 		// Point the sequencer at the L1 Geth node.
 		cmd.Env = append(cmd.Env, fmt.Sprintf("ESPRESSO_SEQUENCER_L1_PROVIDER=%s", httpEndpointForDocker(l1Node)))
+		// Make the Espresso block time faster than the OP block time, or else tests will time out.
+		cmd.Env = append(cmd.Env, fmt.Sprintf("ESPRESSO_ORCHESTRATOR_MAX_PROPOSE_TIME=%dms", cfg.DeployConfig.L2BlockTime * 1000 / 2))
 		cmd.Env = append(cmd.Env, "RUST_LOG=info")
 		if err := cmd.Run(); err != nil {
 			return nil, fmt.Errorf("docker compose up (%v) error: %w output: %s", cmd, err, stderr.String())
