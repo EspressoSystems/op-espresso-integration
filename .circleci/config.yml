@@ -1170,6 +1170,8 @@ workflows:
     jobs:
       - hold:
           type: approval
+      - hold-e2e:
+          type: approval
       - pnpm-monorepo:
           requires: [ hold ]
       - js-lint-test:
@@ -1341,28 +1343,28 @@ workflows:
           use_http: "false"
           devnet: ".devnet"
           deploy-config: "devnetL1.json"
-          requires: [ hold ]
+          requires: [ hold-e2e ]
       - go-e2e-test:
           name: op-e2e-legacy-HTTP-tests
           module: op-e2e
           use_http: "true"
           devnet: ".devnet"
           deploy-config: "devnetL1.json"
-          requires: [ hold ]
+          requires: [ hold-e2e ]
       - go-e2e-test:
           name: op-e2e-espresso-WS-tests
           module: op-e2e
           use_http: "false"
           devnet: ".devnet-espresso"
           deploy-config: "devnetL1-espresso.json"
-          requires: [ hold ]
+          requires: [ hold-e2e ]
       - go-e2e-test:
           name: op-e2e-espresso-HTTP-tests
           module: op-e2e
           use_http: "true"
           devnet: ".devnet-espresso"
           deploy-config: "devnetL1-espresso.json"
-          requires: [ hold ]
+          requires: [ hold-e2e ]
       - bedrock-go-tests:
           requires:
             - op-batcher-lint
