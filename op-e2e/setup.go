@@ -275,7 +275,7 @@ func (e *EspressoSystem) WaitForBlockHeight(ctx context.Context, height uint64) 
 	url := e.SequencerUrl() + "/status/latest_block_height"
 	for {
 		res, err := http.Get(url)
-		if err != nil {
+		if err == nil {
 			defer res.Body.Close()
 		}
 
