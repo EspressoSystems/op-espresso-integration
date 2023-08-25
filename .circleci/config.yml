@@ -785,26 +785,25 @@ jobs:
       deploy-config:
         description: Deployment config to use (devnetL1.json or devnetL1-espresso.json)
         type: string
-    machine:
-      image: ubuntu-2204:2022.10.2
-    environment:
-      DOCKER_BUILDKIT: 1
+    docker:
+      - image: us-docker.pkg.dev/oplabs-tools-artifacts/images/ci-builder:latest
+    resource_class: xlarge
     steps:
       - checkout
       - check-changed:
           patterns: op-(.+),contracts-bedrock
       - run:
+          name: Install Docker Compose
+          environment:
+            COMPOSE_VERSION: '1.29.2'
+          command: |
+            curl -L "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m)" -o ~/docker-compose
+            chmod +x ~/docker-compose
+            sudo mv ~/docker-compose /usr/local/bin/docker-compose
+      - setup_remote_docker
+      - run:
           name: prep results dir
           command: mkdir -p /tmp/test-results
-      - run:
-          name: foundryup
-          command: |
-            curl -L https://foundry.paradigm.xyz | bash
-            source $HOME/.bashrc
-            foundryup
-            echo 'export PATH=$HOME/.foundry/bin:$PATH' >> $BASH_ENV
-            source $HOME/.bashrc
-            forge --version
       - run:
           name: install geth
           command: make install-geth
@@ -818,15 +817,25 @@ jobs:
           name: Pull Espresso Docker images
           command: make devnet-pull
       - run:
-          name: Build
-          command: make build-go
+          name: Build op-geth-proxy Docker
+          command: docker-compose -f ops-bedrock/docker-compose.yml build op-geth-proxy
       - run:
           name: Run all init steps for op-e2e
           command: make pre-test
           working_directory: <<parameters.module>>
       - run:
           name: run tests
-          command: make test
+          command: |
+            # Note: We don't use circle CI test splits because we need to split by test name, not by package. There is an additional
+            # constraint that gotestsum does not currently (nor likely will) accept files from different pacakges when building.
+            # Note: -parallel must be set to match the number of cores in the resource class
+            OP_TESTLOG_DISABLE_COLOR=true OP_E2E_DISABLE_PARALLEL=false OP_E2E_USE_HTTP=<<parameters.use_http>>  gotestsum \
+            --format=standard-verbose --junitfile=/tmp/test-results/<<parameters.module>>_http_<<parameters.use_http>>.xml \
+            -- -timeout=20m -parallel=8 \
+               -l1-allocs ../<<parameters.devnet>>/allocs-l1.json \
+               -l1-deployments ../<<parameters.devnet>>/addresses.json \
+               -deploy-config ../packages/contracts-bedrock/deploy-config/<<parameters.deploy-config>> \
+               ./..
           working_directory: <<parameters.module>>
       - store_test_results:
           path: /tmp/test-results
@@ -1345,14 +1354,14 @@ workflows:
           use_http: "false"
           devnet: ".devnet-espresso"
           deploy-config: "devnetL1-espresso.json"
-          requires: [ hold, op-geth-proxy-docker-build ]
+          requires: [ hold ]
       - go-e2e-test:
           name: op-e2e-espresso-HTTP-tests
           module: op-e2e
           use_http: "true"
           devnet: ".devnet-espresso"
           deploy-config: "devnetL1-espresso.json"
-          requires: [ hold, op-geth-proxy-docker-build ]
+          requires: [ hold ]
       - bedrock-go-tests:
           requires:
             - op-batcher-lint
