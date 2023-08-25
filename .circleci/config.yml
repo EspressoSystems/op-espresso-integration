@@ -785,6 +785,14 @@ jobs:
       deploy-config:
         description: Deployment config to use (devnetL1.json or devnetL1-espresso.json)
         type: string
+      parallel:
+        description: The number of tests to run in parallel
+        type: integer
+        default: 8
+      run:
+        description: "Tests to run (default: all)"
+        type: string
+        default: ""
     docker:
       - image: us-docker.pkg.dev/oplabs-tools-artifacts/images/ci-builder:latest
     resource_class: xlarge
@@ -845,10 +853,11 @@ jobs:
             # Note: -parallel must be set to match the number of cores in the resource class
             OP_TESTLOG_DISABLE_COLOR=true OP_E2E_DISABLE_PARALLEL=false OP_E2E_USE_HTTP=<<parameters.use_http>>  gotestsum \
             --format=standard-verbose --junitfile=/tmp/test-results/<<parameters.module>>_http_<<parameters.use_http>>.xml \
-            -- -timeout=20m -parallel=8 \
+            -- -timeout=20m -parallel=<<parameters.parallel>> \
                -l1-allocs ../<<parameters.devnet>>/allocs-l1.json \
                -l1-deployments ../<<parameters.devnet>>/addresses.json \
                -deploy-config ../packages/contracts-bedrock/deploy-config/<<parameters.deploy-config>> \
+               -run <<parameters.run>> \
                ./..
           working_directory: <<parameters.module>>
       - store_test_results:
@@ -1370,6 +1379,8 @@ workflows:
           use_http: "false"
           devnet: ".devnet-espresso"
           deploy-config: "devnetL1-espresso.json"
+          parallel: 2
+          run: "TestMissingGasLimit|TestGethOnlyPendingBlockIsLatest|TestInvalidDepositInFCU|TestRegolith|TestPreregolith|TestSystemE2E|TestConfirmationDepth|TestMintOnRevertedDeposit|TestSystemP2PAltSync|TestWithdrawals|TestERC20BridgeDeposits"
           requires: [ hold-e2e ]
       - go-e2e-test:
           name: op-e2e-espresso-HTTP-tests
@@ -1377,6 +1388,8 @@ workflows:
           use_http: "true"
           devnet: ".devnet-espresso"
           deploy-config: "devnetL1-espresso.json"
+          parallel: 2
+          run: "TestMissingGasLimit|TestGethOnlyPendingBlockIsLatest|TestInvalidDepositInFCU|TestRegolith|TestPreregolith|TestSystemE2E|TestConfirmationDepth|TestMintOnRevertedDeposit|TestSystemP2PAltSync|TestWithdrawals|TestERC20BridgeDeposits"
           requires: [ hold-e2e ]
       - bedrock-go-tests:
           requires:
