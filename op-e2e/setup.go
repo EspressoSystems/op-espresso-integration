@@ -275,7 +275,10 @@ func (e *EspressoSystem) WaitForBlockHeight(ctx context.Context, height uint64) 
 	url := e.SequencerUrl() + "/status/latest_block_height"
 	for {
 		res, err := http.Get(url)
-		defer res.Body.Close()
+		if err != nil {
+			defer res.Body.Close()
+		}
+
 		if err == nil && res.StatusCode == 200 {
 			var currentHeight uint64
 			if err := json.NewDecoder(res.Body).Decode(&currentHeight); err != nil {
@@ -288,8 +291,10 @@ func (e *EspressoSystem) WaitForBlockHeight(ctx context.Context, height uint64) 
 			log.Warn("failed to get latest Espresso block height", "res", res, "err", err)
 		}
 
+		ticker := time.NewTicker(time.Second)
+		defer ticker.Stop()
 		select {
-		case <-time.Tick(time.Second):
+		case <-ticker.C:
 			continue
 		case <-ctx.Done():
 			return ctx.Err()
