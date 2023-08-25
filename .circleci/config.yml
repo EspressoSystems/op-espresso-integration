@@ -797,11 +797,9 @@ jobs:
           environment:
             COMPOSE_VERSION: '1.29.2'
           command: |
-            mkdir -p ~/bin
-            curl -L "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m)" -o ~/bin/docker-compose
-            chmod +x ~/bin/docker-compose
-            echo 'export PATH="~/bin:$PATH"' >> "$BASH_ENV"
-            cat "$BASH_ENV"
+            curl -L "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m)" -o ~/docker-compose
+            chmod +x ~/docker-compose
+            mv ~/docker-compose /usr/local/bin/docker-compose
       - setup_remote_docker
       - run:
           name: prep results dir
@@ -817,10 +815,7 @@ jobs:
           command: go tool dist list | grep mips
       - run:
           name: Pull Espresso Docker images
-          command: |
-            echo "$PATH"
-            ls -l ~/bin
-            make devnet-pull
+          command: make devnet-pull
       - run:
           name: Build op-geth-proxy Docker
           command: docker-compose -f ops-bedrock/docker-compose.yml build op-geth-proxy
