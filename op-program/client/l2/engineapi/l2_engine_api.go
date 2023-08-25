@@ -54,6 +54,7 @@ type L2EngineAPI struct {
 	pendingIndices map[common.Address]uint64 // per account, how many txs from the pool were already included in the block, since the pool is lagging behind block mining.
 	l2ForceEmpty   bool                      // when no additional txs may be processed (i.e. when sequencer drift runs out)
 	l2TxFailed     []*types.Transaction      // log of failed transactions which could not be included
+	l2TxRejected   []types.RejectedTransaction // log of failed transactions which should still be included in the batch (not block)
 
 	payloadID engine.PayloadID // ID of payload that is currently being built
 }
@@ -147,7 +148,7 @@ func (ea *L2EngineAPI) startBlock(parent common.Hash, params *eth.PayloadAttribu
 	ea.l2ForceEmpty = params.NoTxPool
 	ea.payloadID = computePayloadId(parent, params)
 
-	// pre-process the deposits
+	// pre-process the forced transactions
 	for i, otx := range params.Transactions {
 		var tx types.Transaction
 		if err := tx.UnmarshalBinary(otx); err != nil {
@@ -155,8 +156,19 @@ func (ea *L2EngineAPI) startBlock(parent common.Hash, params *eth.PayloadAttribu
 		}
 		err := ea.blockProcessor.AddTx(&tx)
 		if err != nil {
+			if tx.Type() == types.DepositTxType {
+				// We must include deposit transactions.
+				return fmt.Errorf("failed to apply deposit transaction to L2 block (tx %d): %w", i, err)
+			}
+			// Other forced transactions that are invalid just get added to a list, which the
+			// batcher can use to send them to L1 so that validating nodes can check they were in
+			// fact rejected using their own engine.
+			ea.log.Warn("failed to apply deposit transaction to L2 block", "index", i, "err", err)
+			ea.l2TxRejected = append(ea.l2TxRejected, types.RejectedTransaction{
+				Data: otx,
+				Pos:  len(ea.blockProcessor.receipts),
+			})
 			ea.l2TxFailed = append(ea.l2TxFailed, &tx)
-			return fmt.Errorf("failed to apply deposit transaction to L2 block (tx %d): %w", i, err)
 		}
 	}
 	return nil
@@ -167,9 +179,11 @@ func (ea *L2EngineAPI) endBlock() (*types.Block, error) {
 		return nil, fmt.Errorf("no block is being built currently (id %s)", ea.payloadID)
 	}
 	processor := ea.blockProcessor
+	rejected := ea.l2TxRejected
 	ea.blockProcessor = nil
+	ea.l2TxRejected = nil
 
-	block, err := processor.Assemble()
+	block, err := processor.Assemble(rejected)
 	if err != nil {
 		return nil, fmt.Errorf("assemble block: %w", err)
 	}
