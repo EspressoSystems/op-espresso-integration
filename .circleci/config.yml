@@ -806,14 +806,14 @@ jobs:
               tee /etc/apt/sources.list.d/docker.list > /dev/null
             apt-get update
             apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-      # - run:
-      #     name: Install Docker Compose
-      #     environment:
-      #       COMPOSE_VERSION: '1.29.2'
-      #     command: |
-      #       curl -L "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m)" -o ~/docker-compose
-      #       chmod +x ~/docker-compose
-      #       mv ~/docker-compose /usr/local/bin/docker-compose
+      - run:
+          name: Install Docker Compose
+          environment:
+            COMPOSE_VERSION: '1.29.2'
+          command: |
+            curl -L "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m)" -o ~/docker-compose
+            chmod +x ~/docker-compose
+            mv ~/docker-compose /usr/local/bin/docker-compose
       - setup_remote_docker
       - run:
           name: prep results dir
