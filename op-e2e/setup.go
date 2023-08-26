@@ -517,7 +517,7 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 		// Point the sequencer at the L1 Geth node.
 		cmd.Env = append(cmd.Env, fmt.Sprintf("ESPRESSO_SEQUENCER_L1_PROVIDER=%s", httpEndpointForDocker(l1Node)))
 		// Make the Espresso block time faster than the OP block time, or else tests will time out.
-		cmd.Env = append(cmd.Env, fmt.Sprintf("ESPRESSO_ORCHESTRATOR_MAX_PROPOSE_TIME=%dms", cfg.DeployConfig.L2BlockTime * 1000 / 2))
+		cmd.Env = append(cmd.Env, fmt.Sprintf("ESPRESSO_ORCHESTRATOR_MAX_PROPOSE_TIME=%dms", cfg.DeployConfig.L2BlockTime*1000/2))
 		cmd.Env = append(cmd.Env, "RUST_LOG=info")
 		if err := cmd.Run(); err != nil {
 			return nil, fmt.Errorf("docker compose up (%v) error: %w output: %s", cmd, err, stderr.String())
@@ -547,7 +547,7 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 	defer cancel()
 	l1Block, err := l1Client.BlockByNumber(ctx, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get L1 head: %w", err)
 	}
 	l2Genesis, err := genesis.BuildL2Genesis(cfg.DeployConfig, l1Block)
 	if err != nil {
@@ -664,7 +664,7 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 		client, err := ethclient.DialContext(ctx, endpoint)
 		if err != nil {
 			didErrAfterStart = true
-			return nil, err
+			return nil, fmt.Errorf("failed to dial eth client %s: %w", endpoint, err)
 		}
 		sys.Clients[name] = client
 	}
