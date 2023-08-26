@@ -11,6 +11,7 @@ test-espresso: pre-test
 		-l1-allocs ../.devnet-espresso/allocs-l1.json \
 		-l1-deployments ../.devnet-espresso/addresses.json \
 		-deploy-config ../packages/contracts-bedrock/deploy-config/devnetL1-espresso.json \
+		-parallel 1 \
 		-run "TestMissingGasLimit|TestGethOnlyPendingBlockIsLatest|TestInvalidDepositInFCU|TestRegolith|TestPreregolith|TestSystemE2E|TestConfirmationDepth|TestMintOnRevertedDeposit|TestSystemP2PAltSync|TestWithdrawals|TestERC20BridgeDeposits" \
 		./...
 
