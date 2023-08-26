@@ -857,7 +857,7 @@ jobs:
                -l1-allocs ../<<parameters.devnet>>/allocs-l1.json \
                -l1-deployments ../<<parameters.devnet>>/addresses.json \
                -deploy-config ../packages/contracts-bedrock/deploy-config/<<parameters.deploy-config>> \
-               -run <<parameters.run>> \
+               -run "<<parameters.run>>" \
                ./..
           working_directory: <<parameters.module>>
       - store_test_results:
