@@ -27,10 +27,12 @@ const (
 )
 
 func CheckBatchEspresso(cfg *rollup.Config, log log.Logger, l1Blocks []eth.L1BlockRef, l2SafeHead eth.L2BlockRef, batch *BatchWithL1InclusionBlock, hotshot HotShotContractProvider) BatchValidity {
+	log.Info("Checking Espresso-specific constraints")
 	// First, validate the headers that represent the beginning of the L2 block range of this batch.
 	jst := batch.Batch.Justification
 	if jst == nil {
 		// Espresso blocks must have a justification
+		log.Warn("No justification provided, dropping the batch.")
 		return BatchDrop
 	}
 	// Case where the start of the window is the genesis block
@@ -53,6 +55,7 @@ func CheckBatchEspresso(cfg *rollup.Config, log log.Logger, l1Blocks []eth.L1Blo
 	// In the case that the headers aren't available yet (perhaps the validator's L1 client is behind), return BatchFuture so that we can try again later
 	// If the headers are available but invalid, drop the batch
 	if err != nil {
+		log.Warn("Headers unavailable, returning BatchFuture.")
 		return BatchFuture
 		// TODO drop the batch if the header is invalid instead of unavailable
 		// Check for the right error type when:
@@ -88,6 +91,7 @@ func CheckBatchEspresso(cfg *rollup.Config, log log.Logger, l1Blocks []eth.L1Blo
 	skippedL1Block := jst.FirstBlock.L1Block.Number > prevL1Origin.Number
 	if payload == nil && skippedL1Block {
 		if uint64(batch.Batch.EpochNum) != prevL1Origin.Number+1 {
+			log.Warn("Dropping batch because the L1 origin did not increase by one")
 			return BatchDrop
 		}
 		return BatchAccept
@@ -95,6 +99,7 @@ func CheckBatchEspresso(cfg *rollup.Config, log log.Logger, l1Blocks []eth.L1Blo
 
 	// At this point, there is no valid reason to have an empty payload
 	if payload == nil {
+		log.Warn("Dropping batch due to empty payload")
 		return BatchDrop
 	}
 
@@ -111,6 +116,7 @@ func CheckBatchEspresso(cfg *rollup.Config, log log.Logger, l1Blocks []eth.L1Blo
 	if err != nil {
 		// TODO drop the batch if there is a true validation error
 		// https://github.com/EspressoSystems/op-espresso-integration/issues/50
+		log.Warn("Headers unavailable, returning BatchFuture.")
 		return BatchFuture
 	}
 
@@ -122,6 +128,7 @@ func CheckBatchEspresso(cfg *rollup.Config, log log.Logger, l1Blocks []eth.L1Blo
 			payload.NextBatchFirstBlock.Timestamp >= windowEnd
 
 	if !validRange {
+		log.Warn("Header range invalid, dropping the batch.")
 		return BatchDrop
 	}
 
@@ -134,6 +141,7 @@ func CheckBatchEspresso(cfg *rollup.Config, log log.Logger, l1Blocks []eth.L1Blo
 	}
 
 	if len(payload.NmtProofs) < minimumNMTProofs {
+		log.Warn("Dropping batch, minimum NMT proofs required: ", minimumNMTProofs)
 		return BatchDrop
 	}
 
@@ -141,10 +149,12 @@ func CheckBatchEspresso(cfg *rollup.Config, log log.Logger, l1Blocks []eth.L1Blo
 	headers, err := hotshot.getHeadersFromHeight(firstBlockHeight, uint64(len(payload.NmtProofs)))
 	if err != nil {
 		// If we couldn't fetch headers, try again later
+		log.Warn("Headers unavailable, returning BatchFuture.")
 		return BatchFuture
 	}
 	err = espresso.ValidateBatchTransactions(batch.Batch.Transactions, payload.NmtProofs, headers)
 	if err != nil {
+		log.Warn("Error validating batch transactions, dropping the batch.")
 		return BatchDrop
 	}
 
@@ -163,7 +173,6 @@ func CheckBatch(cfg *rollup.Config, log log.Logger, l1Blocks []eth.L1BlockRef, l
 		"batch_epoch", batch.Batch.Epoch(),
 		"txs", len(batch.Batch.Transactions),
 	)
-
 	// sanity check we have consistent inputs
 	if len(l1Blocks) == 0 {
 		log.Warn("missing L1 block input, cannot proceed with batch checking")
