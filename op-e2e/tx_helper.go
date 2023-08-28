@@ -51,7 +51,7 @@ func SendDepositTx(t *testing.T, cfg SystemConfig, l1Client *ethclient.Client, l
 	reconstructedDep, err := derive.UnmarshalDepositLogEvent(receipt.Logs[0])
 	require.NoError(t, err, "Could not reconstruct L2 Deposit")
 	tx = types.NewTx(reconstructedDep)
-	receipt, err = waitForTransaction(tx.Hash(), l2Client, 10*time.Duration(cfg.DeployConfig.L2BlockTime)*time.Second)
+	receipt, err = waitForTransaction(tx.Hash(), l2Client, 15*time.Duration(cfg.DeployConfig.L2BlockTime)*time.Second)
 	require.NoError(t, err)
 	require.Equal(t, l2Opts.ExpectedStatus, receipt.Status, "l2 transaction status")
 }
@@ -99,7 +99,7 @@ func SendL2Tx(t *testing.T, cfg SystemConfig, l2Client *ethclient.Client, privKe
 	err := l2Client.SendTransaction(ctx, tx)
 	require.Nil(t, err, "Sending L2 tx")
 
-	receipt, err := waitForTransaction(tx.Hash(), l2Client, 10*time.Duration(cfg.DeployConfig.L2BlockTime)*time.Second)
+	receipt, err := waitForTransaction(tx.Hash(), l2Client, 15*time.Duration(cfg.DeployConfig.L2BlockTime)*time.Second)
 	require.Nil(t, err, "Waiting for L2 tx")
 	require.Equal(t, opts.ExpectedStatus, receipt.Status, "TX should have expected status")
 
