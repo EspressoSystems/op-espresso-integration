@@ -1391,7 +1391,7 @@ workflows:
           devnet: ".devnet-espresso"
           deploy-config: "devnetL1-espresso.json"
           parallel: 1
-          run: "TestMissingGasLimit|TestGethOnlyPendingBlockIsLatest|TestInvalidDepositInFCU|TestRegolith|TestPreregolith|TestSystemE2E|TestConfirmationDepth|TestMintOnRevertedDeposit|TestSystemP2PAltSync|TestWithdrawals|TestERC20BridgeDeposits"
+          run: "TestMissingGasLimit|TestGethOnlyPendingBlockIsLatest|TestInvalidDepositInFCU|TestRegolith|TestPreregolith|TestSystemE2E|TestConfirmationDepth|TestMintOnRevertedDeposit|TestSystemP2PAltSync|TestSystemRPCAltSync|TestWithdrawals|TestERC20BridgeDeposits"
           requires: [ hold-e2e ]
       - go-e2e-test:
           name: op-e2e-espresso-HTTP-tests
@@ -1400,7 +1400,7 @@ workflows:
           devnet: ".devnet-espresso"
           deploy-config: "devnetL1-espresso.json"
           parallel: 1
-          run: "TestMissingGasLimit|TestGethOnlyPendingBlockIsLatest|TestInvalidDepositInFCU|TestRegolith|TestPreregolith|TestSystemE2E|TestConfirmationDepth|TestMintOnRevertedDeposit|TestSystemP2PAltSync|TestWithdrawals|TestERC20BridgeDeposits"
+          run: "TestMissingGasLimit|TestGethOnlyPendingBlockIsLatest|TestInvalidDepositInFCU|TestRegolith|TestPreregolith|TestSystemE2E|TestConfirmationDepth|TestMintOnRevertedDeposit|TestSystemP2PAltSync|TestSystemRPCAltSync|TestWithdrawals|TestERC20BridgeDeposits"
           requires: [ hold-e2e ]
       - bedrock-go-tests:
           requires:
