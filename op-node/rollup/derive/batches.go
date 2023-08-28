@@ -27,7 +27,6 @@ const (
 )
 
 func CheckBatchEspresso(cfg *rollup.Config, log log.Logger, l1Blocks []eth.L1BlockRef, l2SafeHead eth.L2BlockRef, batch *BatchWithL1InclusionBlock, hotshot HotShotContractProvider) BatchValidity {
-	log.Info("Checking Espresso-specific constraints")
 	// First, validate the headers that represent the beginning of the L2 block range of this batch.
 	jst := batch.Batch.Justification
 	if jst == nil {
@@ -50,17 +49,16 @@ func CheckBatchEspresso(cfg *rollup.Config, log log.Logger, l1Blocks []eth.L1Blo
 		firstBlockHeight = jst.FirstBlockNumber - 1
 	}
 
-	err := hotshot.verifyHeaders(startHeaders, firstBlockHeight)
+	validHeaders, err := hotshot.verifyHeaders(startHeaders, firstBlockHeight)
 
 	// In the case that the headers aren't available yet (perhaps the validator's L1 client is behind), return BatchFuture so that we can try again later
 	// If the headers are available but invalid, drop the batch
 	if err != nil {
 		log.Warn("Headers unavailable, returning BatchFuture.")
 		return BatchFuture
-		// TODO drop the batch if the header is invalid instead of unavailable
-		// Check for the right error type when:
-		// https://github.com/EspressoSystems/op-espresso-integration/issues/50
-		// is implemented
+	} else if !validHeaders {
+		log.Warn("Headers invalid, dropping the batch.")
+		return BatchDrop
 	}
 
 	// First, check for cases where it is valid to have any empty batch.
@@ -109,15 +107,16 @@ func CheckBatchEspresso(cfg *rollup.Config, log log.Logger, l1Blocks []eth.L1Blo
 	// Validate the headers representing the end of the batch window
 	endHeaders :=
 		[]espresso.Header{payload.LastBlock, payload.NextBatchFirstBlock}
-	err = hotshot.verifyHeaders(endHeaders, jst.FirstBlockNumber+uint64(numBlocks)-1)
+	validHeaders, err = hotshot.verifyHeaders(endHeaders, jst.FirstBlockNumber+uint64(numBlocks)-1)
 
 	// In the case that the headers aren't available yet (perhaps the validator's L1 client is behind), return BatchFuture so that we can try again later
 	// If the headers are available but invalid, drop the batch
 	if err != nil {
-		// TODO drop the batch if there is a true validation error
-		// https://github.com/EspressoSystems/op-espresso-integration/issues/50
 		log.Warn("Headers unavailable, returning BatchFuture.")
 		return BatchFuture
+	} else if !validHeaders {
+		log.Warn("Headers invalid, dropping the batch.")
+		return BatchDrop
 	}
 
 	// Check that the range of HotShot blocks fall within the window

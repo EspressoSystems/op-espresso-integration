@@ -30,21 +30,20 @@ type mockHotShotProvider struct {
 	Headers []espresso.Header
 }
 
-func (m *mockHotShotProvider) verifyHeaders(headers []espresso.Header, height uint64) error {
+func (m *mockHotShotProvider) verifyHeaders(headers []espresso.Header, height uint64) (bool, error) {
 	if height+uint64(len(headers)) > uint64(len(m.Headers)) {
 		fmt.Println("Headers unavailable")
-		return NewCriticalError(errors.New("Headers unavailable"))
+		return false, NewCriticalError(errors.New("Headers unavailable"))
 	}
 	// For testing purposes, use the timestamp to check equality
 	for i, header := range headers {
 		if header.Timestamp != m.Headers[uint64(i)+height].Timestamp {
 			fmt.Println("Invalid header")
-			return NewCriticalError(errors.New("Invalid header detected"))
+			return false, nil
 
 		}
 	}
-	return nil
-
+	return true, nil
 }
 
 func (m *mockHotShotProvider) getHeadersFromHeight(firstBlockHeight uint64, numHeaders uint64) ([]espresso.Header, error) {
@@ -285,6 +284,31 @@ func TestValidBatchEspresso(t *testing.T) {
 				}},
 			},
 			Expected: BatchAccept,
+		},
+		{
+			Name:       "invalid batch due to empty headers",
+			L1Blocks:   []eth.L1BlockRef{l1A, l1B, l1C},
+			L2SafeHead: l2A3,
+			Headers:    hotshotSkippedHeaders,
+			Batch: BatchWithL1InclusionBlock{
+				L1InclusionBlock: l1B,
+				Batch: &BatchData{BatchV2{
+					BatchV1: BatchV1{
+						ParentHash:   l2B0.ParentHash,
+						EpochNum:     rollup.Epoch(l2B0.L1Origin.Number),
+						EpochHash:    l2B0.L1Origin.Hash,
+						Timestamp:    l2B0.Time,
+						Transactions: []hexutil.Bytes{},
+					},
+					Justification: &eth.L2BatchJustification{
+						// Switch the blocks
+						PrevBatchLastBlock: hotshotSkippedHeaders[1],
+						FirstBlock:         hotshotSkippedHeaders[0],
+						FirstBlockNumber:   1,
+					},
+				}},
+			},
+			Expected: BatchDrop,
 		},
 		{
 			Name:       "invalid batch due to espresso providing a previous batch header outside of the window range",

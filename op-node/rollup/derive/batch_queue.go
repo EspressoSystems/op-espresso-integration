@@ -35,7 +35,9 @@ type NextBatchProvider interface {
 
 type HotShotContractProvider interface {
 	// Verifies a sequence of consecutive headers against the HotShot contract
-	verifyHeaders(headers []espresso.Header, firstHeight uint64) error
+	// The bool indiciates whether header verification was successful, while the error
+	// Represents an error encountered attempting to fetch the contract headers themselves (e.g. if the headers are unavailable)
+	verifyHeaders(headers []espresso.Header, firstHeight uint64) (bool, error)
 
 	// Returns a sequence of consecutive HotShot headers from a given height
 	getHeadersFromHeight(firstHeight uint64, numHeaders uint64) ([]espresso.Header, error)
