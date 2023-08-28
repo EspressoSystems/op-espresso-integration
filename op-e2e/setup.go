@@ -287,6 +287,7 @@ func (e *EspressoSystem) WaitForBlockHeight(ctx context.Context, height uint64) 
 			if currentHeight >= height {
 				return nil
 			}
+			log.Info("waiting for Espresso block height to reach %d, currently %d", height, currentHeight)
 		} else {
 			log.Warn("failed to get latest Espresso block height", "res", res, "err", err)
 		}
