@@ -412,7 +412,7 @@ func (s *SystemConfigOptions) Get(key, role string) (systemConfigHook, bool) {
 func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 	opts, err := NewSystemConfigOptions(_opts)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create system config: %w", err)
 	}
 
 	sys := &System{
@@ -441,12 +441,12 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 	}
 
 	if err := cfg.DeployConfig.Check(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid DeployConfig: %w", err)
 	}
 
 	l1Genesis, err := genesis.BuildL1DeveloperGenesis(cfg.DeployConfig, config.L1Allocs, config.L1Deployments, true)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to build L1 genesis: %w", err)
 	}
 
 	for addr, amount := range cfg.Premine {
@@ -468,21 +468,21 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 	// Initialize L1
 	l1Node, l1Backend, err := initL1Geth(&cfg, l1Genesis, c, cfg.GethOptions["l1"]...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to init L1 geth: %w", err)
 	}
 	sys.Nodes["l1"] = l1Node
 	sys.Backends["l1"] = l1Backend
 	err = l1Node.Start()
 	if err != nil {
 		didErrAfterStart = true
-		return nil, err
+		return nil, fmt.Errorf("failed to starat L1 geth: %w", err)
 	}
 
 	// Connect to L1 Geth client
 	l1Srv, err := l1Node.RPCHandler()
 	if err != nil {
 		didErrAfterStart = true
-		return nil, err
+		return nil, fmt.Errorf("failed to connect to L1 geth: %w", err)
 	}
 	l1Client := ethclient.NewClient(rpc.DialInProc(l1Srv))
 	sys.Clients["l1"] = l1Client
@@ -492,11 +492,11 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 		// Find the docker-compose file.
 		cwd, err := os.Getwd()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to get cwd: %w", err)
 		}
 		root, err := config.FindMonorepoRoot(cwd)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to find monorepo root: %w", err)
 		}
 		composeFile := filepath.Join(root, "ops-bedrock", "docker-compose.yml")
 
@@ -526,7 +526,7 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 		// Find the ports which were randomly assigned to the services.
 		sequencerPort, err := dockerComposePort(projectName, composeFile, "sequencer0", 8080)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to get sequencer0 port: %w", err)
 		}
 
 		sys.Espresso = &EspressoSystem{
@@ -538,7 +538,7 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 		// Wait for Espresso to start producing blocks. Because of pipelining, the first block can
 		// take a few seconds, which we don't want to count against the test timeout.
 		if err := sys.Espresso.WaitForBlockHeight(ctx, 1); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to reach Espresso block height: %w", err)
 		}
 	}
 
@@ -551,7 +551,7 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 	}
 	l2Genesis, err := genesis.BuildL2Genesis(cfg.DeployConfig, l1Block)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to build L2 genesis: %w", err)
 	}
 	sys.L2GenesisCfg = l2Genesis
 	for addr, amount := range cfg.Premine {
@@ -598,7 +598,7 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 	}
 	defaultConfig := makeRollupConfig()
 	if err := defaultConfig.Check(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("rollup config is invalid: %w", err)
 	}
 	sys.RollupConfig = &defaultConfig
 
@@ -606,7 +606,7 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 	for name := range cfg.Nodes {
 		node, backend, err := initL2Geth(name, big.NewInt(int64(cfg.DeployConfig.L2ChainID)), l2Genesis, cfg.JWTFilePath, cfg.GethOptions[name]...)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to init L2 Geth %s: %w", name, err)
 		}
 		sys.Nodes[name] = node
 		sys.Backends[name] = backend
@@ -620,18 +620,18 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 		err = node.Start()
 		if err != nil {
 			didErrAfterStart = true
-			return nil, err
+			return nil, fmt.Errorf("failed to start L2 Geth: %s: %w", name, err)
 		}
 	}
 
 	// Now that the L2 nodes are running, start an Espresso proxy for the L2 sequencer Geth node.
 	if sys.Espresso != nil {
 		if err := sys.Espresso.StartGethProxy(sys.Nodes["sequencer"]); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to start Geth proxy: %w", err)
 		}
 		// Now that all the Docker services are running, attach to logs.
 		if err := sys.Espresso.AttachLogs(); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to attach to Docker logs: %w", err)
 		}
 	}
 
@@ -741,7 +741,7 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 		c := *nodeConfig // copy
 		c.Rollup = makeRollupConfig()
 		if err := c.LoadPersisted(cfg.Loggers[name]); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to load persisted logger: %w", err)
 		}
 
 		if p, ok := p2pNodes[name]; ok {
@@ -757,12 +757,12 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 		node, err := rollupNode.New(context.Background(), &c, cfg.Loggers[name], snapLog, "", metrics.NewMetrics(""))
 		if err != nil {
 			didErrAfterStart = true
-			return nil, err
+			return nil, fmt.Errorf("failed to create rollup node %s: %w", name, err)
 		}
 		err = node.Start(context.Background())
 		if err != nil {
 			didErrAfterStart = true
-			return nil, err
+			return nil, fmt.Errorf("failed to start rollup node %s: %w", name, err)
 		}
 		sys.RollupNodes[name] = node
 
