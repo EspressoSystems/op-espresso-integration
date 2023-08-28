@@ -121,7 +121,7 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 				},
 				// Submitter PrivKey is set in system start for rollup nodes where sequencer = true
 				RPC: rollupNode.RPCConfig{
-					ListenAddr:  "127.0.0.1",
+					ListenAddr:  "0.0.0.0",
 					ListenPort:  0,
 					EnableAdmin: true,
 				},

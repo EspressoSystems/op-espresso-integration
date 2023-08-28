@@ -125,9 +125,9 @@ func initL1Geth(cfg *SystemConfig, genesis *core.Genesis, c clock.Clock, opts ..
 	}
 	nodeConfig := &node.Config{
 		Name:        "l1-geth",
-		HTTPHost:    "127.0.0.1",
+		HTTPHost:    "0.0.0.0",
 		HTTPPort:    0,
-		WSHost:      "127.0.0.1",
+		WSHost:      "0.0.0.0",
 		WSPort:      0,
 		WSModules:   []string{"debug", "admin", "eth", "txpool", "net", "rpc", "web3", "personal", "engine"},
 		HTTPModules: []string{"debug", "admin", "eth", "txpool", "net", "rpc", "web3", "personal", "engine"},
@@ -161,11 +161,11 @@ func initL1Geth(cfg *SystemConfig, genesis *core.Genesis, c clock.Clock, opts ..
 func defaultNodeConfig(name string, jwtPath string) *node.Config {
 	return &node.Config{
 		Name:        name,
-		WSHost:      "127.0.0.1",
+		WSHost:      "0.0.0.0",
 		WSPort:      0,
-		AuthAddr:    "127.0.0.1",
+		AuthAddr:    "0.0.0.0",
 		AuthPort:    0,
-		HTTPHost:    "127.0.0.1",
+		HTTPHost:    "0.0.0.0",
 		HTTPPort:    0,
 		WSModules:   []string{"debug", "admin", "eth", "txpool", "net", "rpc", "web3", "personal", "engine"},
 		HTTPModules: []string{"debug", "admin", "eth", "txpool", "net", "rpc", "web3", "personal", "engine"},
