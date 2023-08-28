@@ -107,7 +107,6 @@ func (c *Client) get(ctx context.Context, out any, format string, args ...any) e
 		c.log.Error("request failed", "err", err, "url", url, "status", res.StatusCode, "response", string(body))
 		return fmt.Errorf("request failed with status %d", res.StatusCode)
 	}
-	c.log.Debug("request completed successfully", "url", url, "res", res)
 
 	// Read the response body into memory before we unmarshal it, rather than passing the io.Reader
 	// to the json decoder, so that we still have the body and can inspect it if unmarshalling
@@ -121,5 +120,6 @@ func (c *Client) get(ctx context.Context, out any, format string, args ...any) e
 		c.log.Error("failed to parse body as json", "err", err, "url", url, "response", string(body))
 		return err
 	}
+	c.log.Debug("request completed successfully", "url", url, "res", res, "body", string(body), "out", out)
 	return nil
 }
