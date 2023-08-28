@@ -1376,14 +1376,14 @@ workflows:
           use_http: "false"
           devnet: ".devnet"
           deploy-config: "devnetL1.json"
-          requires: [ hold-e2e ]
+          requires: [ hold ]
       - go-e2e-test:
           name: op-e2e-legacy-HTTP-tests
           module: op-e2e
           use_http: "true"
           devnet: ".devnet"
           deploy-config: "devnetL1.json"
-          requires: [ hold-e2e ]
+          requires: [ hold ]
       - go-e2e-test:
           name: op-e2e-espresso-WS-tests
           module: op-e2e
