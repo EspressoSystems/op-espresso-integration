@@ -238,12 +238,12 @@ func (d *Sequencer) updateEspressoBatch(ctx context.Context, newHeaders []espres
 		if header.Timestamp < batch.windowStart {
 			// Eventually, we should return an error here. However due to a limitation in the
 			// current implementation of HotShot/Espresso, block timestamps will sometimes decrease.
-			d.log.Error("inconsistent data from Espresso query service: header", header, "is before window start", batch.windowStart)
+			d.log.Error("inconsistent data from Espresso query service: header is before window start", "header", header, "start", batch.windowStart)
 		}
 		if header.Timestamp < batch.jst.Payload.LastBlock.Timestamp {
 			// Similarly, this should eventually be an error, but can happen with the current
 			// version of Espresso.
-			d.log.Error("inconsistent data from Espresso query service: header", header, "is before its predecessor", batch.jst.Payload.LastBlock)
+			d.log.Error("inconsistent data from Espresso query service: header is before its predecessor", "header", header, "prev", batch.jst.Payload.LastBlock)
 		}
 
 		blockNum := batch.jst.FirstBlockNumber + uint64(len(batch.blocks))
