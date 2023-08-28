@@ -287,7 +287,7 @@ func (e *EspressoSystem) WaitForBlockHeight(ctx context.Context, height uint64) 
 			if currentHeight >= height {
 				return nil
 			}
-			log.Info("waiting for Espresso block height to reach %d, currently %d", height, currentHeight)
+			log.Info("waiting for Espresso block height", "current", currentHeight, "desired", height)
 		} else {
 			log.Warn("failed to get latest Espresso block height", "res", res, "err", err)
 		}
@@ -327,6 +327,15 @@ func (e *EspressoSystem) StartGethProxy(sequencer *node.Node) error {
 	}
 	e.proxyPort = proxyPort
 	return nil
+}
+
+func (e *EspressoSystem) PringLogs() {
+	logs := exec.Command("docker", "compose", "--project-name", e.projectName, "-f", e.composeFile, "logs")
+	logs.Stdout = os.Stdout
+	logs.Stderr = os.Stderr
+	if err := logs.Run(); err != nil {
+		log.Error("failed to get docker-compose logs: %w", err)
+	}
 }
 
 func (e *EspressoSystem) AttachLogs() error {
@@ -539,6 +548,9 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 		// Wait for Espresso to start producing blocks. Because of pipelining, the first block can
 		// take a few seconds, which we don't want to count against the test timeout.
 		if err := sys.Espresso.WaitForBlockHeight(ctx, 1); err != nil {
+			// If we never reached a height of a single block, something is probably wrong with the
+			// Espresso configuration, and we will want to look at the logs.
+			sys.Espresso.PringLogs()
 			return nil, fmt.Errorf("failed to reach Espresso block height: %w", err)
 		}
 	}
