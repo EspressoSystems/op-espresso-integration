@@ -1203,8 +1203,6 @@ workflows:
     jobs:
       - hold:
           type: approval
-      - hold-e2e:
-          type: approval
       - pnpm-monorepo:
           requires: [ hold ]
       - js-lint-test:
@@ -1392,7 +1390,7 @@ workflows:
           deploy-config: "devnetL1-espresso.json"
           parallel: 1
           run: "TestMissingGasLimit|TestGethOnlyPendingBlockIsLatest|TestInvalidDepositInFCU|TestRegolith|TestPreregolith|TestSystemE2E|TestConfirmationDepth|TestMintOnRevertedDeposit|TestSystemP2PAltSync|TestSystemRPCAltSync|TestWithdrawals|TestERC20BridgeDeposits"
-          requires: [ hold-e2e ]
+          requires: [ hold ]
       - go-e2e-test:
           name: op-e2e-espresso-HTTP-tests
           module: op-e2e
@@ -1401,7 +1399,7 @@ workflows:
           deploy-config: "devnetL1-espresso.json"
           parallel: 1
           run: "TestMissingGasLimit|TestGethOnlyPendingBlockIsLatest|TestInvalidDepositInFCU|TestRegolith|TestPreregolith|TestSystemE2E|TestConfirmationDepth|TestMintOnRevertedDeposit|TestSystemP2PAltSync|TestSystemRPCAltSync|TestWithdrawals|TestERC20BridgeDeposits"
-          requires: [ hold-e2e ]
+          requires: [ hold ]
       - bedrock-go-tests:
           requires:
             - op-batcher-lint

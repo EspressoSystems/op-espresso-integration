@@ -140,7 +140,7 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 		},
 		Loggers: map[string]log.Logger{
 			"verifier":  testlog.Logger(t, log.LvlInfo).New("role", "verifier"),
-			"sequencer": testlog.Logger(t, log.LvlDebug).New("role", "sequencer"),
+			"sequencer": testlog.Logger(t, log.LvlInfo).New("role", "sequencer"),
 			"batcher":   testlog.Logger(t, log.LvlInfo).New("role", "batcher"),
 			"proposer":  testlog.Logger(t, log.LvlCrit).New("role", "proposer"),
 		},
