@@ -55,6 +55,8 @@ func TestEspressoTypesNmtRootJson(t *testing.T) {
 		t.Fatalf("Failed to unmarshal JSON: %v", err)
 	}
 	require.Equal(t, decoded, ReferenceNmtRoot)
+
+	CheckJsonRequiredFields[NmtRoot](t, data, "root")
 }
 
 func TestEspressoTypesL1BLockInfoJson(t *testing.T) {
@@ -77,6 +79,8 @@ func TestEspressoTypesL1BLockInfoJson(t *testing.T) {
 		t.Fatalf("Failed to unmarshal JSON: %v", err)
 	}
 	require.Equal(t, decoded, ReferenceL1BLockInfo)
+
+	CheckJsonRequiredFields[L1BlockInfo](t, data, "number", "timestamp", "hash")
 }
 
 func TestEspressoTypesHeaderJson(t *testing.T) {
@@ -108,6 +112,64 @@ func TestEspressoTypesHeaderJson(t *testing.T) {
 		t.Fatalf("Failed to unmarshal JSON: %v", err)
 	}
 	require.Equal(t, decoded, ReferenceHeader)
+
+	CheckJsonRequiredFields[Header](t, data, "transactions_root", "metadata")
+}
+
+func TestEspressoMetadataJson(t *testing.T) {
+	data := []byte(removeWhitespace(`{
+			"timestamp": 789,
+			"l1_head": 124,
+			"l1_finalized": {
+				"number": 123,
+				"timestamp": "0x456",
+				"hash": "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+			}
+		}`))
+	m := ReferenceHeader.Metadata
+
+	// Check encoding.
+	encoded, err := json.Marshal(m)
+	if err != nil {
+		t.Fatalf("Failed to marshal JSON: %v", err)
+	}
+	require.Equal(t, encoded, data)
+
+	// Check decoding
+	var decoded Metadata
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("Failed to unmarshal JSON: %v", err)
+	}
+	require.Equal(t, decoded, m)
+
+	CheckJsonRequiredFields[Metadata](t, data, "timestamp", "l1_head")
+}
+
+func TestEspressoTransactionJson(t *testing.T) {
+	data := []byte(removeWhitespace(`{
+		"vm": 0,
+		"payload": [1,2,3,4,5]
+	}`))
+	tx := Transaction{
+		Vm:      0,
+		Payload: []byte{1, 2, 3, 4, 5},
+	}
+
+	// Check encoding.
+	encoded, err := json.Marshal(tx)
+	if err != nil {
+		t.Fatalf("Failed to marshal JSON: %v", err)
+	}
+	require.Equal(t, encoded, data)
+
+	// Check decoding
+	var decoded Transaction
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("Failed to unmarshal JSON: %v", err)
+	}
+	require.Equal(t, decoded, tx)
+
+	CheckJsonRequiredFields[Transaction](t, data, "vm", "payload")
 }
 
 // Commitment tests ported from the reference sequencer implementation
@@ -123,4 +185,31 @@ func TestEspressoTypesL1BlockInfoCommit(t *testing.T) {
 
 func TestEspressoTypesHeaderCommit(t *testing.T) {
 	require.Equal(t, ReferenceHeader.Commit(), Commitment{26, 77, 186, 162, 251, 241, 135, 23, 132, 5, 196, 207, 131, 64, 207, 215, 141, 144, 146, 65, 158, 30, 169, 102, 251, 183, 101, 149, 168, 173, 161, 149})
+}
+
+func CheckJsonRequiredFields[T any](t *testing.T, data []byte, fields ...string) {
+	// Parse the JSON object into a map so we can selectively delete fields.
+	var obj map[string]json.RawMessage
+	if err := json.Unmarshal(data, &obj); err != nil {
+		t.Fatalf("failed to unmarshal JSON: %v", err)
+	}
+
+	for _, field := range fields {
+		data, err := json.Marshal(withoutKey(obj, field))
+		require.Nil(t, err, "failed to marshal JSON")
+
+		var dec T
+		err = json.Unmarshal(data, &dec)
+		require.NotNil(t, err, "unmarshalling without required field %s should fail", field)
+	}
+}
+
+func withoutKey[K comparable, V any](m map[K]V, key K) map[K]V {
+	copied := make(map[K]V)
+	for k, v := range m {
+		if k != key {
+			copied[k] = v
+		}
+	}
+	return copied
 }

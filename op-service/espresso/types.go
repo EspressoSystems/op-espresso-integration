@@ -14,6 +14,31 @@ type Header struct {
 	Metadata `json:"metadata"`
 }
 
+func (h *Header) UnmarshalJSON(b []byte) error {
+	// Parse using pointers so we can distinguish between missing and default fields.
+	type Dec struct {
+		TransactionsRoot *NmtRoot  `json:"transactions_root"`
+		Metadata         *Metadata `json:"metadata"`
+	}
+
+	var dec Dec
+	if err := json.Unmarshal(b, &dec); err != nil {
+		return err
+	}
+
+	if dec.TransactionsRoot == nil {
+		return fmt.Errorf("Field transactions_root of type Header is required")
+	}
+	h.TransactionsRoot = *dec.TransactionsRoot
+
+	if dec.Metadata == nil {
+		return fmt.Errorf("Field metadata of type Header is required")
+	}
+	h.Metadata = *dec.Metadata
+
+	return nil
+}
+
 func (self *Header) Commit() Commitment {
 	var l1FinalizedComm *Commitment
 	if self.L1Finalized != nil {
@@ -36,10 +61,68 @@ type Metadata struct {
 	L1Finalized *L1BlockInfo `json:"l1_finalized" rlp:"nil"`
 }
 
+func (m *Metadata) UnmarshalJSON(b []byte) error {
+	// Parse using pointers so we can distinguish between missing and default fields.
+	type Dec struct {
+		Timestamp   *uint64      `json:"timestamp"`
+		L1Head      *uint64      `json:"l1_head"`
+		L1Finalized *L1BlockInfo `json:"l1_finalized" rlp:"nil"`
+	}
+
+	var dec Dec
+	if err := json.Unmarshal(b, &dec); err != nil {
+		return err
+	}
+
+	if dec.Timestamp == nil {
+		return fmt.Errorf("Field timestamp of type Metadata is required")
+	}
+	m.Timestamp = *dec.Timestamp
+
+	if dec.L1Head == nil {
+		return fmt.Errorf("Field l1_head of type Metadata is required")
+	}
+	m.L1Head = *dec.L1Head
+
+	m.L1Finalized = dec.L1Finalized
+	return nil
+}
+
 type L1BlockInfo struct {
 	Number    uint64      `json:"number"`
 	Timestamp U256        `json:"timestamp"`
 	Hash      common.Hash `json:"hash"`
+}
+
+func (i *L1BlockInfo) UnmarshalJSON(b []byte) error {
+	// Parse using pointers so we can distinguish between missing and default fields.
+	type Dec struct {
+		Number    *uint64      `json:"number"`
+		Timestamp *U256        `json:"timestamp"`
+		Hash      *common.Hash `json:"hash"`
+	}
+
+	var dec Dec
+	if err := json.Unmarshal(b, &dec); err != nil {
+		return err
+	}
+
+	if dec.Number == nil {
+		return fmt.Errorf("Field number of type L1BlockInfo is required")
+	}
+	i.Number = *dec.Number
+
+	if dec.Timestamp == nil {
+		return fmt.Errorf("Field timestamp of type L1BlockInfo is required")
+	}
+	i.Timestamp = *dec.Timestamp
+
+	if dec.Hash == nil {
+		return fmt.Errorf("Field hash of type L1BlockInfo is required")
+	}
+	i.Hash = *dec.Hash
+
+	return nil
 }
 
 func (self *L1BlockInfo) Commit() Commitment {
@@ -54,10 +137,59 @@ type NmtRoot struct {
 	Root Bytes `json:"root"`
 }
 
+func (r *NmtRoot) UnmarshalJSON(b []byte) error {
+	// Parse using pointers so we can distinguish between missing and default fields.
+	type Dec struct {
+		Root *Bytes `json:"root"`
+	}
+
+	var dec Dec
+	if err := json.Unmarshal(b, &dec); err != nil {
+		return err
+	}
+
+	if dec.Root == nil {
+		return fmt.Errorf("Field root of type NmtRoot is required")
+	}
+	r.Root = *dec.Root
+
+	return nil
+}
+
 func (self *NmtRoot) Commit() Commitment {
 	return NewRawCommitmentBuilder("NMTROOT").
 		VarSizeField("root", self.Root).
 		Finalize()
+}
+
+type Transaction struct {
+	Vm      uint64 `json:"vm"`
+	Payload Bytes  `json:"payload"`
+}
+
+func (t *Transaction) UnmarshalJSON(b []byte) error {
+	// Parse using pointers so we can distinguish between missing and default fields.
+	type Dec struct {
+		Vm      *uint64 `json:"vm"`
+		Payload *Bytes  `json:"payload"`
+	}
+
+	var dec Dec
+	if err := json.Unmarshal(b, &dec); err != nil {
+		return err
+	}
+
+	if dec.Vm == nil {
+		return fmt.Errorf("Field vm of type Transaction is required")
+	}
+	t.Vm = *dec.Vm
+
+	if dec.Payload == nil {
+		return fmt.Errorf("Field payload of type Transaction is required")
+	}
+	t.Payload = *dec.Payload
+
+	return nil
 }
 
 type BatchMerkleProof = Bytes

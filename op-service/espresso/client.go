@@ -53,19 +53,26 @@ func (c *Client) FetchTransactionsInBlock(ctx context.Context, block uint64, hea
 }
 
 type NamespaceResponse struct {
-	Proof        json.RawMessage
-	Transactions []Transaction
+	Proof        *json.RawMessage `json:"proof"`
+	Transactions *[]Transaction   `json:"transactions"`
 }
 
 // Validate a NamespaceResponse and extract the transactions.
 // NMT proof validation is currently stubbed out.
 func (res *NamespaceResponse) Validate(header *Header, namespace uint64) (TransactionsInBlock, error) {
-	proof := NmtProof(res.Proof)
+	if res.Proof == nil {
+		return TransactionsInBlock{}, fmt.Errorf("field proof of type NamespaceResponse is required")
+	}
+	if res.Transactions == nil {
+		return TransactionsInBlock{}, fmt.Errorf("field transactions of type NamespaceResponse is required")
+	}
+
+	proof := NmtProof(*res.Proof)
 	// TODO validate `proof` against `header.TransactionsRoot`
 
 	// Extract the transactions.
 	var txs []Bytes
-	for i, tx := range res.Transactions {
+	for i, tx := range *res.Transactions {
 		if tx.Vm != namespace {
 			return TransactionsInBlock{}, fmt.Errorf("transaction %d has wrong namespace (%d, expected %d)", i, tx.Vm, namespace)
 		}
@@ -76,11 +83,6 @@ func (res *NamespaceResponse) Validate(header *Header, namespace uint64) (Transa
 		Transactions: txs,
 		Proof:        proof,
 	}, nil
-}
-
-type Transaction struct {
-	Vm      uint64
-	Payload Bytes
 }
 
 func (c *Client) get(ctx context.Context, out any, format string, args ...any) error {
