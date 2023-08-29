@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-service/espresso"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
 
@@ -32,6 +33,16 @@ type NextBatchProvider interface {
 	NextBatch(ctx context.Context) (*BatchData, error)
 }
 
+type HotShotContractProvider interface {
+	// Verifies a sequence of consecutive headers against the HotShot contract
+	// The bool indiciates whether header verification was successful, while the error
+	// Represents an error encountered attempting to fetch the contract headers themselves (e.g. if the headers are unavailable)
+	verifyHeaders(headers []espresso.Header, firstHeight uint64) (bool, error)
+
+	// Returns a sequence of consecutive HotShot headers from a given height
+	getHeadersFromHeight(firstHeight uint64, numHeaders uint64) ([]espresso.Header, error)
+}
+
 // BatchQueue contains a set of batches for every L1 block.
 // L1 blocks are contiguous and this does not support reorgs.
 type BatchQueue struct {
@@ -44,6 +55,8 @@ type BatchQueue struct {
 
 	// batches in order of when we've first seen them, grouped by L2 timestamp
 	batches map[uint64][]*BatchWithL1InclusionBlock
+
+	hotshot HotShotContractProvider
 }
 
 // NewBatchQueue creates a BatchQueue, which should be Reset(origin) before use.
@@ -135,7 +148,7 @@ func (bq *BatchQueue) AddBatch(batch *BatchData, l2SafeHead eth.L2BlockRef, usin
 		L1InclusionBlock: bq.origin,
 		Batch:            batch,
 	}
-	validity := CheckBatch(bq.config, bq.log, bq.l1Blocks, l2SafeHead, &data, usingEspresso)
+	validity := CheckBatch(bq.config, bq.log, bq.l1Blocks, l2SafeHead, &data, usingEspresso, bq.hotshot)
 	if validity == BatchDrop {
 		return // if we do drop the batch, CheckBatch will log the drop reason with WARN level.
 	}
@@ -173,7 +186,7 @@ func (bq *BatchQueue) deriveNextBatch(ctx context.Context, outOfData bool, l2Saf
 	candidates := bq.batches[nextTimestamp]
 batchLoop:
 	for i, batch := range candidates {
-		validity := CheckBatch(bq.config, bq.log.New("batch_index", i), bq.l1Blocks, l2SafeHead, batch, usingEspresso)
+		validity := CheckBatch(bq.config, bq.log.New("batch_index", i), bq.l1Blocks, l2SafeHead, batch, usingEspresso, bq.hotshot)
 		switch validity {
 		case BatchFuture:
 			return nil, NewCriticalError(fmt.Errorf("found batch with timestamp %d marked as future batch, but expected timestamp %d", batch.Batch.Timestamp, nextTimestamp))
