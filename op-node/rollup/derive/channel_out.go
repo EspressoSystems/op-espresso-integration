@@ -225,10 +225,11 @@ func BlockToBatch(block *types.Block) (*BatchData, L1BlockInfo, error) {
 	blockRejected := block.Rejected()
 	nextTx := 0
 	nextRejected := 0
+	pos := uint64(0)
 	for nextTx < len(blockTxs) || nextRejected < len(blockRejected) {
 		if nextRejected < len(blockRejected) {
 			rejected := &blockRejected[nextRejected]
-			if rejected.Pos == uint64(len(opaqueTxs)) {
+			if rejected.Pos == pos {
 				opaqueTxs = append(opaqueTxs, rejected.Data)
 				nextRejected++
 				continue
@@ -237,6 +238,7 @@ func BlockToBatch(block *types.Block) (*BatchData, L1BlockInfo, error) {
 		// If there is no rejected transaction at this position, there must be a regular transaction.
 		tx := blockTxs[nextTx]
 		nextTx++
+		pos++
 		if tx.Type() == types.DepositTxType {
 			continue
 		}

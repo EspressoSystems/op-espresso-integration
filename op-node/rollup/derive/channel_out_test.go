@@ -3,9 +3,14 @@ package derive
 import (
 	"bytes"
 	"math/big"
+	"math/rand"
 	"testing"
 
+	"github.com/ethereum-optimism/optimism/op-node/testutils"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
+
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/stretchr/testify/require"
@@ -154,4 +159,47 @@ func TestBlockToBatchValidity(t *testing.T) {
 	block := new(types.Block)
 	_, _, err := BlockToBatch(block)
 	require.ErrorContains(t, err, "has no transactions")
+}
+
+func TestBlockToBatchAllTransactionTypes(t *testing.T) {
+	rng := rand.New(rand.NewSource(12345))
+
+	// Build a block from transactions in the following order:
+	// * L1 info deposit
+	// * Regular deposit
+	// * Regular transaction
+	// * Rejected transaction
+	// * Rejected transaction
+	// * Regular transaction
+	rejected1 := types.RejectedTransaction{
+		Pos:  3,
+		Data: []byte{1, 2, 3, 4, 5},
+	}
+	rejected2 := types.RejectedTransaction{
+		Pos:  3,
+		Data: []byte{6, 7, 8, 9},
+	}
+	accepted1 := types.NewTx(&types.LegacyTx{
+		Nonce: 0,
+	})
+	accepted2 := types.NewTx(&types.LegacyTx{
+		Nonce: 1,
+	})
+	deposit := types.NewTx(&types.DepositTx{})
+	l1Info, err := L1InfoDeposit(0, eth.HeaderBlockInfo(testutils.RandomHeader(rng)), eth.SystemConfig{}, nil, false)
+	require.Nil(t, err, "failed to build L1 deposit info")
+
+	block := types.NewBlockWithHeader(testutils.RandomHeader(rng)).
+		WithBody([]*types.Transaction{types.NewTx(l1Info), deposit, accepted1, accepted2}, nil).
+		WithRejected([]types.RejectedTransaction{rejected1, rejected2})
+
+	batch, _, err := BlockToBatch(block)
+	require.Nil(t, err, "BlockToBatch failed")
+
+	accepted1Bytes, err := accepted1.MarshalBinary()
+	require.Nil(t, err, "MarshalBinary failed")
+	accepted2Bytes, err := accepted2.MarshalBinary()
+	require.Nil(t, err, "MarshalBinary failed")
+
+	require.Equal(t, batch.Transactions, []hexutil.Bytes{accepted1Bytes, rejected1.Data, rejected2.Data, accepted2Bytes})
 }
