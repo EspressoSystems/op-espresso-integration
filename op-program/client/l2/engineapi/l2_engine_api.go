@@ -166,7 +166,7 @@ func (ea *L2EngineAPI) startBlock(parent common.Hash, params *eth.PayloadAttribu
 			ea.log.Warn("failed to apply deposit transaction to L2 block", "index", i, "err", err)
 			ea.l2TxRejected = append(ea.l2TxRejected, types.RejectedTransaction{
 				Data: otx,
-				Pos:  len(ea.blockProcessor.receipts),
+				Pos:  uint64(len(ea.blockProcessor.receipts)),
 			})
 			ea.l2TxFailed = append(ea.l2TxFailed, &tx)
 		}

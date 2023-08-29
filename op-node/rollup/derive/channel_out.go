@@ -228,7 +228,7 @@ func BlockToBatch(block *types.Block) (*BatchData, L1BlockInfo, error) {
 	for nextTx < len(blockTxs) || nextRejected < len(blockRejected) {
 		if nextRejected < len(blockRejected) {
 			rejected := &blockRejected[nextRejected]
-			if rejected.Pos == len(opaqueTxs) {
+			if rejected.Pos == uint64(len(opaqueTxs)) {
 				opaqueTxs = append(opaqueTxs, rejected.Data)
 				nextRejected++
 				continue
