@@ -286,7 +286,7 @@ func TestValidBatchEspresso(t *testing.T) {
 			Expected: BatchAccept,
 		},
 		{
-			Name:       "invalid batch due to empty headers",
+			Name:       "invalid batch due to invalid headers",
 			L1Blocks:   []eth.L1BlockRef{l1A, l1B, l1C},
 			L2SafeHead: l2A3,
 			Headers:    hotshotSkippedHeaders,
