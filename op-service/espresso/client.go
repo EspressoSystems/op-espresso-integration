@@ -67,8 +67,12 @@ func (res *NamespaceResponse) Validate(header *Header, namespace uint64) (Transa
 		return TransactionsInBlock{}, fmt.Errorf("field transactions of type NamespaceResponse is required")
 	}
 
+	// Check that these transactions are only and all of the transactions from `namespace` in the
+	// block with `header`.
 	proof := NmtProof(*res.Proof)
-	// TODO validate `proof` against `header.TransactionsRoot`
+	if err := proof.Validate(header.TransactionsRoot, *res.Transactions); err != nil {
+		return TransactionsInBlock{}, err
+	}
 
 	// Extract the transactions.
 	var txs []Bytes

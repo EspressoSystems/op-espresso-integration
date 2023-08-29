@@ -195,6 +195,13 @@ func (t *Transaction) UnmarshalJSON(b []byte) error {
 type BatchMerkleProof = Bytes
 type NmtProof = Bytes
 
+func (*NmtProof) Validate(root NmtRoot, transactions []Transaction) error {
+	// TODO since porting the Rust NMT to Go is a big task, this validation is stubbed out for now,
+	// and always succeeds. Essentially, we trust the sequencer until this is fixed.
+	// https://github.com/EspressoSystems/op-espresso-integration/issues/17
+	return nil
+}
+
 // A bytes type which serializes to JSON as an array, rather than a base64 string. This ensures
 // compatibility with the Espresso APIs.
 type Bytes []byte
