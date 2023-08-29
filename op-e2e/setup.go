@@ -329,7 +329,7 @@ func (e *EspressoSystem) StartGethProxy(sequencer *node.Node) error {
 	return nil
 }
 
-func (e *EspressoSystem) PringLogs() {
+func (e *EspressoSystem) PrintLogs() {
 	logs := exec.Command("docker", "compose", "--project-name", e.projectName, "-f", e.composeFile, "logs")
 	logs.Stdout = os.Stdout
 	logs.Stderr = os.Stderr
@@ -550,7 +550,7 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 		if err := sys.Espresso.WaitForBlockHeight(ctx, 1); err != nil {
 			// If we never reached a height of a single block, something is probably wrong with the
 			// Espresso configuration, and we will want to look at the logs.
-			sys.Espresso.PringLogs()
+			sys.Espresso.PrintLogs()
 			return nil, fmt.Errorf("failed to reach Espresso block height: %w", err)
 		}
 	}
