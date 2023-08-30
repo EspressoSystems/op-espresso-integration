@@ -45,6 +45,11 @@ func (lc *limitClient) EthSubscribe(ctx context.Context, channel any, args ...an
 	return lc.c.EthSubscribe(ctx, channel, args...)
 }
 
+func (lc *limitClient) RawClient() *rpc.Client {
+	// subscription doesn't count towards request limit
+	return lc.c.RawClient()
+}
+
 func (lc *limitClient) Close() {
 	lc.wg.Wait()
 	close(lc.sema)

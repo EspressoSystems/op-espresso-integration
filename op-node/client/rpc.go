@@ -25,6 +25,7 @@ type RPC interface {
 	CallContext(ctx context.Context, result any, method string, args ...any) error
 	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
 	EthSubscribe(ctx context.Context, channel any, args ...any) (ethereum.Subscription, error)
+	RawClient() *rpc.Client
 }
 
 type rpcConfig struct {
@@ -145,6 +146,10 @@ func (b *BaseRPCClient) Close() {
 	b.c.Close()
 }
 
+func (b *BaseRPCClient) RawClient() *rpc.Client {
+	return b.c
+}
+
 func (b *BaseRPCClient) CallContext(ctx context.Context, result any, method string, args ...any) error {
 	cCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
@@ -194,6 +199,10 @@ func (ic *InstrumentedRPCClient) BatchCallContext(ctx context.Context, b []rpc.B
 
 func (ic *InstrumentedRPCClient) EthSubscribe(ctx context.Context, channel any, args ...any) (ethereum.Subscription, error) {
 	return ic.c.EthSubscribe(ctx, channel, args...)
+}
+
+func (ic *InstrumentedRPCClient) RawClient() *rpc.Client {
+	return ic.c.RawClient()
 }
 
 // instrumentBatch handles metrics for batch calls. Request metrics are

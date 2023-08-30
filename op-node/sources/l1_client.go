@@ -3,16 +3,20 @@ package sources
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/ethereum-optimism/optimism/op-node/client"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/sources/caching"
+	"github.com/ethereum-optimism/optimism/op-service/espresso"
+	"github.com/ethereum-optimism/optimism/op-service/espresso/hotshot"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
 
@@ -114,4 +118,27 @@ func (s *L1Client) L1BlockRefByHash(ctx context.Context, hash common.Hash) (eth.
 	ref := eth.InfoToL1BlockRef(info)
 	s.l1BlockRefsCache.Add(ref.Hash, ref)
 	return ref, nil
+}
+
+// TODO comment
+func (s *L1Client) L1HotShotCommitmentsFromHeight(firstBlockHeight uint64, numHeaders uint64, hotshotAddr common.Address) ([]espresso.NmtRoot, error) {
+	var comms []espresso.NmtRoot
+	client := ethclient.NewClient(s.client.RawClient())
+	hotshot, err := hotshot.NewHotshot(hotshotAddr, client)
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < int(numHeaders); i++ {
+		var height big.Int
+		height.SetUint64(firstBlockHeight + uint64(i))
+		comm, err := hotshot.HotshotCaller.Commitments(nil, &height)
+		if err != nil {
+			return comms, err
+		}
+		root := espresso.NmtRoot{
+			Root: comm.Bytes(),
+		}
+		comms = append(comms, root)
+	}
+	return comms, nil
 }

@@ -1,15 +1,18 @@
 package derive
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/sync"
+	"github.com/ethereum-optimism/optimism/op-service/espresso"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
 
@@ -22,6 +25,7 @@ type Metrics interface {
 
 type L1Fetcher interface {
 	L1BlockRefByLabel(ctx context.Context, label eth.BlockLabel) (eth.L1BlockRef, error)
+	L1HotShotCommitmentsFromHeight(firstBlockHeight uint64, numHeaders uint64, hotshotAddr common.Address) ([]espresso.NmtRoot, error)
 	L1BlockRefByNumberFetcher
 	L1BlockRefByHashFetcher
 	L1ReceiptsFetcher
@@ -87,7 +91,8 @@ func NewDerivationPipeline(log log.Logger, cfg *rollup.Config, l1Fetcher L1Fetch
 	frameQueue := NewFrameQueue(log, l1Src)
 	bank := NewChannelBank(log, cfg, frameQueue, l1Fetcher)
 	chInReader := NewChannelInReader(log, bank, metrics)
-	batchQueue := NewBatchQueue(log, cfg, chInReader)
+	hotshotProvider := NewHotShotProvider(cfg.BatchInboxAddress, l1Fetcher)
+	batchQueue := NewBatchQueue(log, cfg, chInReader, hotshotProvider)
 	attrBuilder := NewFetchingAttributesBuilder(cfg, l1Fetcher, engine)
 	attributesQueue := NewAttributesQueue(log, cfg, attrBuilder, batchQueue)
 
@@ -213,4 +218,50 @@ func (dp *DerivationPipeline) Step(ctx context.Context) error {
 	} else {
 		return nil
 	}
+}
+
+type HotShotContractProvider interface {
+	// Verifies a sequence of consecutive headers against the HotShot contract
+	// The bool indiciates whether header verification was successful, while the error
+	// Represents an error encountered attempting to fetch the contract headers themselves (e.g. if the headers are unavailable)
+	VerifyHeaders(headers []espresso.Header, firstHeight uint64) (bool, error)
+
+	// Returns a sequence of consecutive HotShot headers from a given height
+	GetCommitmentsFromHeight(firstHeight uint64, numHeaders uint64) ([]espresso.NmtRoot, error)
+}
+
+type HotShotProvider struct {
+	HotShotAddr common.Address
+	L1Fetcher   L1Fetcher
+}
+
+func NewHotShotProvider(hotshotAddr common.Address, l1Fetcher L1Fetcher) *HotShotProvider {
+	return &HotShotProvider{
+		HotShotAddr: hotshotAddr,
+		L1Fetcher:   l1Fetcher,
+	}
+
+}
+
+func (provider *HotShotProvider) VerifyHeaders(headers []espresso.Header, height uint64) (bool, error) {
+	fetchedHeaders, err := provider.GetCommitmentsFromHeight(height, uint64(len(headers)))
+	if err != nil {
+		return false, err
+	}
+
+	if len(fetchedHeaders) != len(headers) {
+		return false, fmt.Errorf("fetched headers has a different length than provided headers (%d vs %d)", len(fetchedHeaders), len(headers))
+	}
+
+	for i := 0; i < len(fetchedHeaders); i++ {
+		if !bytes.Equal(headers[i].TransactionsRoot.Root, fetchedHeaders[i].Root) {
+			return false, nil
+		}
+	}
+
+	return true, nil
+}
+
+func (provider *HotShotProvider) GetCommitmentsFromHeight(firstBlockHeight uint64, numHeaders uint64) ([]espresso.NmtRoot, error) {
+	return provider.L1Fetcher.L1HotShotCommitmentsFromHeight(firstBlockHeight, numHeaders, provider.HotShotAddr)
 }

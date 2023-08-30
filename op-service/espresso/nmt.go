@@ -10,6 +10,6 @@ import (
 //
 // In other words, the function validates that txns = {...p1.txns, ..., ...pn.txns}. And that
 // p1, ..., pn are all valid NMT proofs with respect to r1, ..., rn, the NMT roots of each header.
-func ValidateBatchTransactions(transactions []hexutil.Bytes, nmtProofs []NmtProof, headers []Header) error {
+func ValidateBatchTransactions(transactions []hexutil.Bytes, nmtProofs []NmtProof, comms []NmtRoot) error {
 	return nil
 }
