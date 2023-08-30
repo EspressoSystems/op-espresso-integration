@@ -238,3 +238,11 @@ services:
     depends_on:
       orchestrator:
         condition: service_healthy
+
+  commitment-task:
+    image: ghcr.io/espressosystems/espresso-sequencer/commitment-task:main
+    command: commitment-task --deploy
+    environment:
+      - ESPRESSO_SEQUENCER_ETH_MNEMONIC=test test test test test test test test test test test junk
+      - ESPRESSO_SEQUENCER_L1_PROVIDER=http://172.17.0.1:8545
+      - ESPRESSO_SEQUENCER_URL=http://172.17.0.1:50000
