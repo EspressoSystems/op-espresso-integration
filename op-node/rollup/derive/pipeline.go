@@ -221,8 +221,8 @@ func (dp *DerivationPipeline) Step(ctx context.Context) error {
 
 type HotShotContractProvider interface {
 	// Verifies a sequence of consecutive headers against the HotShot contract
-	// The bool indiciates whether header verification was successful, while the error
-	// Represents an error encountered attempting to fetch the contract headers themselves (e.g. if the headers are unavailable)
+	// the bool indiciates whether header verification was successful, while the error
+	// represents an error encountered attempting to fetch the contract headers themselves (e.g. if the headers are unavailable)
 	VerifyHeaders(headers []espresso.Header, firstHeight uint64) (bool, error)
 
 	// Returns a sequence of consecutive HotShot headers from a given height
