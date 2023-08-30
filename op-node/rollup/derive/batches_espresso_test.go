@@ -30,7 +30,7 @@ type mockHotShotProvider struct {
 	Headers []espresso.Header
 }
 
-func (m *mockHotShotProvider) verifyHeaders(headers []espresso.Header, height uint64) (bool, error) {
+func (m *mockHotShotProvider) VerifyHeaders(headers []espresso.Header, height uint64) (bool, error) {
 	if height+uint64(len(headers)) > uint64(len(m.Headers)) {
 		fmt.Println("Headers unavailable")
 		return false, NewCriticalError(errors.New("Headers unavailable"))
@@ -46,12 +46,16 @@ func (m *mockHotShotProvider) verifyHeaders(headers []espresso.Header, height ui
 	return true, nil
 }
 
-func (m *mockHotShotProvider) getHeadersFromHeight(firstBlockHeight uint64, numHeaders uint64) ([]espresso.Header, error) {
+func (m *mockHotShotProvider) GetCommitmentsFromHeight(firstBlockHeight uint64, numHeaders uint64) ([]espresso.NmtRoot, error) {
 	if firstBlockHeight+numHeaders > uint64(len(m.Headers)) {
 		fmt.Println("Headers unavailable")
 		return nil, NewCriticalError(errors.New("Headers unavailable"))
 	}
-	return m.Headers[firstBlockHeight : firstBlockHeight+numHeaders], nil
+	var comms []espresso.NmtRoot
+	for i := 0; i < int(numHeaders); i++ {
+		comms = append(comms, m.Headers[int(firstBlockHeight)+i].TransactionsRoot)
+	}
+	return comms, nil
 }
 
 func (m *mockHotShotProvider) setHeaders(headers []espresso.Header) {
