@@ -120,7 +120,8 @@ func (s *L1Client) L1BlockRefByHash(ctx context.Context, hash common.Hash) (eth.
 	return ref, nil
 }
 
-// TODO comment
+// L1HotShotCommitmentsFromHeight returns an array of HotShot commitments to sequencer blocks
+// This is used in the derivation pipeline to validate sequencer batches in Espresso mode
 func (s *L1Client) L1HotShotCommitmentsFromHeight(firstBlockHeight uint64, numHeaders uint64, hotshotAddr common.Address) ([]espresso.NmtRoot, error) {
 	var comms []espresso.NmtRoot
 	client := ethclient.NewClient(s.client.RawClient())
