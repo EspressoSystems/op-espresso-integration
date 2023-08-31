@@ -1,7 +1,6 @@
 package derive
 
 import (
-	"bytes"
 	"fmt"
 
 	"github.com/ethereum-optimism/optimism/op-service/espresso"
@@ -32,14 +31,15 @@ func (provider *HotShotProvider) VerifyHeaders(headers []espresso.Header, height
 	}
 
 	for i := 0; i < len(fetchedHeaders); i++ {
-		if !bytes.Equal(headers[i].TransactionsRoot.Root, fetchedHeaders[i].Root) {
-			return false, nil
-		}
+		// TODO https://github.com/EspressoSystems/op-espresso-integration/issues/53 check commitment properly
+		// if !bytes.Equal(headers[i].TransactionsRoot.Root, fetchedHeaders[i]) {
+		// 	return false, nil
+		// }
 	}
 
 	return true, nil
 }
 
-func (provider *HotShotProvider) GetCommitmentsFromHeight(firstBlockHeight uint64, numHeaders uint64) ([]espresso.NmtRoot, error) {
+func (provider *HotShotProvider) GetCommitmentsFromHeight(firstBlockHeight uint64, numHeaders uint64) ([]espresso.Commitment, error) {
 	return provider.L1Fetcher.L1HotShotCommitmentsFromHeight(firstBlockHeight, numHeaders, provider.HotShotAddr)
 }

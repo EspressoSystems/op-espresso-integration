@@ -24,7 +24,7 @@ type Metrics interface {
 
 type L1Fetcher interface {
 	L1BlockRefByLabel(ctx context.Context, label eth.BlockLabel) (eth.L1BlockRef, error)
-	L1HotShotCommitmentsFromHeight(firstBlockHeight uint64, numHeaders uint64, hotshotAddr common.Address) ([]espresso.NmtRoot, error)
+	L1HotShotCommitmentsFromHeight(firstBlockHeight uint64, numHeaders uint64, hotshotAddr common.Address) ([]espresso.Commitment, error)
 	L1BlockRefByNumberFetcher
 	L1BlockRefByHashFetcher
 	L1ReceiptsFetcher
@@ -225,6 +225,6 @@ type HotShotContractProvider interface {
 	// represents an error encountered attempting to fetch the contract headers themselves (e.g. if the headers are unavailable)
 	VerifyHeaders(headers []espresso.Header, firstHeight uint64) (bool, error)
 
-	// Returns a sequence of consecutive HotShot headers from a given height
-	GetCommitmentsFromHeight(firstHeight uint64, numHeaders uint64) ([]espresso.NmtRoot, error)
+	// Returns a sequence of consecutive HotShot header commitments from a given height
+	GetCommitmentsFromHeight(firstHeight uint64, numHeaders uint64) ([]espresso.Commitment, error)
 }

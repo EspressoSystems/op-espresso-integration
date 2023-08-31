@@ -122,8 +122,8 @@ func (s *L1Client) L1BlockRefByHash(ctx context.Context, hash common.Hash) (eth.
 
 // L1HotShotCommitmentsFromHeight returns an array of HotShot commitments to sequencer blocks
 // This is used in the derivation pipeline to validate sequencer batches in Espresso mode
-func (s *L1Client) L1HotShotCommitmentsFromHeight(firstBlockHeight uint64, numHeaders uint64, hotshotAddr common.Address) ([]espresso.NmtRoot, error) {
-	var comms []espresso.NmtRoot
+func (s *L1Client) L1HotShotCommitmentsFromHeight(firstBlockHeight uint64, numHeaders uint64, hotshotAddr common.Address) ([]espresso.Commitment, error) {
+	var comms []espresso.Commitment
 	client := ethclient.NewClient(s.client.RawClient())
 	hotshot, err := hotshot.NewHotshot(hotshotAddr, client)
 	if err != nil {
@@ -136,10 +136,12 @@ func (s *L1Client) L1HotShotCommitmentsFromHeight(firstBlockHeight uint64, numHe
 		if err != nil {
 			return comms, err
 		}
-		root := espresso.NmtRoot{
-			Root: comm.Bytes(),
+		var bytes [32]byte
+		for _, b := range comm.Bytes() {
+			bytes[b] = b
 		}
-		comms = append(comms, root)
+
+		comms = append(comms, bytes)
 	}
 	return comms, nil
 }

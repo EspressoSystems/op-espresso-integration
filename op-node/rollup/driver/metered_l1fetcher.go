@@ -57,7 +57,7 @@ func (m *MeteredL1Fetcher) FetchReceipts(ctx context.Context, blockHash common.H
 	defer m.recordTime("FetchReceipts")()
 	return m.inner.FetchReceipts(ctx, blockHash)
 }
-func (m *MeteredL1Fetcher) L1HotShotCommitmentsFromHeight(firstBlockHeight uint64, numHeaders uint64, hotshotAddr common.Address) ([]espresso.NmtRoot, error) {
+func (m *MeteredL1Fetcher) L1HotShotCommitmentsFromHeight(firstBlockHeight uint64, numHeaders uint64, hotshotAddr common.Address) ([]espresso.Commitment, error) {
 	defer m.recordTime("L1HotShotCommitmentsFromHeight")()
 	return m.inner.L1HotShotCommitmentsFromHeight(firstBlockHeight, numHeaders, hotshotAddr)
 }

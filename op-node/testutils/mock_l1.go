@@ -38,6 +38,6 @@ func (m *MockL1Source) L1BlockRefByHash(ctx context.Context, hash common.Hash) (
 func (m *MockL1Source) ExpectL1BlockRefByHash(hash common.Hash, ref eth.L1BlockRef, err error) {
 	m.Mock.On("L1BlockRefByHash", hash).Once().Return(ref, &err)
 }
-func (m *MockL1Source) L1HotShotCommitmentsFromHeight(firstBlockHeight uint64, numHeaders uint64, hotshotAddr common.Address) ([]espresso.NmtRoot, error) {
-	return []espresso.NmtRoot{}, nil
+func (m *MockL1Source) L1HotShotCommitmentsFromHeight(firstBlockHeight uint64, numHeaders uint64, hotshotAddr common.Address) ([]espresso.Commitment, error) {
+	return []espresso.Commitment{}, nil
 }

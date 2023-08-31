@@ -46,15 +46,12 @@ func (m *mockHotShotProvider) VerifyHeaders(headers []espresso.Header, height ui
 	return true, nil
 }
 
-func (m *mockHotShotProvider) GetCommitmentsFromHeight(firstBlockHeight uint64, numHeaders uint64) ([]espresso.NmtRoot, error) {
+func (m *mockHotShotProvider) GetCommitmentsFromHeight(firstBlockHeight uint64, numHeaders uint64) ([]espresso.Commitment, error) {
 	if firstBlockHeight+numHeaders > uint64(len(m.Headers)) {
-		fmt.Println("Headers unavailable")
-		return nil, NewCriticalError(errors.New("Headers unavailable"))
+		fmt.Println("Commitments unavailable")
+		return nil, NewCriticalError(errors.New("Commitments unavailable"))
 	}
-	var comms []espresso.NmtRoot
-	for i := 0; i < int(numHeaders); i++ {
-		comms = append(comms, m.Headers[int(firstBlockHeight)+i].TransactionsRoot)
-	}
+	var comms []espresso.Commitment
 	return comms, nil
 }
 
