@@ -77,6 +77,8 @@ services:
       - "9003:9003"
       - "7300:7300"
       - "6060:6060"
+    environment:
+      - OP_NODE_ESPRESSO_URL=http://sequencer0:8080
     volumes:
       - "${PWD}/p2p-sequencer-key.txt:/config/p2p-sequencer-key.txt"
       - "${PWD}/p2p-node-key.txt:/config/p2p-node-key.txt"

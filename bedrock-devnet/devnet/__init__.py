@@ -193,7 +193,7 @@ def devnet_deploy(paths, espresso: bool):
     wait_up(8545)
     wait_for_rpc_server('127.0.0.1:8545')
 
-    if os.path.exists(paths.genesis_l2_path):
+    if os.path.exists(paths.genesis_l2_path) and os.path.isfile(paths.genesis_l2_path):
         log.info('L2 genesis and rollup configs already generated.')
     else:
         log.info('Generating L2 genesis and rollup configs.')
