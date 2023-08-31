@@ -105,6 +105,15 @@ devnet-up:
 	PYTHONPATH=./bedrock-devnet python3 ./bedrock-devnet/main.py --monorepo-dir=.
 .PHONY: devnet-up
 
+devnet-up-espresso:
+	$(shell ./ops/scripts/newer-file.sh .devnet-espresso/allocs-l1.json ./packages/contracts-bedrock)
+	if [ $(.SHELLSTATUS) -ne 0 ]; then \
+		make devnet-allocs-espresso; \
+	fi
+	PYTHONPATH=./bedrock-devnet python3 ./bedrock-devnet/main.py --monorepo-dir=. --espresso --deploy-config="devnetL1-espresso.json" --devnet-dir=".devnet-espresso" --skip-build
+.PHONY: devnet-up-espresso
+
+
 # alias for devnet-up
 devnet-up-deploy: devnet-up
 
@@ -129,7 +138,7 @@ devnet-allocs:
 	PYTHONPATH=./bedrock-devnet python3 ./bedrock-devnet/main.py --monorepo-dir=. --allocs
 
 devnet-allocs-espresso:
-	PYTHONPATH=./bedrock-devnet python3 ./bedrock-devnet/main.py --monorepo-dir=. --deploy-config="devnetL1-espresso.json" --devnet-dir=".devnet-espresso" --allocs
+	PYTHONPATH=./bedrock-devnet python3 ./bedrock-devnet/main.py --monorepo-dir=. --espresso --deploy-config="devnetL1-espresso.json" --devnet-dir=".devnet-espresso" --allocs
 
 devnet-logs:
 	@(cd ./ops-bedrock && docker-compose logs -f)

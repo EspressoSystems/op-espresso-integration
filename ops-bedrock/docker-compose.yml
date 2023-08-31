@@ -21,7 +21,7 @@ services:
       - "7060:6060"
     volumes:
       - "l1_data:/db"
-      - "${PWD}/../.devnet/genesis-l1.json:/genesis.json"
+      - "${DEVNET_DIR}/genesis-l1.json:/genesis.json"
       - "${PWD}/test-jwt-secret.txt:/config/test-jwt-secret.txt"
 
   l2:
@@ -33,7 +33,7 @@ services:
       - "8060:6060"
     volumes:
       - "l2_data:/db"
-      - "${PWD}/../.devnet/genesis-l2.json:/genesis.json"
+      - "${DEVNET_DIR}/genesis-l2.json:/genesis.json"
       - "${PWD}/test-jwt-secret.txt:/config/test-jwt-secret.txt"
     entrypoint:
       # pass the L2 specific flags by overriding the entry-point and adding extra arguments
@@ -81,7 +81,7 @@ services:
       - "${PWD}/p2p-sequencer-key.txt:/config/p2p-sequencer-key.txt"
       - "${PWD}/p2p-node-key.txt:/config/p2p-node-key.txt"
       - "${PWD}/test-jwt-secret.txt:/config/test-jwt-secret.txt"
-      - "${PWD}/../.devnet/rollup.json:/rollup.json"
+      - "${DEVNET_DIR}/rollup.json:/rollup.json"
       - op_log:/op_log
 
   op-proposer:
@@ -140,7 +140,7 @@ services:
     ports:
       - "8080:80"
     volumes:
-      - "${PWD}/../.devnet/:/usr/share/nginx/html/:ro"
+      - "${DEVNET_DIR}/:/usr/share/nginx/html/:ro"
     security_opt:
       - "no-new-privileges:true"
 
@@ -163,7 +163,7 @@ services:
       context: ../
       dockerfile: ./op-geth-proxy/Dockerfile
     ports:
-      - "9090"
+      - "9090:9090"
     environment:
       - OP_GETH_PROXY_GETH_ADDR
       - OP_GETH_PROXY_LISTEN_ADDR=0.0.0.0:9090
@@ -206,6 +206,21 @@ services:
       orchestrator:
         condition: service_healthy
 
+  commitment-task:
+    image: ghcr.io/espressosystems/espresso-sequencer/commitment-task:main
+    command: commitment-task --deploy
+    environment:
+    - ESPRESSO_SEQUENCER_URL=http://sequencer0:8080
+    - ESPRESSO_SEQUENCER_L1_PROVIDER=http://l1:8545
+    - ESPRESSO_SEQUENCER_ETH_MNEMONIC
+    - ESPRESSO_SEQUENCER_HOTSHOT_ACCOUNT_INDEX=1
+    - RUST_LOG
+    depends_on:
+      sequencer0:
+        condition: service_healthy
+      l1:
+        condition: service_started
+
   sequencer0:
     image: ghcr.io/espressosystems/espresso-sequencer/sequencer:main
     ports:
@@ -219,8 +234,8 @@ services:
       - ESPRESSO_SEQUENCER_API_PORT=8080
       - ESPRESSO_SEQUENCER_STORAGE_PATH=/store/sequencer
       - ESPRESSO_SEQUENCER_L1_PROVIDER
-      - ESPRESSO_SEQUENCER_HOTSHOT_ADDRESS=0x5fbdb2315678afecb367f032d93f642f64180aa3
-      - ESPRESSO_SEQUENCER_ETH_MNEMONIC="test test test test test test test test test test test junk"
+      # - ESPRESSO_SEQUENCER_HOTSHOT_ADDRESS=0x8464135c8f25da09e49bc8782676a84730c318bc
+      # - ESPRESSO_SEQUENCER_ETH_MNEMONIC
       - RUST_LOG
     depends_on:
       orchestrator:

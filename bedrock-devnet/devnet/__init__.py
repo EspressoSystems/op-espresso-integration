@@ -21,6 +21,9 @@ parser.add_argument('--allocs', help='Only create the allocs and exit', type=boo
 parser.add_argument('--test', help='Tests the deployment, must already be deployed', type=bool, action=argparse.BooleanOptionalAction)
 parser.add_argument('--deploy-config', help='Path to deployment config, relative to --monorepo-dir', default='devnetL1.json')
 parser.add_argument('--devnet-dir', help='Output path for devnet config, relative to --monorepo-dir', default='.devnet')
+parser.add_argument('--espresso', help='Run on Espresso Sequencer', type=bool, action=argparse.BooleanOptionalAction)
+parser.add_argument('--skip-build', help='Skip building docker images', type=bool, action=argparse.BooleanOptionalAction)
+parser.add_argument('--build', help='Only build docker images', type=bool, action=argparse.BooleanOptionalAction)
 
 log = logging.getLogger()
 
@@ -94,13 +97,21 @@ def main():
         devnet_l1_genesis(paths)
         return
 
-    log.info('Building docker images')
-    run_command(['docker-compose', 'build', '--progress', 'plain'], cwd=paths.ops_bedrock_dir, env={
-        'PWD': paths.ops_bedrock_dir
-    })
+    if args.skip_build:
+        log.warn('Skipping building docker images')
+    else:
+        log.info('Building docker images')
+        run_command(['docker-compose', 'build', '--progress', 'plain'], cwd=paths.ops_bedrock_dir, env={
+            'PWD': paths.ops_bedrock_dir,
+            'DEVNET_DIR': paths.devnet_dir
+        })
+
+    if args.build:
+        log.info("Finished building")
+        return
 
     log.info('Devnet starting')
-    devnet_deploy(paths)
+    devnet_deploy(paths, args.espresso)
 
 
 def deploy_contracts(paths):
@@ -151,8 +162,8 @@ def devnet_l1_genesis(paths):
 
 
 # Bring up the devnet where the contracts are deployed to L1
-def devnet_deploy(paths):
-    if os.path.exists(paths.genesis_l1_path):
+def devnet_deploy(paths, espresso: bool):
+    if os.path.exists(paths.genesis_l1_path) and os.path.isfile(paths.genesis_l1_path):
         log.info('L1 genesis already generated.')
     else:
         log.info('Generating L1 genesis.')
@@ -176,7 +187,8 @@ def devnet_deploy(paths):
 
     log.info('Starting L1.')
     run_command(['docker-compose', 'up', '-d', 'l1'], cwd=paths.ops_bedrock_dir, env={
-        'PWD': paths.ops_bedrock_dir
+        'PWD': paths.ops_bedrock_dir,
+        'DEVNET_DIR': paths.devnet_dir
     })
     wait_up(8545)
     wait_for_rpc_server('127.0.0.1:8545')
@@ -199,7 +211,8 @@ def devnet_deploy(paths):
 
     log.info('Bringing up L2.')
     run_command(['docker-compose', 'up', '-d', 'l2'], cwd=paths.ops_bedrock_dir, env={
-        'PWD': paths.ops_bedrock_dir
+        'PWD': paths.ops_bedrock_dir,
+        'DEVNET_DIR': paths.devnet_dir
     })
     wait_up(9545)
     wait_for_rpc_server('127.0.0.1:9545')
@@ -210,10 +223,21 @@ def devnet_deploy(paths):
     log.info(f'Using batch inbox {batch_inbox_address}')
 
     log.info('Bringing up everything else.')
-    run_command(['docker-compose', 'up', '-d', 'op-node', 'op-proposer', 'op-batcher'], cwd=paths.ops_bedrock_dir, env={
+    espresso_services = [
+        'op-geth-proxy',
+        'orchestrator',
+        'da-server',
+        'consensus-server',
+        'commitment-task',
+        'sequencer0',
+        'sequencer1',
+    ]
+    services = ['op-node', 'op-proposer', 'op-batcher'] + (espresso_services if espresso else [])
+    run_command(['docker-compose', 'up', '-d'] + services, cwd=paths.ops_bedrock_dir, env={
         'PWD': paths.ops_bedrock_dir,
         'L2OO_ADDRESS': l2_output_oracle,
-        'SEQUENCER_BATCH_INBOX_ADDRESS': batch_inbox_address
+        'SEQUENCER_BATCH_INBOX_ADDRESS': batch_inbox_address,
+        'DEVNET_DIR': paths.devnet_dir
     })
 
     log.info('Devnet ready.')
@@ -259,6 +283,7 @@ def wait_for_rpc_server(url):
                 log.info(f'RPC server at {url} ready')
                 return
         except Exception as e:
+            log.info(f'Error connecting to RPC: {e}')
             log.info(f'Waiting for RPC server at {url}')
             time.sleep(1)
 
