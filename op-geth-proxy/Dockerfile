@@ -3,7 +3,7 @@ FROM --platform=$BUILDPLATFORM golang:1.19.9-alpine3.16 as builder
 
 ARG VERSION=v0.0.0
 
-RUN apk add --no-cache make
+RUN apk add --no-cache make git
 
 COPY ./op-geth-proxy /app/op-geth-proxy
 COPY ./go.mod /app/go.mod

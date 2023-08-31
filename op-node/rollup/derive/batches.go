@@ -86,7 +86,7 @@ func CheckBatchEspresso(cfg *rollup.Config, log log.Logger, l1Blocks []eth.L1Blo
 
 	// An empty batch can also be valid if the L1 origin is too far behind (either due to lag, or because HotShot skipped a block)
 	// In this case, the L1 origin must increase by one
-	skippedL1Block := jst.FirstBlock.L1Block.Number > prevL1Origin.Number
+	skippedL1Block := jst.FirstBlock.L1Head > prevL1Origin.Number
 	if payload == nil && skippedL1Block {
 		if uint64(batch.Batch.EpochNum) != prevL1Origin.Number+1 {
 			log.Warn("Dropping batch because the L1 origin did not increase by one")

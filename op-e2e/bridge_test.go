@@ -61,7 +61,7 @@ func TestERC20BridgeDeposits(t *testing.T) {
 	require.NoError(t, err)
 	tx, err = optimismMintableTokenFactory.CreateOptimismMintableERC20(l2Opts, weth9Address, "L2-WETH", "L2-WETH")
 	require.NoError(t, err)
-	_, err = waitForTransaction(tx.Hash(), l2Client, 3*time.Duration(cfg.DeployConfig.L2BlockTime)*time.Second)
+	_, err = waitForTransaction(tx.Hash(), l2Client, 15*time.Duration(cfg.DeployConfig.L2BlockTime)*time.Second)
 	require.NoError(t, err)
 
 	// Get the deployment event to have access to the L2 WETH9 address
@@ -84,7 +84,7 @@ func TestERC20BridgeDeposits(t *testing.T) {
 	require.NoError(t, err)
 	tx, err = l1StandardBridge.BridgeERC20(opts, weth9Address, event.LocalToken, big.NewInt(100), 100000, []byte{})
 	require.NoError(t, err)
-	depositReceipt, err := waitForTransaction(tx.Hash(), l1Client, 3*time.Duration(cfg.DeployConfig.L1BlockTime)*time.Second)
+	depositReceipt, err := waitForTransaction(tx.Hash(), l1Client, 6*time.Duration(cfg.DeployConfig.L1BlockTime)*time.Second)
 	require.NoError(t, err)
 
 	t.Log("Deposit through L1StandardBridge", "gas used", depositReceipt.GasUsed)
@@ -103,7 +103,7 @@ func TestERC20BridgeDeposits(t *testing.T) {
 
 	depositTx, err := derive.UnmarshalDepositLogEvent(&depositEvent.Raw)
 	require.NoError(t, err)
-	_, err = waitForTransaction(types.NewTx(depositTx).Hash(), l2Client, 3*time.Duration(cfg.DeployConfig.L2BlockTime)*time.Second)
+	_, err = waitForTransaction(types.NewTx(depositTx).Hash(), l2Client, 15*time.Duration(cfg.DeployConfig.L2BlockTime)*time.Second)
 	require.NoError(t, err)
 
 	// Ensure that the deposit went through

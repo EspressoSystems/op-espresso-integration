@@ -77,6 +77,7 @@ func TestAttributesQueue(t *testing.T) {
 		SuggestedFeeRecipient: predeploys.SequencerFeeVaultAddr,
 		Transactions:          []eth.Data{l1InfoTx, eth.Data("foobar"), eth.Data("example")},
 		NoTxPool:              true,
+		Espresso:              batch.Justification != nil,
 		GasLimit:              (*eth.Uint64Quantity)(&expectedL1Cfg.GasLimit),
 	}
 	attrBuilder := NewFetchingAttributesBuilder(cfg, l1Fetcher, l2Fetcher)

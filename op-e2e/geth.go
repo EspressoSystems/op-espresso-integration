@@ -125,12 +125,15 @@ func initL1Geth(cfg *SystemConfig, genesis *core.Genesis, c clock.Clock, opts ..
 	}
 	nodeConfig := &node.Config{
 		Name:        "l1-geth",
-		HTTPHost:    "127.0.0.1",
+		HTTPHost:    "0.0.0.0",
 		HTTPPort:    0,
-		WSHost:      "127.0.0.1",
+		WSHost:      "0.0.0.0",
 		WSPort:      0,
 		WSModules:   []string{"debug", "admin", "eth", "txpool", "net", "rpc", "web3", "personal", "engine"},
 		HTTPModules: []string{"debug", "admin", "eth", "txpool", "net", "rpc", "web3", "personal", "engine"},
+
+		// Allow the Espresso nodes (running on virtual Docker hosts) to talk to the L1 Geth instance.
+		HTTPVirtualHosts: []string{"*"},
 	}
 
 	l1Node, l1Eth, err := createGethNode(false, nodeConfig, ethConfig, []*ecdsa.PrivateKey{cfg.Secrets.CliqueSigner}, opts...)
@@ -158,11 +161,11 @@ func initL1Geth(cfg *SystemConfig, genesis *core.Genesis, c clock.Clock, opts ..
 func defaultNodeConfig(name string, jwtPath string) *node.Config {
 	return &node.Config{
 		Name:        name,
-		WSHost:      "127.0.0.1",
+		WSHost:      "0.0.0.0",
 		WSPort:      0,
-		AuthAddr:    "127.0.0.1",
+		AuthAddr:    "0.0.0.0",
 		AuthPort:    0,
-		HTTPHost:    "127.0.0.1",
+		HTTPHost:    "0.0.0.0",
 		HTTPPort:    0,
 		WSModules:   []string{"debug", "admin", "eth", "txpool", "net", "rpc", "web3", "personal", "engine"},
 		HTTPModules: []string{"debug", "admin", "eth", "txpool", "net", "rpc", "web3", "personal", "engine"},
@@ -188,6 +191,10 @@ func initL2Geth(name string, l2ChainID *big.Int, genesis *core.Genesis, jwtPath 
 		},
 	}
 	nodeConfig := defaultNodeConfig(fmt.Sprintf("l2-geth-%v", name), jwtPath)
+
+	// Allow the Espresso nodes (running on virtual Docker hosts) to talk to the L2 Geth instance.
+	nodeConfig.HTTPVirtualHosts = []string{"*"}
+
 	return createGethNode(true, nodeConfig, ethConfig, nil, opts...)
 }
 

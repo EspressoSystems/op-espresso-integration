@@ -30,9 +30,11 @@ packages/contracts-bedrock/deployments/anvil
 .env*
 !.env.example
 !.envrc
+!ops-bedrock/.env
 *.log
 
 .devnet
+.devnet-espresso
 
 # Ignore local fuzzing results
 **/testdata/fuzz/

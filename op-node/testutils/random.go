@@ -287,11 +287,15 @@ func RandomL2BatchJustification(rng *rand.Rand) *eth.L2BatchJustification {
 func RandomEspressoHeader(rng *rand.Rand) espresso.Header {
 	l1Block := RandomBlockRef(rng)
 	return espresso.Header{
-		Timestamp:        rng.Uint64(),
 		TransactionsRoot: RandomNmtRoot(rng),
-		L1Block: espresso.L1BlockInfo{
-			Number:    l1Block.Number,
-			Timestamp: *espresso.NewU256().SetUint64(l1Block.Time),
+		Metadata: espresso.Metadata{
+			Timestamp: rng.Uint64(),
+			L1Head:    RandomBlockRef(rng).Number,
+			L1Finalized: &espresso.L1BlockInfo{
+				Number:    l1Block.Number,
+				Timestamp: *espresso.NewU256().SetUint64(l1Block.Time),
+				Hash:      l1Block.Hash,
+			},
 		},
 	}
 }

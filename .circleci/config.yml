@@ -4,6 +4,7 @@ orbs:
   go: circleci/go@1.5.0
   gcp-cli: circleci/gcp-cli@3.0.1
   slack: circleci/slack@4.10.1
+
 commands:
   gcp-oidc-authenticate:
     description: "Authenticate with GCP using a CircleCI OIDC token."
@@ -115,20 +116,23 @@ jobs:
           name: Restore PNPM Package Cache
           keys:
             - pnpm-packages-v2-{{ checksum "pnpm-lock.yaml" }}
+      # Fetch node_modules into the pnpm store
+      # This will cache node_modules based on pnpm-lock so other steps can instantly install them with `pnpm install --prefer-offline`
+      # --prefer-offline installs node_modules instantly by just reading from cache if it exists rather than fetching from network
+      # when installing node_modules pnpm simply adds symlinks instead of copying the files which is why it is pretty much instant to run --prefer-offline
+      # this allows a caching strategy of only checking pnpm-lockfile so we don't have to keep it in sync with our packages
+      # For more information see https://pnpm.io/cli/fetch
       - run:
-          name: Install dependencies
-          command: pnpm install --frozen-lockfile
+          name: Fetch dependencies
+          command: pnpm fetch --frozen-lockfile --prefer-offline
       - save_cache:
           name: Save PNPM Package Cache
           key: pnpm-packages-v2-{{ checksum "pnpm-lock.yaml" }}
           paths:
             - "node_modules"
-            - "packages/chain-mon/node_modules"
-            - "packages/common-ts/node_modules"
-            - "packages/contracts-bedrock/node_modules"
-            - "packages/core-utils/node_modules"
-            - "packages/sdk/node_modules"
-            - "packages/contracts-ts/node_modules"
+      - run:
+          name: Install dependencies
+          command: pnpm install --frozen-lockfile --offline
       - run:
           name: print forge version
           command: forge --version
@@ -372,6 +376,10 @@ jobs:
             - pnpm-packages-v2-{{ checksum "pnpm-lock.yaml" }}
       - check-changed:
           patterns: contracts-bedrock,op-node
+      # populate node modules from the cache
+      - run:
+          name: Install dependencies
+          command: pnpm install --frozen-lockfile --prefer-offline
       - run:
           name: build contracts
           command: pnpm build
@@ -391,13 +399,6 @@ jobs:
           working_directory: packages/contracts-bedrock
           no_output_timeout: 15m
       - run:
-          name: validate deploy configs
-          command: |
-            pnpm validate-deploy-configs || echo "export DEPLOY_CONFIG_STATUS=1" >> "$BASH_ENV"
-          environment:
-            FOUNDRY_PROFILE: ci
-          working_directory: packages/contracts-bedrock
-      - run:
           name: storage snapshot
           command: |
             pnpm storage-snapshot
@@ -416,6 +417,10 @@ jobs:
             git diff --exit-code ./invariant-docs/*.md || echo "export INVARIANT_DOCS_STATUS=1" >> "$BASH_ENV"
           working_directory: packages/contracts-bedrock
       - run:
+          name: check deploy configs || echo "export DEPLOY_CONFIGS_STATUS=1" >> "$BASH_ENV"
+          command: pnpm validate-deploy-configs
+          working_directory: packages/contracts-bedrock
+      - run:
           name: check statuses
           command: |
             if [[ "$LINT_STATUS" -ne 0 ]]; then
@@ -426,20 +431,20 @@ jobs:
               FAILED=1
               echo "Gas snapshot failed, see job output for details."
             fi
-            if [[ "$DEPLOY_CONFIG_STATUS" -ne 0 ]]; then
-              FAILED=1
-              echo "Deploy configs invalid, see job output for details."
-            fi
             if [[ "$STORAGE_SNAPSHOT_STATUS" -ne 0 ]]; then
               echo "Storage snapshot failed, see job output for details."
+              FAILED=1
+            fi
+            if [[ "$SEMVER_LOCK_STATUS" -ne 0 ]]; then
+              echo "Semver lock failed, see job output for details."
               FAILED=1
             fi
             if [[ "$INVARIANT_DOCS_STATUS" -ne 0 ]]; then
               echo "Invariant docs failed, see job output for details."
               FAILED=1
             fi
-            if [[ "$SEMVER_LOCK_STATUS" -ne 0 ]]; then
-              echo "Semver lock failed, see job output for details."
+            if [[ "$DEPLOY_CONFIGS_STATUS" -ne 0 ]]; then
+              echo "Deploy config check failed, see job output for details."
               FAILED=1
             fi
             if [[ "$FAILED" -ne 0 ]]; then
@@ -469,57 +474,16 @@ jobs:
           name: Restore PNPM Package Cache
           keys:
             - pnpm-packages-v2-{{ checksum "pnpm-lock.yaml" }}
+      # populate node modules from the cache
+      - run:
+          name: Install dependencies
+          command: pnpm install --frozen-lockfile --prefer-offline
       - check-changed:
           patterns: contracts-bedrock
       - run:
           name: validate spacers
           command: pnpm validate-spacers
           working_directory: packages/contracts-bedrock
-
-  bedrock-echidna-build:
-    docker:
-      - image: us-docker.pkg.dev/oplabs-tools-artifacts/images/ci-builder:latest
-    steps:
-      - checkout
-      - attach_workspace: { at: "." }
-      - check-changed:
-          patterns: contracts-bedrock
-      - run:
-          name: Compile with metadata hash
-          command: pnpm clean && pnpm build:with-metadata
-          working_directory: packages/contracts-bedrock
-      - persist_to_workspace:
-          root: .
-          paths:
-            - "node_modules"
-            - packages/contracts-bedrock
-
-  bedrock-echidna-run:
-    docker:
-      - image: us-docker.pkg.dev/oplabs-tools-artifacts/images/ci-builder:latest
-    parameters:
-      echidna_target:
-        description: Which echidna fuzz contract to run
-        type: string
-      size:
-        description: Custom resource class size for the run
-        type: string
-        default: large
-    resource_class: <<parameters.size>>
-    steps:
-      - checkout
-      - attach_workspace: { at: "." }
-      - restore_cache:
-          name: Restore PNPM Package Cache
-          keys:
-            - pnpm-packages-v2-{{ checksum "pnpm-lock.yaml" }}
-      - check-changed:
-          patterns: contracts-bedrock
-      - run:
-          name: Echidna Fuzz <<parameters.echidna_target>>
-          command: pnpm echidna:<<parameters.echidna_target>>
-          working_directory: packages/contracts-bedrock
-          no_output_timeout: 15m
 
   op-bindings-build:
     docker:
@@ -556,6 +520,10 @@ jobs:
             - pnpm-packages-v2-{{ checksum "pnpm-lock.yaml" }}
       - check-changed:
           patterns: <<parameters.package_name>>,<<parameters.dependencies>>
+      # populate node modules from the cache
+      - run:
+          name: Install dependencies
+          command: pnpm install --frozen-lockfile --prefer-offline
       - run:
           name: Lint
           command: pnpm lint && git diff --exit-code
@@ -581,6 +549,10 @@ jobs:
             - pnpm-packages-v2-{{ checksum "pnpm.lock.yaml" }}
       - check-changed:
           patterns: sdk,contracts-bedrock,contracts
+      # populate node modules from the cache
+      - run:
+          name: Install dependencies
+          command: pnpm install --frozen-lockfile --prefer-offline
       - run:
           name: Check generated and build
           command: pnpm generate:check
@@ -599,6 +571,10 @@ jobs:
             - pnpm-packages-v2-{{ checksum "pnpm.lock.yaml" }}
       - check-changed:
           patterns: sdk,contracts-bedrock,contracts
+      # populate node modules from the cache
+      - run:
+          name: Install dependencies
+          command: pnpm install --frozen-lockfile --prefer-offline
       - run:
           name: anvil-l1
           background: true
@@ -643,22 +619,13 @@ jobs:
       - checkout
       - check-changed:
           patterns: specs/(.*)\.md$
-      # TODO remove me after ci builder updated
       - run:
           name: Install pnpm package manager
           command: |
             npm i pnpm --global
-      # TODO remove me after ci builder updated
-      # A github dep clones-with-immutable-args is installed via github
-      # packages installed via npm via github automatically run postpack scripts
-      # their postpack script happens to use yarn so we need it here
-      - run:
-          name: Install yarn package manager
-          command: |
-            npm i yarn@1 --global
       - run:
           name: pnpm dev deps
-          command: pnpm install
+          command: pnpm install --frozen-lockfile --prefer-offline
       - run:
           name: specs toc
           command: pnpm lint:specs:toc && git diff --exit-code ./specs
@@ -671,7 +638,6 @@ jobs:
       image: ubuntu-2204:2022.07.1
     steps:
       - checkout
-      # TODO remove me after ci builder updated
       - run:
           name: Install pnpm package manager
           command: |
@@ -679,7 +645,7 @@ jobs:
       - run:
           name: Install node_modules
           command: |
-            pnpm install
+            pnpm install --frozen-lockfile --prefer-offline
       - run:
           name: Lint check
           command: |
@@ -777,8 +743,7 @@ jobs:
       - checkout
       - run:
           name: run lint
-          command: |
-            golangci-lint run -E goimports,sqlclosecheck,bodyclose,asciicheck,misspell,errorlint --timeout 5m -e "errors.As" -e "errors.Is" ./...
+          command: make lint
           working_directory: <<parameters.module>>
 
   go-test:
@@ -814,25 +779,79 @@ jobs:
       use_http:
         description: If the op-e2e package should use HTTP clients
         type: string
-    docker:
-      - image: us-docker.pkg.dev/oplabs-tools-artifacts/images/ci-builder:latest
-    resource_class: xlarge
+      devnet:
+        description: Devnet directory to use (.devnet or .devnet-espresso)
+        type: string
+      deploy-config:
+        description: Deployment config to use (devnetL1.json or devnetL1-espresso.json)
+        type: string
+      parallel:
+        description: The number of tests to run in parallel
+        type: integer
+        default: 8
+      run:
+        description: "Tests to run (default: all)"
+        type: string
+        default: ""
+    machine:
+      image: ubuntu-2204:2022.10.2
+    environment:
+      DOCKER_BUILDKIT: 1
     steps:
       - checkout
       - check-changed:
           patterns: op-(.+),contracts-bedrock
       - run:
-          name: prep results dir
-          command: mkdir -p /tmp/test-results
+          name: git submodules
+          command: git submodule update --init --recursive
+      - run:
+          name: Install latest golang
+          command: |
+            wget https://go.dev/dl/go1.20.linux-amd64.tar.gz
+            sudo rm -rf /usr/local/go
+            sudo tar -C /usr/local -xzf go1.20.linux-amd64.tar.gz
+            export PATH=$PATH:/usr/local/go/bin
+            go version
+            go install gotest.tools/gotestsum@latest
+      - run:
+          name: foundryup
+          command: |
+            curl -L https://foundry.paradigm.xyz | bash
+            source $HOME/.bashrc
+            foundryup
+            echo 'export PATH=$HOME/.foundry/bin:$PATH' >> $BASH_ENV
+            source $HOME/.bashrc
+            forge --version
       - run:
           name: install geth
           command: make install-geth
       - run:
-          name: git submodules
-          command: git submodule update --init --recursive
+          name: Install NVM
+          command: |
+            curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.3/install.sh | bash
+            source ~/.bashrc
+            nvm --version
+      - run:
+          name: Install Node
+          command: |
+            nvm install
+            nvm use && node --version && npm --version
+      - run:
+          name: Install pnpm
+          command: |
+            npm i pnpm --global
+      - run:
+          name: prep results dir
+          command: mkdir -p /tmp/test-results
       - run:
           name: print go's available MIPS targets
           command: go tool dist list | grep mips
+      - run:
+          name: Pull Espresso Docker images
+          command: make devnet-pull
+      - run:
+          name: Build op-geth-proxy Docker
+          command: docker-compose -f ops-bedrock/docker-compose.yml build op-geth-proxy
       - run:
           name: Run all init steps for op-e2e
           command: make pre-test
@@ -845,7 +864,12 @@ jobs:
             # Note: -parallel must be set to match the number of cores in the resource class
             OP_TESTLOG_DISABLE_COLOR=true OP_E2E_DISABLE_PARALLEL=false OP_E2E_USE_HTTP=<<parameters.use_http>>  gotestsum \
             --format=standard-verbose --junitfile=/tmp/test-results/<<parameters.module>>_http_<<parameters.use_http>>.xml \
-            -- -timeout=20m -parallel=8 ./...
+            -- -timeout=20m -parallel=<<parameters.parallel>> \
+               -l1-allocs ../<<parameters.devnet>>/allocs-l1.json \
+               -l1-deployments ../<<parameters.devnet>>/addresses.json \
+               -deploy-config ../packages/contracts-bedrock/deploy-config/<<parameters.deploy-config>> \
+               -run "<<parameters.run>>" \
+               ./..
           working_directory: <<parameters.module>>
       - store_test_results:
           path: /tmp/test-results
@@ -874,7 +898,7 @@ jobs:
           patterns: <<parameters.working_directory>>,<<parameters.dependencies>>
       - run:
           name: Lint
-          command: golangci-lint run -E goimports,sqlclosecheck,bodyclose,asciicheck,misspell,errorlint --timeout 2m -e "errors.As" -e "errors.Is" ./...
+          command: make lint
           working_directory: <<parameters.working_directory>>
       - store_test_results:
           path: /test-results
@@ -924,7 +948,7 @@ jobs:
           name: Test
           command: |
             mkdir -p /test-results
-            DB_USER=postgres gotestsum --junitfile /test-results/tests.xml -- -parallel=4 ./...
+            DB_USER=postgres gotestsum --format=standard-verbose --junitfile /test-results/tests.xml -- -parallel=4 ./...
           working_directory: indexer
       - run:
           name: Build
@@ -981,7 +1005,7 @@ jobs:
       - run:
           name: Install and build
           command: |
-            pnpm install && pnpm build
+            pnpm install --frozen-lockfile --prefer-offline && pnpm build
       - run:
           name: generate cannon prestate
           command: make cannon-prestate
@@ -989,17 +1013,8 @@ jobs:
           name: Bring up the stack
           command: make devnet-up
       - run:
-          name: Check L2 config
-          command: go run cmd/check-l2/main.go --l2-rpc-url http://localhost:9545 --l1-rpc-url http://localhost:8545
-          working_directory: op-chain-ops
-      - run:
-          name: Deposit ERC20 through the bridge
-          command: timeout 8m npx hardhat deposit-erc20 --network devnetL1 --l1-contracts-json-path ../../.devnet/addresses.json
-          working_directory: packages/sdk
-      - run:
-          name: Deposit ETH through the bridge
-          command: timeout 8m npx hardhat deposit-eth --network devnetL1 --l1-contracts-json-path ../../.devnet/addresses.json
-          working_directory: packages/sdk
+          name: Test the stack
+          command: make devnet-test
       - run:
           name: Dump op-node logs
           command: |
@@ -1186,7 +1201,10 @@ jobs:
 workflows:
   main:
     jobs:
-      - pnpm-monorepo
+      - hold:
+          type: approval
+      - pnpm-monorepo:
+          requires: [ hold ]
       - js-lint-test:
           name: common-ts-tests
           coverage_flag: common-ts-tests
@@ -1199,16 +1217,20 @@ workflows:
           package_name: core-utils
           requires:
             - pnpm-monorepo
-      - contracts-bedrock-tests
-      - contracts-bedrock-coverage
+      - contracts-bedrock-tests:
+          requires: [ hold ]
+      - contracts-bedrock-coverage:
+          requires: [ hold ]
       - contracts-bedrock-checks:
           requires:
             - pnpm-monorepo
-      - contracts-bedrock-slither
+      - contracts-bedrock-slither:
+          requires: [ hold ]
       - contracts-bedrock-validate-spaces:
           requires:
             - pnpm-monorepo
-      - op-bindings-build
+      - op-bindings-build:
+          requires: [ hold ]
       - js-lint-test:
           name: chain-mon-tests
           coverage_flag: chain-mon-tests
@@ -1240,89 +1262,144 @@ workflows:
       - depcheck:
           requires:
             - pnpm-monorepo
-      - devnet
+      - devnet:
+          requires:
+            - pnpm-monorepo
       - go-lint-test-build:
           name: proxyd-tests
           binary_name: proxyd
           working_directory: proxyd
-      - indexer-tests
+          requires: [ hold ]
+      - indexer-tests:
+          requires: [ hold ]
       - go-lint-test-build:
           name: op-heartbeat tests
           binary_name: op-heartbeat
           working_directory: op-heartbeat
-      - semgrep-scan
-      - go-mod-tidy
-      - fuzz-op-node
-      - fuzz-op-service
-      - fuzz-op-chain-ops
-      - fuzz-cannon
-      - bedrock-markdown
+          requires: [ hold ]
+      - semgrep-scan:
+          requires: [ hold ]
+      - go-mod-tidy:
+          requires: [ hold ]
+      - fuzz-op-node:
+          requires: [ hold ]
+      - fuzz-op-service:
+          requires: [ hold ]
+      - fuzz-op-chain-ops:
+          requires: [ hold ]
+      - fuzz-cannon:
+          requires: [ hold ]
+      - bedrock-markdown:
+          requires: [ hold ]
       - go-lint:
           name: op-batcher-lint
           module: op-batcher
+          requires: [ hold ]
       - go-lint:
           name: op-bootnode-lint
           module: op-bootnode
+          requires: [ hold ]
       - go-lint:
           name: op-bindings-lint
           module: op-bindings
+          requires: [ hold ]
       - go-lint:
           name: op-chain-ops-lint
           module: op-chain-ops
+          requires: [ hold ]
       - go-lint:
           name: op-e2e-lint
           module: op-e2e
+          requires: [ hold ]
       - go-lint:
           name: op-node-lint
           module: op-node
+          requires: [ hold ]
       - go-lint:
           name: op-proposer-lint
           module: op-proposer
+          requires: [ hold ]
       - go-lint:
           name: op-challenger-lint
           module: op-challenger
+          requires: [ hold ]
       - go-lint:
           name: op-program-lint
           module: op-program
+          requires: [ hold ]
       - go-lint:
           name: op-service-lint
           module: op-service
+          requires: [ hold ]
       - go-lint:
           name: op-wheel-lint
           module: op-wheel
+          requires: [ hold ]
       - go-test:
           name: op-batcher-tests
           module: op-batcher
+          requires: [ hold ]
       - go-test:
           name: op-bindings-tests
           module: op-bindings
+          requires: [ hold ]
       - go-test:
           name: op-chain-ops-tests
           module: op-chain-ops
+          requires: [ hold ]
       - go-test:
           name: op-node-tests
           module: op-node
+          requires: [ hold ]
           # TODO: override resource class
       - go-test:
           name: op-proposer-tests
           module: op-proposer
+          requires: [ hold ]
       - go-test:
           name: op-challenger-tests
           module: op-challenger
+          requires: [ hold ]
       - go-test:
           name: op-program-tests
           module: op-program
+          requires: [ hold ]
       - go-test:
           name: op-service-tests
           module: op-service
+          requires: [ hold ]
       - go-e2e-test:
-          name: op-e2e-WS-tests
+          name: op-e2e-legacy-WS-tests
           module: op-e2e
           use_http: "false"
+          devnet: ".devnet"
+          deploy-config: "devnetL1.json"
+          requires: [ hold ]
       - go-e2e-test:
-          name: op-e2e-HTTP-tests
+          name: op-e2e-legacy-HTTP-tests
           module: op-e2e
           use_http: "true"
+          devnet: ".devnet"
+          deploy-config: "devnetL1.json"
+          requires: [ hold ]
+      - go-e2e-test:
+          name: op-e2e-espresso-WS-tests
+          module: op-e2e
+          use_http: "false"
+          devnet: ".devnet-espresso"
+          deploy-config: "devnetL1-espresso.json"
+          parallel: 1
+          run: "TestMissingGasLimit|TestGethOnlyPendingBlockIsLatest|TestInvalidDepositInFCU|TestRegolith|TestPreregolith|TestSystemE2E|TestConfirmationDepth|TestMintOnRevertedDeposit|TestSystemP2PAltSync|TestSystemRPCAltSync|TestWithdrawals|TestERC20BridgeDeposits"
+          requires: [ hold ]
+      - go-e2e-test:
+          name: op-e2e-espresso-HTTP-tests
+          module: op-e2e
+          use_http: "true"
+          devnet: ".devnet-espresso"
+          deploy-config: "devnetL1-espresso.json"
+          parallel: 1
+          run: "TestMissingGasLimit|TestGethOnlyPendingBlockIsLatest|TestInvalidDepositInFCU|TestRegolith|TestPreregolith|TestSystemE2E|TestConfirmationDepth|TestMintOnRevertedDeposit|TestSystemP2PAltSync|TestSystemRPCAltSync|TestWithdrawals|TestERC20BridgeDeposits"
+          requires: [ hold ]
       - bedrock-go-tests:
           requires:
             - op-batcher-lint
@@ -1343,14 +1420,17 @@ workflows:
             - op-challenger-tests
             - op-program-tests
             - op-service-tests
-            - op-e2e-WS-tests
-            - op-e2e-HTTP-tests
+            - op-e2e-legacy-WS-tests
+            - op-e2e-legacy-HTTP-tests
+            - op-e2e-espresso-WS-tests
+            - op-e2e-espresso-HTTP-tests
       - docker-build:
           name: op-node-docker-build
           docker_file: op-node/Dockerfile
           docker_name: op-node
           docker_tags: <<pipeline.git.revision>>,<<pipeline.git.branch>>
           docker_context: .
+          requires: [ hold ]
       # - docker-publish:
       #     name: op-node-docker-publish
       #     docker_name: op-node
@@ -1365,6 +1445,7 @@ workflows:
           docker_name: op-batcher
           docker_tags: <<pipeline.git.revision>>,<<pipeline.git.branch>>
           docker_context: .
+          requires: [ hold ]
       # - docker-publish:
       #     name: op-batcher-docker-publish
       #     docker_file: op-batcher/Dockerfile
@@ -1379,6 +1460,7 @@ workflows:
           docker_name: op-program
           docker_tags: <<pipeline.git.revision>>,<<pipeline.git.branch>>
           docker_context: .
+          requires: [ hold ]
       # - docker-publish:
       #     name: op-program-docker-publish
       #     docker_file: op-program/Dockerfile
@@ -1393,6 +1475,7 @@ workflows:
           docker_name: op-proposer
           docker_tags: <<pipeline.git.revision>>,<<pipeline.git.branch>>
           docker_context: .
+          requires: [ hold ]
       # - docker-publish:
       #     name: op-proposer-docker-publish
       #     docker_file: op-proposer/Dockerfile
@@ -1407,6 +1490,7 @@ workflows:
           docker_name: op-challenger
           docker_tags: <<pipeline.git.revision>>,<<pipeline.git.branch>>
           docker_context: .
+          requires: [ hold ]
       # - docker-publish:
       #     name: op-challenger-docker-publish
       #     docker_file: op-challenger/Dockerfile
@@ -1421,6 +1505,7 @@ workflows:
           docker_name: op-heartbeat
           docker_tags: <<pipeline.git.revision>>,<<pipeline.git.branch>>
           docker_context: .
+          requires: [ hold ]
       # - docker-publish:
       #     name: op-heartbeat-docker-publish
       #     docker_file: op-heartbeat/Dockerfile
@@ -1434,6 +1519,7 @@ workflows:
           docker_name: indexer
           docker_tags: <<pipeline.git.revision>>,<<pipeline.git.branch>>
           docker_context: .
+          requires: [ hold ]
       # - docker-publish:
       #     name: indexer-docker-publish
       #     docker_file: indexer/Dockerfile
@@ -1449,6 +1535,13 @@ workflows:
       #     docker_target: wd-mon
       #     context:
       #       - oplabs-gcr
+      - docker-build:
+          name: op-geth-proxy-docker-build
+          docker_file: op-geth-proxy/Dockerfile
+          docker_name: op-geth-proxy
+          docker_tags: <<pipeline.git.revision>>,<<pipeline.git.branch>>
+          docker_context: .
+          requires: [ hold ]
       - hive-test:
           name: hive-test-rpc
           version: <<pipeline.git.revision>>
@@ -1476,10 +1569,14 @@ workflows:
             - op-batcher-docker-build
             - op-proposer-docker-build
             - op-challenger-docker-build
-      - check-generated-mocks-op-node
-      - check-generated-mocks-op-service
-      - cannon-go-lint-and-test
-      - cannon-build-test-vectors
+      - check-generated-mocks-op-node:
+          requires: [ hold ]
+      - check-generated-mocks-op-service:
+          requires: [ hold ]
+      - cannon-go-lint-and-test:
+          requires: [ hold ]
+      - cannon-build-test-vectors:
+          requires: [ hold ]
   release:
     jobs:
       - hold:

@@ -51,9 +51,10 @@ type BatchQueue struct {
 // NewBatchQueue creates a BatchQueue, which should be Reset(origin) before use.
 func NewBatchQueue(log log.Logger, cfg *rollup.Config, prev NextBatchProvider, hotshot HotShotContractProvider) *BatchQueue {
 	return &BatchQueue{
-		log:    log,
-		config: cfg,
-		prev:   prev,
+		log:     log,
+		config:  cfg,
+		prev:    prev,
+		hotshot: hotshot,
 	}
 }
 
