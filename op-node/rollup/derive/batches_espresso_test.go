@@ -52,6 +52,9 @@ func (m *mockHotShotProvider) GetCommitmentsFromHeight(firstBlockHeight uint64, 
 		return nil, NewCriticalError(errors.New("Commitments unavailable"))
 	}
 	var comms []espresso.Commitment
+	for i := 0; i < int(numHeaders); i++ {
+		comms = append(comms, m.Headers[int(firstBlockHeight)+i].Commit())
+	}
 	return comms, nil
 }
 
