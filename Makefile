@@ -119,6 +119,7 @@ devnet-down:
 devnet-clean:
 	rm -rf ./packages/contracts-bedrock/deployments/devnetL1
 	rm -rf ./.devnet
+	rm -rf ./.devnet-espresso
 	cd ./ops-bedrock && docker-compose down
 	docker image ls 'ops-bedrock*' --format='{{.Repository}}' | xargs -r docker rmi
 	docker volume ls --filter name=ops-bedrock --format='{{.Name}}' | xargs -r docker volume rm
@@ -127,9 +128,20 @@ devnet-clean:
 devnet-allocs:
 	PYTHONPATH=./bedrock-devnet python3 ./bedrock-devnet/main.py --monorepo-dir=. --allocs
 
+devnet-allocs-espresso:
+	PYTHONPATH=./bedrock-devnet python3 ./bedrock-devnet/main.py --monorepo-dir=. --deploy-config="devnetL1-espresso.json" --devnet-dir=".devnet-espresso" --allocs
+
 devnet-logs:
 	@(cd ./ops-bedrock && docker-compose logs -f)
-	.PHONY: devnet-logs
+.PHONY: devnet-logs
+
+devnet-build:
+	@(cd ./ops-bedrock && docker-compose build)
+.PHONY: devnet-build
+
+devnet-pull:
+	@(cd ./ops-bedrock && docker-compose pull)
+.PHONY: devnet-pull
 
 test-unit:
 	make -C ./op-node test

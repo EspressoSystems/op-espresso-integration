@@ -48,6 +48,20 @@ func (b *RawCommitmentBuilder) Field(f string, c Commitment) *RawCommitmentBuild
 	return b.ConstantString(f).FixedSizeBytes(c[:])
 }
 
+func (b *RawCommitmentBuilder) OptionalField(f string, c *Commitment) *RawCommitmentBuilder {
+	b.ConstantString(f)
+
+	// Encode a 0 or 1 to separate the nil domain from the non-nil domain.
+	if c == nil {
+		b.Uint64(0)
+	} else {
+		b.Uint64(1)
+		b.FixedSizeBytes((*c)[:])
+	}
+
+	return b
+}
+
 // Include a named field of type `uint256` in the hash.
 func (b *RawCommitmentBuilder) Uint256Field(f string, n *U256) *RawCommitmentBuilder {
 	return b.ConstantString(f).Uint256(n)
@@ -77,6 +91,20 @@ func (b *RawCommitmentBuilder) Uint64(n uint64) *RawCommitmentBuilder {
 	bytes := make([]byte, 8)
 	binary.LittleEndian.PutUint64(bytes, n)
 	return b.FixedSizeBytes(bytes)
+}
+
+// Include a named field of fixed length in the hash.
+//
+// WARNING: Go's type system cannot express the requirement that `bytes` is a fixed size array of
+// any size. The best we can do is take a dynamically sized slice. However, this function uses a
+// fixed-size encoding; namely, it does not encode the length of `bytes` in the hash, which can lead
+// to domain collisions when this function is called with a slice which can have different lengths
+// depending on the input object.
+//
+// The caller must ensure that this function is only used with slices whose length is statically
+// determined by the type being committed to.
+func (b *RawCommitmentBuilder) FixedSizeField(f string, bytes Bytes) *RawCommitmentBuilder {
+	return b.ConstantString(f).FixedSizeBytes(bytes)
 }
 
 // Append a fixed size byte array to the running hash.

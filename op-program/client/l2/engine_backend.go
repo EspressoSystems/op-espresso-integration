@@ -181,7 +181,7 @@ func (o *OracleBackedL2Chain) InsertBlockWithoutSetHead(block *types.Block) erro
 			return fmt.Errorf("invalid transaction (%d): %w", i, err)
 		}
 	}
-	expected, err := processor.Assemble()
+	expected, err := processor.Assemble(block.Rejected())
 	if err != nil {
 		return fmt.Errorf("invalid block: %w", err)
 	}

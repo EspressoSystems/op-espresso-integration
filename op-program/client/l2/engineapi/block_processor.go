@@ -102,8 +102,8 @@ func (b *BlockProcessor) AddTx(tx *types.Transaction) error {
 	return nil
 }
 
-func (b *BlockProcessor) Assemble() (*types.Block, error) {
-	return b.dataProvider.Engine().FinalizeAndAssemble(b.dataProvider, b.header, b.state, b.transactions, nil, b.receipts, nil)
+func (b *BlockProcessor) Assemble(rejected []types.RejectedTransaction) (*types.Block, error) {
+	return b.dataProvider.Engine().FinalizeAndAssemble(b.dataProvider, b.header, b.state, b.transactions, nil, b.receipts, nil, rejected)
 }
 
 func (b *BlockProcessor) Commit() error {

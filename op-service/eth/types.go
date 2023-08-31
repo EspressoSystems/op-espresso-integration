@@ -234,6 +234,9 @@ type PayloadAttributes struct {
 	Transactions []Data `json:"transactions,omitempty"`
 	// NoTxPool to disable adding any transactions from the transaction-pool.
 	NoTxPool bool `json:"noTxPool,omitempty"`
+	// Espresso indicates whether Espresso mode is enabled. If so, invalid transactions will be
+	// silently rejected, instead of causing the whole block to fail.
+	Espresso bool `json:"espresso,omitempty"`
 	// GasLimit override
 	GasLimit *Uint64Quantity `json:"gasLimit,omitempty"`
 }

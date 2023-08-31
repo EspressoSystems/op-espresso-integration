@@ -179,5 +179,6 @@ func SystemConfigFromDeployConfig(deployConfig *genesis.DeployConfig) eth.System
 		Overhead:    eth.Bytes32(common.BigToHash(new(big.Int).SetUint64(deployConfig.GasPriceOracleOverhead))),
 		Scalar:      eth.Bytes32(common.BigToHash(new(big.Int).SetUint64(deployConfig.GasPriceOracleScalar))),
 		GasLimit:    uint64(deployConfig.L2GenesisBlockGasLimit),
+		Espresso:    deployConfig.Espresso,
 	}
 }

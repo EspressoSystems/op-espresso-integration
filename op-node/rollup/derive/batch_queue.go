@@ -43,6 +43,20 @@ type HotShotContractProvider interface {
 	getHeadersFromHeight(firstHeight uint64, numHeaders uint64) ([]espresso.Header, error)
 }
 
+// Dummy `HotShotContractProvider` that always succeeds to enable testing.
+// TODO Delete this and replace it with a real implementation.
+// https://github.com/EspressoSystems/op-espresso-integration/issues/50
+type FakeHotShot struct {
+}
+
+func (*FakeHotShot) verifyHeaders(headers []espresso.Header, firstHeight uint64) (bool, error) {
+	return true, nil
+}
+
+func (*FakeHotShot) getHeadersFromHeight(firstHeight uint64, numHeaders uint64) ([]espresso.Header, error) {
+	return make([]espresso.Header, numHeaders), nil
+}
+
 // BatchQueue contains a set of batches for every L1 block.
 // L1 blocks are contiguous and this does not support reorgs.
 type BatchQueue struct {
@@ -62,9 +76,10 @@ type BatchQueue struct {
 // NewBatchQueue creates a BatchQueue, which should be Reset(origin) before use.
 func NewBatchQueue(log log.Logger, cfg *rollup.Config, prev NextBatchProvider) *BatchQueue {
 	return &BatchQueue{
-		log:    log,
-		config: cfg,
-		prev:   prev,
+		log:     log,
+		config:  cfg,
+		prev:    prev,
+		hotshot: &FakeHotShot{},
 	}
 }
 

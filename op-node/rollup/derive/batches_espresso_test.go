@@ -60,7 +60,9 @@ func (m *mockHotShotProvider) setHeaders(headers []espresso.Header) {
 
 func makeHeader(timestamp uint64) espresso.Header {
 	return espresso.Header{
-		Timestamp: timestamp,
+		Metadata: espresso.Metadata{
+			Timestamp: timestamp,
+		},
 	}
 }
 
@@ -152,9 +154,9 @@ func TestValidBatchEspresso(t *testing.T) {
 			l2B0.Time - 1,
 		),
 		{
-			Timestamp: l2B0.Time,
-			L1Block: espresso.L1BlockInfo{
-				Number: l2A3.L1Origin.Number + 2,
+			Metadata: espresso.Metadata{
+				Timestamp: l2B0.Time,
+				L1Head:    l2A3.L1Origin.Number + 2,
 			},
 		},
 	}

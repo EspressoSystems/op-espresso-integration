@@ -415,7 +415,7 @@ func (s *TestSequencer) nextEspressoBlock(ctx context.Context) *espresso.Header 
 	}
 	binary.LittleEndian.PutUint64(root.Root, uint64(len(s.espresso.Blocks)))
 
-	l1OriginNumber := prev.L1Block.Number
+	l1OriginNumber := prev.L1Head
 	switch s.rng.Intn(20) {
 	case 0:
 		// 5%: move the L1 origin _backwards_. Espresso is supposed to enforce that the L1 origin is
@@ -445,7 +445,7 @@ func (s *TestSequencer) nextEspressoBlock(ctx context.Context) *espresso.Header 
 	if l1Origin.Time >= timestamp {
 		// If the chosen L1 origin is newer than the corresponding Espresso block, use an old L1
 		// origin.
-		l1Origin = s.l1BlockByNumber(prev.L1Block.Number)
+		l1Origin = s.l1BlockByNumber(prev.L1Head)
 	}
 
 	// 5% of the time, mess with the timestamp. Again, Espresso should ensure that the timestamps
@@ -455,12 +455,11 @@ func (s *TestSequencer) nextEspressoBlock(ctx context.Context) *espresso.Header 
 	}
 
 	header := espresso.Header{
-		Timestamp: timestamp,
-		L1Block: espresso.L1BlockInfo{
-			Number:    l1Origin.Number,
-			Timestamp: *espresso.NewU256().SetUint64(l1Origin.Time),
-		},
 		TransactionsRoot: root,
+		Metadata: espresso.Metadata{
+			Timestamp: timestamp,
+			L1Head:    l1Origin.Number,
+		},
 	}
 
 	// Randomly generate between 0 and 10 transactions.
@@ -724,6 +723,7 @@ func TestSequencerChaosMonkeyEspresso(t *testing.T) {
 			require.Less(t, jst.PrevBatchLastBlock.Timestamp, payload.Timestamp)
 		}
 
+		espressoL1Number := s.espresso.Blocks[jst.FirstBlockNumber].Header.L1Head
 		if jst.Payload != nil {
 			// Happy path: the batch includes all transactions in a range of Espresso blocks, with
 			// proofs.
@@ -747,11 +747,11 @@ func TestSequencerChaosMonkeyEspresso(t *testing.T) {
 			}
 			// Check that the L1 origin was chosen by Espresso, unless Espresso chose a bad
 			// (decreasing) L1 origin, in which case the sequencer just uses the previous L1 origin.
-			if s.espresso.Blocks[jst.FirstBlockNumber].Header.L1Block.Number < prevL1Origin {
+			if espressoL1Number < prevL1Origin {
 				decreasingL1Origin += 1
 				require.Equal(t, l1Origin, prevL1Origin)
 			} else {
-				require.Equal(t, l1Origin, s.espresso.Blocks[jst.FirstBlockNumber].Header.L1Block.Number)
+				require.Equal(t, l1Origin, espressoL1Number)
 			}
 			prevL1Origin = l1Origin
 			happyPath += 1
@@ -773,7 +773,7 @@ func TestSequencerChaosMonkeyEspresso(t *testing.T) {
 
 		// Exception 2: Espresso has chosen an L1 origin which is too old. In this case, we advance
 		// the L1 origin so we can try to catch up to the current L1 head.
-		if s.espresso.Blocks[jst.FirstBlockNumber].Header.L1Block.Timestamp.Uint64()+s.cfg.MaxSequencerDrift < uint64(payload.Timestamp) {
+		if s.l1BlockByNumber(espressoL1Number).Time+s.cfg.MaxSequencerDrift < uint64(payload.Timestamp) {
 			require.Equal(t, l1Origin, prevL1Origin+1)
 			prevL1Origin = l1Origin
 			oldL1Origin += 1
@@ -783,7 +783,7 @@ func TestSequencerChaosMonkeyEspresso(t *testing.T) {
 		// Exception 3: Espresso has skipped an L1 block. In this case, the sequencer must insert
 		// empty L2 batches for each L1 origin which was skipped. We require that the L1 origin is
 		// advanced for each empty block so that we catch up to Espresso as fast as we can.
-		if s.espresso.Blocks[jst.FirstBlockNumber].Header.L1Block.Number > prevL1Origin+1 {
+		if espressoL1Number > prevL1Origin+1 {
 			require.Equal(t, l1Origin, prevL1Origin+1)
 			prevL1Origin = l1Origin
 			skippedL1Origin += 1

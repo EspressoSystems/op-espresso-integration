@@ -202,10 +202,7 @@ func (n *OpNode) initL2(ctx context.Context, cfg *Config, snapshotLog log.Logger
 
 	var espressoClient *espresso.Client
 	if cfg.EspressoUrl != "" {
-		espressoClient, err = espresso.NewClient(cfg.EspressoUrl)
-		if err != nil {
-			return err
-		}
+		espressoClient = espresso.NewClient(n.log, cfg.EspressoUrl)
 	}
 
 	n.l2Driver = driver.NewDriver(&cfg.Driver, &cfg.Rollup, n.l2Source, n.l1Source, espressoClient, n, n, n.log, snapshotLog, n.metrics, cfg.ConfigPersistence, &cfg.Sync)

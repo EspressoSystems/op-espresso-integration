@@ -149,27 +149,32 @@ func (d *Sequencer) startBuildingEspressoBatch(ctx context.Context, l2Head eth.L
 		l1OriginNumber := l2Head.L1Origin.Number
 		batch.l1Origin, err = d.l1OriginSelector.FindL1OriginByNumber(ctx, l1OriginNumber)
 		if err != nil {
-			d.log.Error("Error finding L1 origin with number", l1OriginNumber, "err", err)
+			d.log.Error("error finding L1 origin", "number", l1OriginNumber, "err", err)
 			return err
 		}
 		d.espressoBatch = batch
+		d.log.Info("building empty Espresso batch because Espresso produced no blocks",
+			"windowStart", windowStart, "windowEnd", windowEnd,
+			"PrevBatchLastBlock", batch.jst.PrevBatchLastBlock, "firstBlock", batch.jst.FirstBlock)
 		return nil
 	}
 	// 2) Espresso skipped an L1 block.
-	if batch.jst.FirstBlock.L1Block.Number > l2Head.L1Origin.Number+1 {
+	if batch.jst.FirstBlock.L1Head > l2Head.L1Origin.Number+1 {
 		// Produce an empty batch that advances the L1 origin by 1, so we can catch up to Espresso.
 		l1OriginNumber := l2Head.L1Origin.Number + 1
 		batch.l1Origin, err = d.l1OriginSelector.FindL1OriginByNumber(ctx, l1OriginNumber)
 		if err != nil {
-			d.log.Error("Error finding L1 origin with number", l1OriginNumber, "err", err)
+			d.log.Error("error finding L1 origin", "number", l1OriginNumber, "err", err)
 			return err
 		}
 		d.espressoBatch = batch
+		d.log.Info("building empty Espresso batch because Espresso skipped an L1 block",
+			"firstBlockL1", batch.jst.FirstBlock.L1Head, "prevL1", l2Head.L1Origin.Number)
 		return nil
 	}
 
 	// Fetch the L1 origin determined by the first Espresso block.
-	l1OriginNumber := batch.jst.FirstBlock.L1Block.Number
+	l1OriginNumber := batch.jst.FirstBlock.L1Head
 	// While Espresso _should_ guarantee that L1 origin numbers are monotonically increasing, a
 	// limitation in the current design means that on rare occasions the L1 origin number can
 	// decrease. As a temporary work-around, we detect this case and handle it as if Espresso had
@@ -179,20 +184,24 @@ func (d *Sequencer) startBuildingEspressoBatch(ctx context.Context, l2Head eth.L
 	}
 	batch.l1Origin, err = d.l1OriginSelector.FindL1OriginByNumber(ctx, l1OriginNumber)
 	if err != nil {
-		d.log.Error("Error finding L1 origin with number", l1OriginNumber, "err", err)
+		d.log.Error("error finding L1 origin", "number", l1OriginNumber, "err", err)
 		return err
 	}
 
 	// Check for one more case where the L1 origin is ineligible: if it is too old, we produce an
 	// empty batch that advances the L1 origin by 1.
 	if batch.l1Origin.Time+d.config.MaxSequencerDrift < windowStart {
+		oldL1Origin := batch.l1Origin
 		l1OriginNumber = l2Head.L1Origin.Number + 1
 		batch.l1Origin, err = d.l1OriginSelector.FindL1OriginByNumber(ctx, l1OriginNumber)
 		if err != nil {
-			d.log.Error("Error finding L1 origin with number", l1OriginNumber, "err", err)
+			d.log.Error("error finding L1 origin", "number", l1OriginNumber, "err", err)
 			return err
 		}
 		d.espressoBatch = batch
+		d.log.Info("building empty Espresso batch because L1 origin is too far behind",
+			"windowStart", windowStart, "MaxSequencerDrift", d.config.MaxSequencerDrift,
+			"suggestedOrigin", oldL1Origin)
 		return nil
 	}
 
@@ -229,18 +238,20 @@ func (d *Sequencer) updateEspressoBatch(ctx context.Context, newHeaders []espres
 		if header.Timestamp < batch.windowStart {
 			// Eventually, we should return an error here. However due to a limitation in the
 			// current implementation of HotShot/Espresso, block timestamps will sometimes decrease.
-			d.log.Error("inconsistent data from Espresso query service: header", header, "is before window start", batch.windowStart)
+			d.log.Error("inconsistent data from Espresso query service: header is before window start", "header", header, "start", batch.windowStart)
 		}
 		if header.Timestamp < batch.jst.Payload.LastBlock.Timestamp {
 			// Similarly, this should eventually be an error, but can happen with the current
 			// version of Espresso.
-			d.log.Error("inconsistent data from Espresso query service: header", header, "is before its predecessor", batch.jst.Payload.LastBlock)
+			d.log.Error("inconsistent data from Espresso query service: header is before its predecessor", "header", header, "prev", batch.jst.Payload.LastBlock)
 		}
 
-		txs, err := d.espresso.FetchTransactionsInBlock(ctx, batch.jst.FirstBlockNumber+uint64(len(batch.blocks)), header, d.config.L2ChainID.Uint64())
+		blockNum := batch.jst.FirstBlockNumber + uint64(len(batch.blocks))
+		txs, err := d.espresso.FetchTransactionsInBlock(ctx, blockNum, header, d.config.L2ChainID.Uint64())
 		if err != nil {
 			return err
 		}
+		d.log.Info("adding new transactions from Espresso", "block", blockNum, "count", len(txs.Transactions))
 		batch.jst.Payload.NmtProofs = append(batch.jst.Payload.NmtProofs, txs.Proof)
 		batch.blocks = append(batch.blocks, txs.Transactions)
 		batch.jst.Payload.LastBlock = *header
@@ -319,7 +330,7 @@ func (d *Sequencer) startBuildingLegacyBlock(ctx context.Context) error {
 	// Figure out which L1 origin block we're going to be building on top of.
 	l1Origin, err := d.l1OriginSelector.FindL1Origin(ctx, l2Head)
 	if err != nil {
-		d.log.Error("Error finding next L1 Origin", "err", err)
+		d.log.Error("error finding next L1 Origin", "err", err)
 		return err
 	}
 
@@ -545,13 +556,13 @@ func (d *Sequencer) buildEspressoBatch(ctx context.Context) (*eth.ExecutionPaylo
 	// First, check if there has been a reorg. If so, drop the current block and restart.
 	head := d.engine.UnsafeL2Head()
 	if d.espressoBatch != nil && d.espressoBatch.onto.Hash != head.Hash {
-		d.log.Warn("reorg detected", d.espressoBatch.onto, "->", head, "dropping partial Espresso batch")
+		d.log.Warn("reorg detected", "head", head, "onto", d.espressoBatch.onto)
 		d.espressoBatch = nil
 	}
 
 	// Begin a new block if necessary.
 	if d.espressoBatch == nil {
-		d.log.Info("building new Espresso batch on", head)
+		d.log.Info("building new Espresso batch", "onto", head)
 		if err := d.startBuildingEspressoBatch(ctx, head); err != nil {
 			return nil, d.handleNonEngineError("starting Espresso block", err)
 		}
@@ -571,7 +582,7 @@ func (d *Sequencer) buildEspressoBatch(ctx context.Context) (*eth.ExecutionPaylo
 	} else {
 		// If we did seal the block, return it and do not set a delay, so that the scheduler will
 		// start the next action (starting the next block) immediately.
-		d.log.Info("sealed Espresso batch", block)
+		d.log.Info("sealed Espresso batch", "payload", block)
 		return block, nil
 	}
 }
@@ -635,7 +646,7 @@ func (d *Sequencer) handlePossibleEngineError(action string, err error) error {
 	if errors.Is(err, derive.ErrCritical) {
 		return err
 	} else if errors.Is(err, derive.ErrReset) {
-		d.log.Error("sequencer failed ", action, ", requiring derivation reset", " err ", err)
+		d.log.Error("sequencer failed, requiring derivation reset", "action", action, "err", err)
 		d.metrics.RecordSequencerReset()
 		d.nextAction = d.timeNow().Add(time.Second * time.Duration(d.config.BlockTime)) // hold off from sequencing for a full block
 		d.engine.Reset()
@@ -649,10 +660,10 @@ func (d *Sequencer) handleNonEngineError(action string, err error) error {
 	if errors.Is(err, derive.ErrCritical) {
 		return err
 	} else if errors.Is(err, derive.ErrTemporary) {
-		d.log.Error("sequencer temporarily failed ", action, " err ", err)
+		d.log.Error("sequencer encountered temporary error", "action", action, "err", err)
 		d.nextAction = d.timeNow().Add(time.Second)
 	} else {
-		d.log.Error("sequencer failed ", action, " err ", err)
+		d.log.Error("sequencer encountered unclassified error", "action", action, "err", err)
 		d.nextAction = d.timeNow().Add(time.Second)
 	}
 	return nil

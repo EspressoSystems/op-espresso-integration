@@ -215,14 +215,36 @@ func (co *ChannelOut) OutputFrame(w *bytes.Buffer, maxSize uint64) (uint16, erro
 
 // BlockToBatch transforms a block into a batch object that can easily be RLP encoded.
 func BlockToBatch(block *types.Block) (*BatchData, L1BlockInfo, error) {
+	// Combine the included and rejected transactions into one list, in the original order, so that
+	// the _batch_ we send to L1 matches the batch built by the sequencer. Downstream nodes in the
+	// derivation pipeline will read this batch and derive the corresponding _block_, which executes
+	// only the valid transactions, on their own, rather than trusting the sequencer about which
+	// transactions are invalid.
 	opaqueTxs := make([]hexutil.Bytes, 0, len(block.Transactions()))
-	for i, tx := range block.Transactions() {
+	blockTxs := block.Transactions()
+	blockRejected := block.Rejected()
+	nextTx := 0
+	nextRejected := 0
+	pos := uint64(0)
+	for nextTx < len(blockTxs) || nextRejected < len(blockRejected) {
+		if nextRejected < len(blockRejected) {
+			rejected := &blockRejected[nextRejected]
+			if rejected.Pos == pos {
+				opaqueTxs = append(opaqueTxs, rejected.Data)
+				nextRejected++
+				continue
+			}
+		}
+		// If there is no rejected transaction at this position, there must be a regular transaction.
+		tx := blockTxs[nextTx]
+		nextTx++
+		pos++
 		if tx.Type() == types.DepositTxType {
 			continue
 		}
 		otx, err := tx.MarshalBinary()
 		if err != nil {
-			return nil, L1BlockInfo{}, fmt.Errorf("could not encode tx %v in block %v: %w", i, tx.Hash(), err)
+			return nil, L1BlockInfo{}, fmt.Errorf("could not encode tx %v in block %v: %w", nextTx, tx.Hash(), err)
 		}
 		opaqueTxs = append(opaqueTxs, otx)
 	}

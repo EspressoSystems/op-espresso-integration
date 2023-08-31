@@ -589,6 +589,7 @@ func TestSystemRPCAltSync(t *testing.T) {
 	cfg.DisableBatcher = true
 
 	var published, received []string
+	receivedSet := make(map[string]bool)
 	seqTracer, verifTracer := new(FnTracer), new(FnTracer)
 	// The sequencer still publishes the blocks to the tracer, even if they do not reach the network due to disabled P2P
 	seqTracer.OnPublishL2PayloadFn = func(ctx context.Context, payload *eth.ExecutionPayload) {
@@ -596,7 +597,18 @@ func TestSystemRPCAltSync(t *testing.T) {
 	}
 	// Blocks are now received via the RPC based alt-sync method
 	verifTracer.OnUnsafeL2PayloadFn = func(ctx context.Context, from peer.ID, payload *eth.ExecutionPayload) {
-		received = append(received, payload.ID().String())
+		// The RPC sync client uses a producer-consumer model for handling requests to fetch ranges
+		// of L2 blocks. There is a benign race condition in which the consumer has dequeued a
+		// request but not yet finished executing it, when the producer may enqueue the same request,
+		// since it has not yet gotten a response. This can lead to duplicate blocks being received.
+		// This is harmless, since the derivation pipeline will discard duplicate blocks, so we do
+		// the same thing here: check if we have already received this payload and discard it if we
+		// have.
+		id := payload.ID().String()
+		if _, ok := receivedSet[id]; !ok {
+			receivedSet[id] = true
+			received = append(received, id)
+		}
 	}
 	cfg.Nodes["sequencer"].Tracer = seqTracer
 	cfg.Nodes["verifier"].Tracer = verifTracer
@@ -744,7 +756,7 @@ func TestSystemP2PAltSync(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, syncerL2Engine.Start())
 
-	configureL2(syncNodeCfg, syncerL2Engine, cfg.JWTSecret)
+	configureL2(syncNodeCfg, syncerL2Engine, sys.Espresso, cfg.JWTSecret)
 
 	syncerNode, err := rollupNode.New(context.Background(), syncNodeCfg, cfg.Loggers["syncer"], snapLog, "", metrics.NewMetrics(""))
 	require.NoError(t, err)

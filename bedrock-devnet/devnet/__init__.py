@@ -19,6 +19,8 @@ parser = argparse.ArgumentParser(description='Bedrock devnet launcher')
 parser.add_argument('--monorepo-dir', help='Directory of the monorepo', default=os.getcwd())
 parser.add_argument('--allocs', help='Only create the allocs and exit', type=bool, action=argparse.BooleanOptionalAction)
 parser.add_argument('--test', help='Tests the deployment, must already be deployed', type=bool, action=argparse.BooleanOptionalAction)
+parser.add_argument('--deploy-config', help='Path to deployment config, relative to --monorepo-dir', default='devnetL1.json')
+parser.add_argument('--devnet-dir', help='Output path for devnet config, relative to --monorepo-dir', default='.devnet')
 
 log = logging.getLogger()
 
@@ -51,13 +53,13 @@ def main():
     args = parser.parse_args()
 
     monorepo_dir = os.path.abspath(args.monorepo_dir)
-    devnet_dir = pjoin(monorepo_dir, '.devnet')
+    devnet_dir = pjoin(monorepo_dir, args.devnet_dir)
     contracts_bedrock_dir = pjoin(monorepo_dir, 'packages', 'contracts-bedrock')
     deployment_dir = pjoin(contracts_bedrock_dir, 'deployments', 'devnetL1')
     op_node_dir = pjoin(args.monorepo_dir, 'op-node')
     ops_bedrock_dir = pjoin(monorepo_dir, 'ops-bedrock')
     deploy_config_dir = pjoin(contracts_bedrock_dir, 'deploy-config'),
-    devnet_config_path = pjoin(contracts_bedrock_dir, 'deploy-config', 'devnetL1.json')
+    devnet_config_path = pjoin(contracts_bedrock_dir, 'deploy-config', args.deploy_config)
     ops_chain_ops = pjoin(monorepo_dir, 'op-chain-ops')
     sdk_dir = pjoin(monorepo_dir, 'packages', 'sdk')
 
