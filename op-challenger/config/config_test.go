@@ -1,11 +1,13 @@
 package config
 
 import (
+	"runtime"
 	"testing"
 
-	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 )
 
 var (
@@ -16,13 +18,13 @@ var (
 	validCannonOpProgramBin    = "./bin/op-program"
 	validCannonNetwork         = "mainnet"
 	validCannonAbsolutPreState = "pre.json"
-	validCannonDatadir         = "/tmp/cannon"
+	validDatadir               = "/tmp/data"
 	validCannonL2              = "http://localhost:9545"
 	agreeWithProposedOutput    = true
 )
 
 func validConfig(traceType TraceType) Config {
-	cfg := NewConfig(validGameFactoryAddress, validL1EthRpc, traceType, agreeWithProposedOutput)
+	cfg := NewConfig(validGameFactoryAddress, validL1EthRpc, traceType, agreeWithProposedOutput, validDatadir)
 	switch traceType {
 	case TraceTypeAlphabet:
 		cfg.AlphabetTrace = validAlphabetTrace
@@ -30,7 +32,6 @@ func validConfig(traceType TraceType) Config {
 		cfg.CannonBin = validCannonBin
 		cfg.CannonServer = validCannonOpProgramBin
 		cfg.CannonAbsolutePreState = validCannonAbsolutPreState
-		cfg.CannonDatadir = validCannonDatadir
 		cfg.CannonL2 = validCannonL2
 		cfg.CannonNetwork = validCannonNetwork
 	}
@@ -68,9 +69,9 @@ func TestGameFactoryAddressRequired(t *testing.T) {
 	require.ErrorIs(t, config.Check(), ErrMissingGameFactoryAddress)
 }
 
-func TestGameAddressNotRequired(t *testing.T) {
+func TestGameAllowlistNotRequired(t *testing.T) {
 	config := validConfig(TraceTypeCannon)
-	config.GameAddress = common.Address{}
+	config.GameAllowlist = []common.Address{}
 	require.NoError(t, config.Check())
 }
 
@@ -98,10 +99,23 @@ func TestCannonAbsolutePreStateRequired(t *testing.T) {
 	require.ErrorIs(t, config.Check(), ErrMissingCannonAbsolutePreState)
 }
 
-func TestCannonDatadirRequired(t *testing.T) {
-	config := validConfig(TraceTypeCannon)
-	config.CannonDatadir = ""
-	require.ErrorIs(t, config.Check(), ErrMissingCannonDatadir)
+func TestDatadirRequired(t *testing.T) {
+	config := validConfig(TraceTypeAlphabet)
+	config.Datadir = ""
+	require.ErrorIs(t, config.Check(), ErrMissingDatadir)
+}
+
+func TestMaxConcurrency(t *testing.T) {
+	t.Run("Required", func(t *testing.T) {
+		config := validConfig(TraceTypeAlphabet)
+		config.MaxConcurrency = 0
+		require.ErrorIs(t, config.Check(), ErrMaxConcurrencyZero)
+	})
+
+	t.Run("DefaultToNumberOfCPUs", func(t *testing.T) {
+		config := validConfig(TraceTypeAlphabet)
+		require.EqualValues(t, runtime.NumCPU(), config.MaxConcurrency)
+	})
 }
 
 func TestCannonL2Required(t *testing.T) {
@@ -115,6 +129,14 @@ func TestCannonSnapshotFreq(t *testing.T) {
 		cfg := validConfig(TraceTypeCannon)
 		cfg.CannonSnapshotFreq = 0
 		require.ErrorIs(t, cfg.Check(), ErrMissingCannonSnapshotFreq)
+	})
+}
+
+func TestCannonInfoFreq(t *testing.T) {
+	t.Run("MustNotBeZero", func(t *testing.T) {
+		cfg := validConfig(TraceTypeCannon)
+		cfg.CannonInfoFreq = 0
+		require.ErrorIs(t, cfg.Check(), ErrMissingCannonInfoFreq)
 	})
 }
 
