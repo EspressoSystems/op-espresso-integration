@@ -16,8 +16,8 @@ github.com/CloudyKit/fastprinter v0.0.0-20200109182630-33d98a066a53/go.mod h1:+3
 github.com/CloudyKit/jet/v3 v3.0.0/go.mod h1:HKQPgSJmdK8hdoAbKUUWajkHyHo4RaU5rMdUywE7VMo=
 github.com/DataDog/zstd v1.5.2 h1:vUG4lAyuPCXO0TLbXvPv7EB7cNK1QV/luu55UHLrrn8=
 github.com/DataDog/zstd v1.5.2/go.mod h1:g4AWEaM3yOg3HYfnJ3YIawPnVdXJh9QME85blwSAmyw=
-github.com/EspressoSystems/op-geth v1.2.1-espresso.0.20230831173646-6fde075f14c4 h1:ido3MvLSQgcWBVQwHCj/1T/V5tNFotNQhFX6olZyweA=
-github.com/EspressoSystems/op-geth v1.2.1-espresso.0.20230831173646-6fde075f14c4/go.mod h1:gRnPb21PoKcHm3kHqj9BQlQkwmhOGUvQoGEbC7z852Q=
+github.com/EspressoSystems/op-geth v1.2.2-espresso h1:W3eDSzzCH9jJaSJnPo8FAV6FJpvrZRJ4QDSlJ4bj384=
+github.com/EspressoSystems/op-geth v1.2.2-espresso/go.mod h1:gRnPb21PoKcHm3kHqj9BQlQkwmhOGUvQoGEbC7z852Q=
 github.com/Joker/hpp v1.0.0/go.mod h1:8x5n+M1Hp5hC0g8okX3sR3vFQwynaX/UgSOM9MeBKzY=
 github.com/Masterminds/semver/v3 v3.1.1/go.mod h1:VPu/7SZ7ePZ3QOrcuXROw5FAcLl4a0cBrbBpGY/8hQs=
 github.com/Shopify/goreferrer v0.0.0-20181106222321-ec9c9a553398/go.mod h1:a1uqRtAwp2Xwc6WNPJEufxJ7fx3npB4UV/JOLmbu5I0=
