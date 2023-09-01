@@ -110,7 +110,7 @@ devnet-up-espresso:
 	if [ $(.SHELLSTATUS) -ne 0 ]; then \
 		make devnet-allocs-espresso; \
 	fi
-	PYTHONPATH=./bedrock-devnet python3 ./bedrock-devnet/main.py --monorepo-dir=. --espresso --deploy-config="devnetL1-espresso.json" --devnet-dir=".devnet-espresso" --skip-build
+	PYTHONPATH=./bedrock-devnet python3 ./bedrock-devnet/main.py --monorepo-dir=. --espresso --deploy-config="devnetL1-espresso.json" --devnet-dir=".devnet-espresso"
 .PHONY: devnet-up-espresso
 
 
