@@ -241,31 +241,38 @@ type PayloadAttributes struct {
 	GasLimit *Uint64Quantity `json:"gasLimit,omitempty"`
 }
 
-type L2BatchJustification struct {
-	FirstBlock         espresso.Header `json:"firstBlock"`
-	PrevBatchLastBlock espresso.Header `json:"prevBatchLastBlock"`
-
-	// The block number of `FirstBlock`. This allows us to authenticate the `FirstBlock` header by
-	// computing the commitment of `FirstBlock` and checking it against the commitment at position
-	// `FirstBlockNumber` in a certified sequence (e.g. the sequencer contract). We can also
-	// authenticate `PrevBatchLastBlock` in a similar way, since it is required to be the block
-	// immediately before `FirstBlock`.
-	FirstBlockNumber uint64 `json:"firstBlockNumber"`
-
-	Payload *L2BatchPayloadJustification `json:"payload,omitempty" rlp:"nil"`
+// Justification for the inclusion of a list of transactions from the Espresso Sequencer in an L2
+// batch.
+type EspressoBlockJustification struct {
+	// The header of the Espresso block containing the range of transactions.
+	Header espresso.Header `json:"header"`
+	// Proof that a certain range of transactions corresponds to the Espresso block with Header.
+	// This proof may be omitted in the case where the L2 batch is forced to be empty due to its L1
+	// origin being too old.
+	Proof *espresso.NmtProof `json:"proof" rlp:"nil"`
 }
 
-type L2BatchPayloadJustification struct {
-	LastBlock           espresso.Header `json:"lastBlock"`
-	NextBatchFirstBlock espresso.Header `json:"nextBatchFirstBlock"`
+// Justification for the inclusion of a range of Espresso blocks in an L2 batch.
+type L2BatchJustification struct {
+	// Each Espresso block to be included in the L2 batch, in order, with transactions and namespace
+	// proofs.
+	Blocks []EspressoBlockJustification `json:"blocks"`
 
-	// NmtProofs proving, for each Espresso block included in the batch, the inclusion and
-	// completeness of the transactions in that block relative to the namespace for this OP-chain.
-	// The length of this slice also gives us the position of `LastBlock`
-	// (`FirstBlockNumber + len(NmtProofs) - 1`) which we need in order to authenticate `LastBlock`
-	// and `NextBatchFirstBlock` (the block immediately after `LastBlock`) against a certified
-	// sequence of Espresso block commitments.
-	NmtProofs []espresso.NmtProof `json:"nmtProofs"`
+	// The last Espresso block before Blocks, if it exists. This proves that no Espresso blocks were
+	// omitted from the start of Blocks, by showing that Prev is the immediate predecessor of the
+	// first block in Blocks and has a timestamp earlier than the L2 batch time. This will be nil in
+	// the case where the Espresso genesis block falls within or after the window for this L2 batch.
+	Prev *espresso.Header `json:"prev" rlp:"nil"`
+
+	// The first Espresso block after Blocks. This proves that no Espresso blocks were omitted from
+	// the end of Blocks, by showing that Next is the immediate successor of the last block in
+	// Blocks and has a timestamp later than the L2 batch window.
+	Next *espresso.Header `json:"next"`
+
+	// The block number of the first block in Blocks, if it exists. If Blocks is empty, this is the
+	// block number of Next. The numbers of all other blocks in Prev, Blocks, and Next are
+	// determined in relation to this number, since the blocks should all be consecutive.
+	From uint64 `json:"from"`
 }
 
 type ExecutePayloadStatus string

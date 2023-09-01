@@ -52,7 +52,6 @@ func (self *Header) Commit() Commitment {
 		OptionalField("l1_finalized", l1FinalizedComm).
 		Field("transactions_root", self.TransactionsRoot.Commit()).
 		Finalize()
-
 }
 
 type Metadata struct {

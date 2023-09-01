@@ -1,6 +1,7 @@
 package espresso
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -10,6 +11,10 @@ import (
 )
 
 type Commitment [32]byte
+
+func (c Commitment) Equals(other Commitment) bool {
+	return bytes.Equal(c[:], other[:])
+}
 
 type RawCommitmentBuilder struct {
 	hasher crypto.KeccakState

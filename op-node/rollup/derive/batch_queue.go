@@ -34,27 +34,27 @@ type NextBatchProvider interface {
 }
 
 type HotShotContractProvider interface {
-	// Verifies a sequence of consecutive headers against the HotShot contract
-	// The bool indiciates whether header verification was successful, while the error
-	// Represents an error encountered attempting to fetch the contract headers themselves (e.g. if the headers are unavailable)
-	verifyHeaders(headers []espresso.Header, firstHeight uint64) (bool, error)
+	// Verifies that a sequence of consecutive Espresso commitments matches a trusted sequence.
+	// Returns a boolean indicating whether the commitments match the trusted sequence and nil error
+	// if able to successfully verify the commitments. If for any reason the authenticity of the
+	// commitments cannot be determined, a non-nil error is returned.
+	VerifyCommitments(firstHeight uint64, comms []espresso.Commitment) (bool, error)
+}
 
-	// Returns a sequence of consecutive HotShot headers from a given height
-	getHeadersFromHeight(firstHeight uint64, numHeaders uint64) ([]espresso.Header, error)
+type EspressoL1Provider interface {
+	HotShotContractProvider
+	L1BlockRefByNumberFetcher
 }
 
 // Dummy `HotShotContractProvider` that always succeeds to enable testing.
 // TODO Delete this and replace it with a real implementation.
 // https://github.com/EspressoSystems/op-espresso-integration/issues/50
 type FakeHotShot struct {
+	L1BlockRefByNumberFetcher
 }
 
-func (*FakeHotShot) verifyHeaders(headers []espresso.Header, firstHeight uint64) (bool, error) {
+func (*FakeHotShot) VerifyCommitments(firstHeight uint64, comms []espresso.Commitment) (bool, error) {
 	return true, nil
-}
-
-func (*FakeHotShot) getHeadersFromHeight(firstHeight uint64, numHeaders uint64) ([]espresso.Header, error) {
-	return make([]espresso.Header, numHeaders), nil
 }
 
 // BatchQueue contains a set of batches for every L1 block.
@@ -70,16 +70,16 @@ type BatchQueue struct {
 	// batches in order of when we've first seen them, grouped by L2 timestamp
 	batches map[uint64][]*BatchWithL1InclusionBlock
 
-	hotshot HotShotContractProvider
+	l1 EspressoL1Provider
 }
 
 // NewBatchQueue creates a BatchQueue, which should be Reset(origin) before use.
-func NewBatchQueue(log log.Logger, cfg *rollup.Config, prev NextBatchProvider) *BatchQueue {
+func NewBatchQueue(log log.Logger, cfg *rollup.Config, prev NextBatchProvider, l1 EspressoL1Provider) *BatchQueue {
 	return &BatchQueue{
-		log:     log,
-		config:  cfg,
-		prev:    prev,
-		hotshot: &FakeHotShot{},
+		log:    log,
+		config: cfg,
+		prev:   prev,
+		l1:     l1,
 	}
 }
 
@@ -163,7 +163,7 @@ func (bq *BatchQueue) AddBatch(batch *BatchData, l2SafeHead eth.L2BlockRef, usin
 		L1InclusionBlock: bq.origin,
 		Batch:            batch,
 	}
-	validity := CheckBatch(bq.config, bq.log, bq.l1Blocks, l2SafeHead, &data, usingEspresso, bq.hotshot)
+	validity := CheckBatch(bq.config, bq.log, bq.l1Blocks, l2SafeHead, &data, usingEspresso, bq.l1)
 	if validity == BatchDrop {
 		return // if we do drop the batch, CheckBatch will log the drop reason with WARN level.
 	}
@@ -201,7 +201,7 @@ func (bq *BatchQueue) deriveNextBatch(ctx context.Context, outOfData bool, l2Saf
 	candidates := bq.batches[nextTimestamp]
 batchLoop:
 	for i, batch := range candidates {
-		validity := CheckBatch(bq.config, bq.log.New("batch_index", i), bq.l1Blocks, l2SafeHead, batch, usingEspresso, bq.hotshot)
+		validity := CheckBatch(bq.config, bq.log.New("batch_index", i), bq.l1Blocks, l2SafeHead, batch, usingEspresso, bq.l1)
 		switch validity {
 		case BatchFuture:
 			return nil, NewCriticalError(fmt.Errorf("found batch with timestamp %d marked as future batch, but expected timestamp %d", batch.Batch.Timestamp, nextTimestamp))
