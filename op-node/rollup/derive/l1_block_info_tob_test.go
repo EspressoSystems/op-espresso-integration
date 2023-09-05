@@ -30,7 +30,7 @@ func FuzzParseL1InfoDepositTxDataValid(f *testing.F) {
 				if e.Proof == nil {
 					e.Proof = espresso.NmtProof{}
 				}
-			},)
+			})
 		fuzzerutils.AddFuzzerFunctions(typeProvider)
 
 		var l1Info testutils.MockBlockInfo
