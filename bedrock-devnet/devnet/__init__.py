@@ -193,7 +193,24 @@ def devnet_deploy(paths, espresso: bool):
     wait_up(8545)
     wait_for_rpc_server('127.0.0.1:8545')
 
-    if os.path.exists(paths.genesis_l2_path) and os.path.isfile(paths.genesis_l2_path):
+    if espresso:
+        log.info('Starting Espresso sequencer.')
+        espresso_services = [
+            'op-geth-proxy',
+            'orchestrator',
+            'da-server',
+            'consensus-server',
+            'commitment-task',
+            'sequencer0',
+            'sequencer1',
+        ]
+        run_command(['docker-compose', 'up', '-d'] + espresso_services, cwd=paths.ops_bedrock_dir, env={
+            'PWD': paths.ops_bedrock_dir,
+            'DEVNET_DIR': paths.devnet_dir
+        })
+
+    # Re-build the L2 genesis unconditionally in Espresso mode, since we require the timestamps to be recent.
+    if not espresso and os.path.exists(paths.genesis_l2_path) and os.path.isfile(paths.genesis_l2_path):
         log.info('L2 genesis and rollup configs already generated.')
     else:
         log.info('Generating L2 genesis and rollup configs.')
@@ -223,16 +240,7 @@ def devnet_deploy(paths, espresso: bool):
     log.info(f'Using batch inbox {batch_inbox_address}')
 
     log.info('Bringing up everything else.')
-    espresso_services = [
-        'op-geth-proxy',
-        'orchestrator',
-        'da-server',
-        'consensus-server',
-        'commitment-task',
-        'sequencer0',
-        'sequencer1',
-    ]
-    services = ['op-node', 'op-proposer', 'op-batcher'] + (espresso_services if espresso else [])
+    services = ['op-node', 'op-proposer', 'op-batcher']
     run_command(['docker-compose', 'up', '-d'] + services, cwd=paths.ops_bedrock_dir, env={
         'PWD': paths.ops_bedrock_dir,
         'L2OO_ADDRESS': l2_output_oracle,
