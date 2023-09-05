@@ -110,7 +110,7 @@ devnet-up-espresso:
 	if [ $(.SHELLSTATUS) -ne 0 ]; then \
 		make devnet-allocs-espresso; \
 	fi
-	PYTHONPATH=./bedrock-devnet python3 ./bedrock-devnet/main.py --monorepo-dir=. --espresso --deploy-config="devnetL1-espresso.json" --devnet-dir=".devnet-espresso"
+	PYTHONPATH=./bedrock-devnet python3 ./bedrock-devnet/main.py --monorepo-dir=. --espresso --deploy-config="devnetL1-espresso.json" --deployment="devnetL1-espresso" --devnet-dir=".devnet-espresso"
 .PHONY: devnet-up-espresso
 
 
@@ -127,6 +127,7 @@ devnet-down:
 
 devnet-clean:
 	rm -rf ./packages/contracts-bedrock/deployments/devnetL1
+	rm -rf ./packages/contracts-bedrock/deployments/devnetL1-espresso
 	rm -rf ./.devnet
 	rm -rf ./.devnet-espresso
 	cd ./ops-bedrock && docker-compose down
@@ -138,7 +139,7 @@ devnet-allocs:
 	PYTHONPATH=./bedrock-devnet python3 ./bedrock-devnet/main.py --monorepo-dir=. --allocs
 
 devnet-allocs-espresso:
-	PYTHONPATH=./bedrock-devnet python3 ./bedrock-devnet/main.py --monorepo-dir=. --espresso --deploy-config="devnetL1-espresso.json" --devnet-dir=".devnet-espresso" --allocs
+	PYTHONPATH=./bedrock-devnet python3 ./bedrock-devnet/main.py --monorepo-dir=. --espresso --deploy-config="devnetL1-espresso.json" --deployment="devnetL1-espresso" --devnet-dir=".devnet-espresso" --allocs
 
 devnet-logs:
 	@(cd ./ops-bedrock && docker-compose logs -f)
