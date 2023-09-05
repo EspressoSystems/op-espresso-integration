@@ -47,5 +47,6 @@
   "faultGameMaxDepth": 30,
   "faultGameMaxDuration": 300,
   "systemConfigStartBlock": 0,
+  "hotshotContractAddress": "0x8464135c8f25da09e49bc8782676a84730c318bc",
   "espresso": true
 }
