@@ -247,9 +247,9 @@ type EspressoBlockJustification struct {
 	// The header of the Espresso block containing the range of transactions.
 	Header espresso.Header `json:"header"`
 	// Proof that a certain range of transactions corresponds to the Espresso block with Header.
-	// This proof may be omitted in the case where the L2 batch is forced to be empty due to its L1
+	// This proof may be empty in the case where the L2 batch is forced to be empty due to its L1
 	// origin being too old.
-	Proof *espresso.NmtProof `json:"proof" rlp:"nil"`
+	Proof espresso.NmtProof `json:"proof"`
 }
 
 // Justification for the inclusion of a range of Espresso blocks in an L2 batch.

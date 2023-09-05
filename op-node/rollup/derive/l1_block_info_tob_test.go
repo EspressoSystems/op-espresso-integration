@@ -5,6 +5,7 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-node/testutils"
 	"github.com/ethereum-optimism/optimism/op-node/testutils/fuzzerutils"
+	"github.com/ethereum-optimism/optimism/op-service/espresso"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	fuzz "github.com/google/gofuzz"
 	"github.com/stretchr/testify/require"
@@ -16,7 +17,20 @@ import (
 func FuzzParseL1InfoDepositTxDataValid(f *testing.F) {
 	f.Fuzz(func(t *testing.T, fuzzedData []byte) {
 		// Create our fuzzer wrapper to generate complex values
-		typeProvider := fuzz.NewFromGoFuzz(fuzzedData).NilChance(0).MaxDepth(10000).NumElements(0, 0x100)
+		typeProvider := fuzz.NewFromGoFuzz(fuzzedData).
+			NilChance(0).
+			MaxDepth(10000).
+			NumElements(0, 0x100).
+			Funcs(func(e *eth.EspressoBlockJustification, c fuzz.Continue) {
+				c.Fuzz(&e.Header)
+				c.Fuzz(&e.Proof)
+				// A nil proof is not valid, and will turn into an empty proof after an RLP round
+				// trip, which causes the test to fail. Since all valid proofs are non-nil, we
+				// preemptively convert nil proofs to empty ones.
+				if e.Proof == nil {
+					e.Proof = espresso.NmtProof{}
+				}
+			},)
 		fuzzerutils.AddFuzzerFunctions(typeProvider)
 
 		var l1Info testutils.MockBlockInfo

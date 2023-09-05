@@ -152,7 +152,7 @@ func (d *Sequencer) updateEspressoBatch(ctx context.Context, newHeaders []espres
 		d.log.Info("adding new transactions from Espresso", "block", blockNum, "count", len(txs.Transactions))
 		batch.jst.Blocks = append(blocks, eth.EspressoBlockJustification{
 			Header: header,
-			Proof:  &txs.Proof,
+			Proof:  txs.Proof,
 		})
 		for _, tx := range txs.Transactions {
 			batch.transactions = append(batch.transactions, []byte(tx))
@@ -214,10 +214,10 @@ func (d *Sequencer) sealEspressoBatch(ctx context.Context) (*eth.ExecutionPayloa
 	if derive.EspressoBatchMustBeEmpty(d.config, l1Origin, batch.windowStart) {
 		batch.transactions = nil
 
-		// We don't need all the NMT proofs in this case, so save space in the batch by deleting
-		// them.
+		// We don't need all the NMT proofs in this case, so save space in the batch by replacing
+		// them with empty proofs.
 		for i := range batch.jst.Blocks {
-			batch.jst.Blocks[i].Proof = nil
+			batch.jst.Blocks[i].Proof = espresso.NmtProof{}
 		}
 	}
 

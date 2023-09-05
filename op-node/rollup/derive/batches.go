@@ -168,7 +168,7 @@ func CheckBatchEspresso(cfg *rollup.Config, log log.Logger, l2SafeHead eth.L2Blo
 		proofs := make([]*espresso.NmtProof, len(jst.Blocks))
 		for i, block := range jst.Blocks {
 			roots[i] = &block.Header.TransactionsRoot
-			proofs[i] = block.Proof
+			proofs[i] = &block.Proof
 		}
 		txs := make([]espresso.Bytes, len(batch.Batch.Transactions))
 		for i, tx := range batch.Batch.Transactions {
