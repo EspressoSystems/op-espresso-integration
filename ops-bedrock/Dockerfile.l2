@@ -1,4 +1,4 @@
-FROM us-docker.pkg.dev/oplabs-tools-artifacts/images/op-geth:optimism
+FROM ghcr.io/espressosystems/op-espresso-integration/op-geth:integration
 
 RUN apk add --no-cache jq
 
