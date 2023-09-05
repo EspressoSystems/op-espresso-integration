@@ -249,6 +249,9 @@ def devnet_deploy(paths, espresso: bool):
         'DEVNET_DIR': paths.devnet_dir
     })
 
+    log.info('Starting block explorer')
+    run_command(['docker-compose', 'up', '-d', 'blockscout-l2'], cwd=paths.ops_bedrock_dir)
+
     log.info('Devnet ready.')
 
 
