@@ -86,6 +86,10 @@ type DerivationPipeline struct {
 // NewDerivationPipeline creates a derivation pipeline, which should be reset before use.
 func NewDerivationPipeline(log log.Logger, cfg *rollup.Config, l1Fetcher L1Fetcher, engine Engine, metrics Metrics, syncCfg *sync.Config) *DerivationPipeline {
 
+	var hotshotProvider HotShotContractProvider
+	if cfg.HotShotContractAddress != nil {
+		hotshotProvider = NewHotShotProvider(*cfg.HotShotContractAddress, l1Fetcher)
+	}
 	// Pull stages
 	l1Traversal := NewL1Traversal(log, cfg, l1Fetcher)
 	dataSrc := NewDataSourceFactory(log, cfg, l1Fetcher) // auxiliary stage for L1Retrieval
@@ -93,7 +97,6 @@ func NewDerivationPipeline(log log.Logger, cfg *rollup.Config, l1Fetcher L1Fetch
 	frameQueue := NewFrameQueue(log, l1Src)
 	bank := NewChannelBank(log, cfg, frameQueue, l1Fetcher, metrics)
 	chInReader := NewChannelInReader(log, bank, metrics)
-	hotshotProvider := NewHotShotProvider(cfg.HotShotContractAddress, l1Fetcher)
 	batchQueue := NewBatchQueue(log, cfg, chInReader, hotshotProvider)
 	attrBuilder := NewFetchingAttributesBuilder(cfg, l1Fetcher, engine)
 	attributesQueue := NewAttributesQueue(log, cfg, attrBuilder, batchQueue)
