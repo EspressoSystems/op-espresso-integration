@@ -100,3 +100,6 @@ services:
     - ESPRESSO_SEQUENCER_ETH_MNEMONIC=test test test test test test test test test test test junk
     - ESPRESSO_SEQUENCER_HOTSHOT_ACCOUNT_INDEX=1
     - RUST_LOG
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
