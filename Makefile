@@ -122,7 +122,7 @@ devnet-test:
 .PHONY: devnet-test
 
 devnet-down:
-	@(cd ./ops-bedrock && GENESIS_TIMESTAMP=$(shell date +%s) docker-compose stop)
+	@(cd ./ops-bedrock && GENESIS_TIMESTAMP=$(shell date +%s) docker-compose down -v)
 .PHONY: devnet-down
 
 devnet-clean:

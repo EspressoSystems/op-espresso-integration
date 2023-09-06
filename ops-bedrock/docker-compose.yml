@@ -8,7 +8,9 @@ volumes:
   l1_data:
   l2_data:
   op_log:
-
+  blockscout_db:
+  blockscout_logs:
+  blockscout_redis:
 
 services:
   l1:
@@ -267,11 +269,15 @@ services:
     extends:
       file: ../blockscout/docker-compose/services/docker-compose-redis.yml
       service: redis_db
+    volumes:
+      - blockscout_redis:/data
 
   db:
     extends:
       file: ../blockscout/docker-compose/services/docker-compose-db.yml
       service: db
+    volumes:
+      - blockscout_db:/var/lib/postgresql/data
 
   blockscout-l2:
     depends_on:
@@ -301,7 +307,7 @@ services:
     ports:
       - 4000:4000
     volumes:
-      - ./logs/:/app/logs/
+      - blockscout_logs:/app/logs/
 
   smart-contract-verifier:
     extends:
