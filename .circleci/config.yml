@@ -848,7 +848,7 @@ jobs:
           command: go tool dist list | grep mips
       - run:
           name: Pull Espresso Docker images
-          command: make op-e2e e2e-pull
+          command: make e2e-pull
       - run:
           name: Build op-geth-proxy Docker
           command: docker-compose -f op-e2e/docker-compose.yml build op-geth-proxy
