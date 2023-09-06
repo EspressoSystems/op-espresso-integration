@@ -530,6 +530,7 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 		cmd.Env = append(cmd.Env, fmt.Sprintf("ESPRESSO_ORCHESTRATOR_MAX_PROPOSE_TIME=%dms", cfg.DeployConfig.L2BlockTime*1000/2))
 		cmd.Env = append(cmd.Env, "RUST_LOG=info")
 		if err := cmd.Run(); err != nil {
+			sys.Espresso.PrintLogs()
 			return nil, fmt.Errorf("docker compose up (%v) error: %w output: %s", cmd, err, stderr.String())
 		}
 
