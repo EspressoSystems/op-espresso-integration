@@ -862,9 +862,9 @@ jobs:
             # Note: We don't use circle CI test splits because we need to split by test name, not by package. There is an additional
             # constraint that gotestsum does not currently (nor likely will) accept files from different pacakges when building.
             # Note: -parallel must be set to match the number of cores in the resource class
-            OP_TESTLOG_DISABLE_COLOR=true OP_E2E_DISABLE_PARALLEL=true OP_E2E_USE_HTTP=<<parameters.use_http>>  gotestsum \
+            OP_TESTLOG_DISABLE_COLOR=true OP_E2E_DISABLE_PARALLEL=false OP_E2E_USE_HTTP=<<parameters.use_http>>  gotestsum \
             --format=standard-verbose --junitfile=/tmp/test-results/<<parameters.module>>_http_<<parameters.use_http>>.xml \
-            -- -timeout=20m -parallel=<<parameters.parallel>> \
+            -- -timeout=30m -parallel=<<parameters.parallel>> \
                -l1-allocs ../<<parameters.devnet>>/allocs-l1.json \
                -l1-deployments ../<<parameters.devnet>>/addresses.json \
                -deploy-config ../packages/contracts-bedrock/deploy-config/<<parameters.deploy-config>> \
