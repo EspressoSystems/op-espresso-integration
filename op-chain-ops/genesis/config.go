@@ -64,6 +64,8 @@ type DeployConfig struct {
 	// BatchSenderAddress represents the initial sequencer account that authorizes batches.
 	// Transactions sent from this account to the batch inbox address are considered valid.
 	BatchSenderAddress common.Address `json:"batchSenderAddress"`
+	// HotShot Contract address
+	HotShotContractAddress *common.Address `json:"hotshotContractAddress,omitempty"`
 	// L2OutputOracleSubmissionInterval is the number of L2 blocks between outputs that are submitted
 	// to the L2OutputOracle contract located on L1.
 	L2OutputOracleSubmissionInterval uint64 `json:"l2OutputOracleSubmissionInterval"`

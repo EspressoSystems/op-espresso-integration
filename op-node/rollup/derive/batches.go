@@ -49,13 +49,13 @@ func CheckBatchEspresso(cfg *rollup.Config, log log.Logger, l1Blocks []eth.L1Blo
 		firstBlockHeight = jst.FirstBlockNumber - 1
 	}
 
-	validHeaders, err := hotshot.verifyHeaders(startHeaders, firstBlockHeight)
+	validHeaders, err := hotshot.VerifyHeaders(startHeaders, firstBlockHeight)
 
 	// In the case that the headers aren't available yet (perhaps the validator's L1 client is behind), return BatchFuture so that we can try again later
 	// If the headers are available but invalid, drop the batch
 	if err != nil {
-		log.Warn("Headers unavailable, returning BatchFuture.")
-		return BatchFuture
+		log.Warn("Headers unavailable, returning BatchUndecided.")
+		return BatchUndecided
 	} else if !validHeaders {
 		log.Warn("Headers invalid, dropping the batch.")
 		return BatchDrop
@@ -107,7 +107,7 @@ func CheckBatchEspresso(cfg *rollup.Config, log log.Logger, l1Blocks []eth.L1Blo
 	// Validate the headers representing the end of the batch window
 	endHeaders :=
 		[]espresso.Header{payload.LastBlock, payload.NextBatchFirstBlock}
-	validHeaders, err = hotshot.verifyHeaders(endHeaders, jst.FirstBlockNumber+uint64(numBlocks)-1)
+	validHeaders, err = hotshot.VerifyHeaders(endHeaders, jst.FirstBlockNumber+uint64(numBlocks)-1)
 
 	// In the case that the headers aren't available yet (perhaps the validator's L1 client is behind), return BatchFuture so that we can try again later
 	// If the headers are available but invalid, drop the batch
@@ -145,13 +145,13 @@ func CheckBatchEspresso(cfg *rollup.Config, log log.Logger, l1Blocks []eth.L1Blo
 	}
 
 	// Validate the transactions against the NMT proofs
-	headers, err := hotshot.getHeadersFromHeight(firstBlockHeight, uint64(len(payload.NmtProofs)))
+	comms, err := hotshot.GetCommitmentsFromHeight(firstBlockHeight, uint64(len(payload.NmtProofs)))
 	if err != nil {
 		// If we couldn't fetch headers, try again later
-		log.Warn("Headers unavailable, returning BatchFuture.")
-		return BatchFuture
+		log.Warn("Headers unavailable, returning BatchUndecided.")
+		return BatchUndecided
 	}
-	err = espresso.ValidateBatchTransactions(batch.Batch.Transactions, payload.NmtProofs, headers)
+	err = espresso.ValidateBatchTransactions(batch.Batch.Transactions, payload.NmtProofs, comms)
 	if err != nil {
 		log.Warn("Error validating batch transactions, dropping the batch.")
 		return BatchDrop

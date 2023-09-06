@@ -1,0 +1,105 @@
+version: '3.4'
+
+# This Compose file is expected to be used with e2e tests
+
+services:
+  op-geth-proxy:
+    build:
+      context: ../
+      dockerfile: ./op-geth-proxy/Dockerfile
+    ports:
+      - "9090"
+    environment:
+      - OP_GETH_PROXY_GETH_ADDR
+      - OP_GETH_PROXY_LISTEN_ADDR=0.0.0.0:9090
+      - OP_GETH_PROXY_SEQ_ADDR=http://sequencer0:8080
+      - OP_GETH_PROXY_VM_ID=901
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  orchestrator:
+    image: ghcr.io/espressosystems/espresso-sequencer/orchestrator:main
+    ports:
+      - "8080"
+    environment:
+      - ESPRESSO_ORCHESTRATOR_PORT=8080
+      - ESPRESSO_ORCHESTRATOR_NUM_NODES=2
+      - ESPRESSO_ORCHESTRATOR_START_DELAY=1s
+      - ESPRESSO_ORCHESTRATOR_NEXT_VIEW_TIMEOUT=10s
+      - ESPRESSO_ORCHESTRATOR_MAX_PROPOSE_TIME=1s
+      - RUST_LOG
+
+  da-server:
+    image: ghcr.io/espressosystems/espresso-sequencer/web-server:main
+    ports:
+      - "8080"
+    environment:
+      - ESPRESSO_WEB_SERVER_PORT=8080
+      - RUST_LOG=error
+    depends_on:
+      orchestrator:
+        condition: service_healthy
+
+  consensus-server:
+    image: ghcr.io/espressosystems/espresso-sequencer/web-server:main
+    ports:
+      - "8080"
+    environment:
+      - ESPRESSO_WEB_SERVER_PORT=8080
+      - RUST_LOG=error
+    depends_on:
+      orchestrator:
+        condition: service_healthy
+
+  sequencer0:
+    image: ghcr.io/espressosystems/espresso-sequencer/sequencer:main
+    ports:
+      - "8080"
+    # Run the API server (with options taken from the environment) and the optional submission API
+    command: sequencer -- http -- query -- submit
+    environment:
+      - ESPRESSO_SEQUENCER_ORCHESTRATOR_URL=http://orchestrator:8080
+      - ESPRESSO_SEQUENCER_DA_SERVER_URL=http://da-server:8080
+      - ESPRESSO_SEQUENCER_CONSENSUS_SERVER_URL=http://consensus-server:8080
+      - ESPRESSO_SEQUENCER_API_PORT=8080
+      - ESPRESSO_SEQUENCER_STORAGE_PATH=/store/sequencer
+      - ESPRESSO_SEQUENCER_L1_PROVIDER
+      - ESPRESSO_SEQUENCER_HOTSHOT_ADDRESS=0x5fbdb2315678afecb367f032d93f642f64180aa3
+      - RUST_LOG
+    depends_on:
+      orchestrator:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  sequencer1:
+    image: ghcr.io/espressosystems/espresso-sequencer/sequencer:main
+    ports:
+      - "8080"
+    command: sequencer -- http -- query
+    environment:
+      - ESPRESSO_SEQUENCER_ORCHESTRATOR_URL=http://orchestrator:8080
+      - ESPRESSO_SEQUENCER_DA_SERVER_URL=http://da-server:8080
+      - ESPRESSO_SEQUENCER_CONSENSUS_SERVER_URL=http://consensus-server:8080
+      - ESPRESSO_SEQUENCER_API_PORT=8080
+      - ESPRESSO_SEQUENCER_STORAGE_PATH=/store/sequencer
+      - ESPRESSO_SEQUENCER_L1_PROVIDER
+      - RUST_LOG
+    depends_on:
+      orchestrator:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  commitment-task:
+    image: ghcr.io/espressosystems/espresso-sequencer/commitment-task:main
+    command: commitment-task --deploy
+    environment:
+    - ESPRESSO_SEQUENCER_URL=http://sequencer0:8080
+    - ESPRESSO_SEQUENCER_L1_PROVIDER
+    - ESPRESSO_SEQUENCER_ETH_MNEMONIC=test test test test test test test test test test test junk
+    - ESPRESSO_SEQUENCER_HOTSHOT_ACCOUNT_INDEX=1
+    - RUST_LOG
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+

@@ -30,7 +30,7 @@ type mockHotShotProvider struct {
 	Headers []espresso.Header
 }
 
-func (m *mockHotShotProvider) verifyHeaders(headers []espresso.Header, height uint64) (bool, error) {
+func (m *mockHotShotProvider) VerifyHeaders(headers []espresso.Header, height uint64) (bool, error) {
 	if height+uint64(len(headers)) > uint64(len(m.Headers)) {
 		fmt.Println("Headers unavailable")
 		return false, NewCriticalError(errors.New("Headers unavailable"))
@@ -46,12 +46,16 @@ func (m *mockHotShotProvider) verifyHeaders(headers []espresso.Header, height ui
 	return true, nil
 }
 
-func (m *mockHotShotProvider) getHeadersFromHeight(firstBlockHeight uint64, numHeaders uint64) ([]espresso.Header, error) {
+func (m *mockHotShotProvider) GetCommitmentsFromHeight(firstBlockHeight uint64, numHeaders uint64) ([]espresso.Commitment, error) {
 	if firstBlockHeight+numHeaders > uint64(len(m.Headers)) {
-		fmt.Println("Headers unavailable")
-		return nil, NewCriticalError(errors.New("Headers unavailable"))
+		fmt.Println("Commitments unavailable")
+		return nil, NewCriticalError(errors.New("Commitments unavailable"))
 	}
-	return m.Headers[firstBlockHeight : firstBlockHeight+numHeaders], nil
+	var comms []espresso.Commitment
+	for i := 0; i < int(numHeaders); i++ {
+		comms = append(comms, m.Headers[int(firstBlockHeight)+i].Commit())
+	}
+	return comms, nil
 }
 
 func (m *mockHotShotProvider) setHeaders(headers []espresso.Header) {
@@ -414,7 +418,7 @@ func TestValidBatchEspresso(t *testing.T) {
 			Expected: BatchDrop,
 		},
 		{
-			Name:       "future batch if headers are not available",
+			Name:       "undecided batch if headers are not available",
 			L1Blocks:   []eth.L1BlockRef{l1A, l1B, l1C},
 			L2SafeHead: l2A3,
 			Batch: BatchWithL1InclusionBlock{
@@ -433,7 +437,7 @@ func TestValidBatchEspresso(t *testing.T) {
 					},
 				}},
 			},
-			Expected: BatchFuture,
+			Expected: BatchUndecided,
 		},
 	}
 

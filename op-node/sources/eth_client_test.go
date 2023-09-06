@@ -37,6 +37,10 @@ func (m *mockRPC) EthSubscribe(ctx context.Context, channel any, args ...any) (e
 	return called.Get(0).(*rpc.ClientSubscription), called.Get(1).([]error)[0]
 }
 
+func (m *mockRPC) RawClient() *rpc.Client {
+	return nil
+}
+
 func (m *mockRPC) Close() {
 	m.MethodCalled("Close")
 }

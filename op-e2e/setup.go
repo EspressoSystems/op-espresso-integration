@@ -552,7 +552,7 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 		if err != nil {
 			return nil, fmt.Errorf("failed to find monorepo root: %w", err)
 		}
-		composeFile := filepath.Join(root, "ops-bedrock", "docker-compose.yml")
+		composeFile := filepath.Join(root, "op-e2e", "docker-compose.yml")
 
 		// Generate a random project name to distinguish this docker-compose network from that of
 		// other tests running in parallel.
@@ -563,7 +563,7 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 		defer cancel()
 		cmd := exec.CommandContext(ctx,
 			"docker", "compose", "--project-name", projectName, "-f", composeFile,
-			"up", "orchestrator", "da-server", "consensus-server", "sequencer0", "sequencer1",
+			"up", "orchestrator", "da-server", "consensus-server", "sequencer0", "sequencer1", "commitment-task",
 			"-V", "--force-recreate", "--wait")
 		stderr := bytes.Buffer{}
 		cmd.Stderr = &stderr
@@ -574,6 +574,12 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 		cmd.Env = append(cmd.Env, fmt.Sprintf("ESPRESSO_ORCHESTRATOR_MAX_PROPOSE_TIME=%dms", cfg.DeployConfig.L2BlockTime*1000/2))
 		cmd.Env = append(cmd.Env, "RUST_LOG=info")
 		if err := cmd.Run(); err != nil {
+			sys.Espresso = &EspressoSystem{
+				projectName:   projectName,
+				composeFile:   composeFile,
+				sequencerPort: 0,
+			}
+			sys.Espresso.PrintLogs()
 			return nil, fmt.Errorf("docker compose up (%v) error: %w output: %s", cmd, err, stderr.String())
 		}
 
@@ -648,6 +654,7 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 			L1ChainID:              cfg.L1ChainIDBig(),
 			L2ChainID:              cfg.L2ChainIDBig(),
 			BatchInboxAddress:      cfg.DeployConfig.BatchInboxAddress,
+			HotShotContractAddress: cfg.DeployConfig.HotShotContractAddress,
 			DepositContractAddress: cfg.DeployConfig.OptimismPortalProxy,
 			L1SystemConfigAddress:  cfg.DeployConfig.SystemConfigProxy,
 			RegolithTime:           cfg.DeployConfig.RegolithTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
