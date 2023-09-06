@@ -522,8 +522,8 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 			"up", "orchestrator", "da-server", "consensus-server", "sequencer0", "sequencer1", "commitment-task",
 			"-V", "--force-recreate", "--wait")
 		stderr := bytes.Buffer{}
-		cmd.Stderr = &stderr
-		cmd.Stdout = &stderr
+		cmd.Stderr = os.Stderr
+		cmd.Stdout = os.Stdout
 		// Point the sequencer at the L1 Geth node.
 		cmd.Env = append(cmd.Env, fmt.Sprintf("ESPRESSO_SEQUENCER_L1_PROVIDER=%s", httpEndpointForDocker(l1Node)))
 		// Make the Espresso block time faster than the OP block time, or else tests will time out.
