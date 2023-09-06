@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
-	"github.com/ethereum-optimism/optimism/op-service/espresso"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
 
@@ -33,30 +32,6 @@ type NextBatchProvider interface {
 	NextBatch(ctx context.Context) (*BatchData, error)
 }
 
-type HotShotContractProvider interface {
-	// Verifies a sequence of consecutive headers against the HotShot contract
-	// The bool indiciates whether header verification was successful, while the error
-	// Represents an error encountered attempting to fetch the contract headers themselves (e.g. if the headers are unavailable)
-	verifyHeaders(headers []espresso.Header, firstHeight uint64) (bool, error)
-
-	// Returns a sequence of consecutive HotShot headers from a given height
-	getHeadersFromHeight(firstHeight uint64, numHeaders uint64) ([]espresso.Header, error)
-}
-
-// Dummy `HotShotContractProvider` that always succeeds to enable testing.
-// TODO Delete this and replace it with a real implementation.
-// https://github.com/EspressoSystems/op-espresso-integration/issues/50
-type FakeHotShot struct {
-}
-
-func (*FakeHotShot) verifyHeaders(headers []espresso.Header, firstHeight uint64) (bool, error) {
-	return true, nil
-}
-
-func (*FakeHotShot) getHeadersFromHeight(firstHeight uint64, numHeaders uint64) ([]espresso.Header, error) {
-	return make([]espresso.Header, numHeaders), nil
-}
-
 // BatchQueue contains a set of batches for every L1 block.
 // L1 blocks are contiguous and this does not support reorgs.
 type BatchQueue struct {
@@ -74,12 +49,12 @@ type BatchQueue struct {
 }
 
 // NewBatchQueue creates a BatchQueue, which should be Reset(origin) before use.
-func NewBatchQueue(log log.Logger, cfg *rollup.Config, prev NextBatchProvider) *BatchQueue {
+func NewBatchQueue(log log.Logger, cfg *rollup.Config, prev NextBatchProvider, hotshot HotShotContractProvider) *BatchQueue {
 	return &BatchQueue{
 		log:     log,
 		config:  cfg,
 		prev:    prev,
-		hotshot: &FakeHotShot{},
+		hotshot: hotshot,
 	}
 }
 

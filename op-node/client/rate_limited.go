@@ -50,3 +50,7 @@ func (b *RateLimitingClient) EthSubscribe(ctx context.Context, channel any, args
 	}
 	return b.c.EthSubscribe(ctx, channel, args...)
 }
+
+func (b *RateLimitingClient) RawClient() *rpc.Client {
+	return b.c.RawClient()
+}

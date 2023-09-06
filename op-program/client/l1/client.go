@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 
+	"github.com/ethereum-optimism/optimism/op-service/espresso"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -80,4 +81,8 @@ func (o *OracleL1Client) FetchReceipts(ctx context.Context, blockHash common.Has
 func (o *OracleL1Client) InfoAndTxsByHash(ctx context.Context, hash common.Hash) (eth.BlockInfo, types.Transactions, error) {
 	info, txs := o.oracle.TransactionsByBlockHash(hash)
 	return info, txs, nil
+}
+
+func (o *OracleL1Client) L1HotShotCommitmentsFromHeight(firstBlockHeight uint64, numHeaders uint64, hotshotAddr common.Address) ([]espresso.Commitment, error) {
+	return []espresso.Commitment{}, nil
 }

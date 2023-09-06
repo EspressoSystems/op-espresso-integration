@@ -848,10 +848,10 @@ jobs:
           command: go tool dist list | grep mips
       - run:
           name: Pull Espresso Docker images
-          command: make devnet-pull
+          command: make e2e-pull
       - run:
           name: Build op-geth-proxy Docker
-          command: docker-compose -f ops-bedrock/docker-compose.yml build op-geth-proxy
+          command: docker-compose -f op-e2e/docker-compose.yml build op-geth-proxy
       - run:
           name: Run all init steps for op-e2e
           command: make pre-test
@@ -864,7 +864,7 @@ jobs:
             # Note: -parallel must be set to match the number of cores in the resource class
             OP_TESTLOG_DISABLE_COLOR=true OP_E2E_DISABLE_PARALLEL=false OP_E2E_USE_HTTP=<<parameters.use_http>>  gotestsum \
             --format=standard-verbose --junitfile=/tmp/test-results/<<parameters.module>>_http_<<parameters.use_http>>.xml \
-            -- -timeout=20m -parallel=<<parameters.parallel>> \
+            -- -timeout=30m -parallel=<<parameters.parallel>> \
                -l1-allocs ../<<parameters.devnet>>/allocs-l1.json \
                -l1-deployments ../<<parameters.devnet>>/addresses.json \
                -deploy-config ../packages/contracts-bedrock/deploy-config/<<parameters.deploy-config>> \
