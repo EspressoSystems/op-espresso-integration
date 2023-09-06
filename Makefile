@@ -143,6 +143,10 @@ devnet-pull:
 	@(cd ./ops-bedrock && docker-compose pull)
 .PHONY: devnet-pull
 
+e2e-pull:
+	@(cd ./op-e2e && docker-compose pull)
+.PHONY: e2e-pull
+
 test-unit:
 	make -C ./op-node test
 	make -C ./op-proposer test
