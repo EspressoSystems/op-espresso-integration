@@ -264,6 +264,8 @@ services:
     depends_on:
       orchestrator:
         condition: service_healthy
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
 
   redis_db:
     extends:
@@ -292,8 +294,6 @@ services:
     links:
       - db:database
     command: sh -c "bin/blockscout eval \"Elixir.Explorer.ReleaseTasks.create_and_migrate()\" && bin/blockscout start"
-    extra_hosts:
-      - 'host.docker.internal:host-gateway'
     env_file:
       -  ../blockscout/docker-compose/envs/common-blockscout.env
     environment:
