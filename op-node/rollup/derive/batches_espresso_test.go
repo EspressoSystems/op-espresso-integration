@@ -418,7 +418,7 @@ func TestValidBatchEspresso(t *testing.T) {
 			Expected: BatchDrop,
 		},
 		{
-			Name:       "future batch if headers are not available",
+			Name:       "undecided batch if headers are not available",
 			L1Blocks:   []eth.L1BlockRef{l1A, l1B, l1C},
 			L2SafeHead: l2A3,
 			Batch: BatchWithL1InclusionBlock{
@@ -437,7 +437,7 @@ func TestValidBatchEspresso(t *testing.T) {
 					},
 				}},
 			},
-			Expected: BatchFuture,
+			Expected: BatchUndecided,
 		},
 	}
 

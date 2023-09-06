@@ -604,7 +604,7 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 			L1ChainID:              cfg.L1ChainIDBig(),
 			L2ChainID:              cfg.L2ChainIDBig(),
 			BatchInboxAddress:      cfg.DeployConfig.BatchInboxAddress,
-			HotShotContractAddress: cfg.DeployConfig.HotShotContractAddress,
+			HotShotContractAddress: *cfg.DeployConfig.HotShotContractAddress,
 			DepositContractAddress: cfg.DeployConfig.OptimismPortalProxy,
 			L1SystemConfigAddress:  cfg.DeployConfig.SystemConfigProxy,
 			RegolithTime:           cfg.DeployConfig.RegolithTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
