@@ -262,8 +262,6 @@ services:
     depends_on:
       orchestrator:
         condition: service_healthy
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
 
   redis_db:
     extends:
