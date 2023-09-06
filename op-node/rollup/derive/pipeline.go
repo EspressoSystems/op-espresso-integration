@@ -93,7 +93,7 @@ func NewDerivationPipeline(log log.Logger, cfg *rollup.Config, l1Fetcher L1Fetch
 	frameQueue := NewFrameQueue(log, l1Src)
 	bank := NewChannelBank(log, cfg, frameQueue, l1Fetcher, metrics)
 	chInReader := NewChannelInReader(log, bank, metrics)
-	hotshotProvider := NewHotShotProvider(cfg.BatchInboxAddress, l1Fetcher)
+	hotshotProvider := NewHotShotProvider(cfg.HotShotContractAddress, l1Fetcher)
 	batchQueue := NewBatchQueue(log, cfg, chInReader, hotshotProvider)
 	attrBuilder := NewFetchingAttributesBuilder(cfg, l1Fetcher, engine)
 	attributesQueue := NewAttributesQueue(log, cfg, attrBuilder, batchQueue)

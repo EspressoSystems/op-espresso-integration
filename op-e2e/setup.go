@@ -508,7 +508,7 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to find monorepo root: %w", err)
 		}
-		composeFile := filepath.Join(root, "ops-bedrock", "docker-compose.yml")
+		composeFile := filepath.Join(root, "op-e2e", "docker-compose.yml")
 
 		// Generate a random project name to distinguish this docker-compose network from that of
 		// other tests running in parallel.

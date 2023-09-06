@@ -137,8 +137,8 @@ func (s *L1Client) L1HotShotCommitmentsFromHeight(firstBlockHeight uint64, numHe
 			return comms, err
 		}
 		var bytes [32]byte
-		for _, b := range comm.Bytes() {
-			bytes[b] = b
+		for i, b := range comm.Bytes() {
+			bytes[i] = b
 		}
 
 		comms = append(comms, bytes)
