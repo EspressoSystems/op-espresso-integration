@@ -19,6 +19,7 @@ parser = argparse.ArgumentParser(description='Bedrock devnet launcher')
 parser.add_argument('--monorepo-dir', help='Directory of the monorepo', default=os.getcwd())
 parser.add_argument('--allocs', help='Only create the allocs and exit', type=bool, action=argparse.BooleanOptionalAction)
 parser.add_argument('--test', help='Tests the deployment, must already be deployed', type=bool, action=argparse.BooleanOptionalAction)
+parser.add_argument('--l2', help='Which L2 to run', type=str, default='op1')
 parser.add_argument('--l2-provider-url', help='URL for the L2 RPC node', type=str, default='http://localhost:19545')
 parser.add_argument('--deploy-config', help='Deployment config, relative to packages/contracts-bedrock/deploy-config', default='devnetL1.json')
 parser.add_argument('--deployment', help='Path to deployment output files, relative to packages/contracts-bedrock/deployments', default='devnetL1.json')
@@ -113,7 +114,7 @@ def main():
         return
 
     log.info('Devnet starting')
-    devnet_deploy(paths, args.espresso, args.l2_provider_url)
+    devnet_deploy(paths, args.espresso, args.l2, args.l2_provider_url)
 
 
 def deploy_contracts(paths):
@@ -164,7 +165,7 @@ def devnet_l1_genesis(paths):
 
 
 # Bring up the devnet where the contracts are deployed to L1
-def devnet_deploy(paths, espresso: bool, l2_provider_url: str):
+def devnet_deploy(paths, espresso: bool, l2: str, l2_provider_url: str):
     if os.path.exists(paths.genesis_l1_path) and os.path.isfile(paths.genesis_l1_path):
         log.info('L1 genesis already generated.')
     else:
@@ -198,7 +199,7 @@ def devnet_deploy(paths, espresso: bool, l2_provider_url: str):
     if espresso:
         log.info('Starting Espresso sequencer.')
         espresso_services = [
-            'op-geth-proxy',
+            f'{l2}-geth-proxy',
             'orchestrator',
             'da-server',
             'consensus-server',
@@ -229,7 +230,7 @@ def devnet_deploy(paths, espresso: bool, l2_provider_url: str):
     addresses = read_json(paths.addresses_json_path)
 
     log.info('Bringing up L2.')
-    run_command(['docker', 'compose', 'up', '-d', 'l2'], cwd=paths.ops_bedrock_dir, env={
+    run_command(['docker', 'compose', 'up', '-d', f'{l2}-l2'], cwd=paths.ops_bedrock_dir, env={
         'PWD': paths.ops_bedrock_dir,
         'DEVNET_DIR': paths.devnet_dir
     })
@@ -245,7 +246,7 @@ def devnet_deploy(paths, espresso: bool, l2_provider_url: str):
     log.info(f'Using batch inbox {batch_inbox_address}')
 
     log.info('Bringing up everything else.')
-    services = ['op-node', 'op-proposer', 'op-batcher']
+    services = [f'{l2}-node', f'{l2}-proposer', f'{l2}-batcher']
     run_command(['docker', 'compose', 'up', '-d'] + services, cwd=paths.ops_bedrock_dir, env={
         'PWD': paths.ops_bedrock_dir,
         'L2OO_ADDRESS': l2_output_oracle,

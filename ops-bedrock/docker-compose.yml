@@ -5,9 +5,9 @@ version: '3.4'
 # service.
 
 volumes:
-  l1_data:
-  l2_data:
-  op_log:
+  op1_l1_data:
+  op1_l2_data:
+  op1_log:
   blockscout_db:
   blockscout_logs:
   blockscout_redis:
@@ -22,11 +22,11 @@ services:
       - "8546:8546"
       - "7060:6060"
     volumes:
-      - "l1_data:/db"
+      - "op1_l1_data:/db"
       - "${DEVNET_DIR}/genesis-l1.json:/genesis.json"
       - "${PWD}/test-jwt-secret.txt:/config/test-jwt-secret.txt"
 
-  l2:
+  op1-l2:
     build:
       context: .
       dockerfile: Dockerfile.l2
@@ -34,7 +34,7 @@ services:
       - "$OP1_L2_RPC_PORT:8545"
       - "$OP1_L2_DEBUG_PORT:6060"
     volumes:
-      - "l2_data:/db"
+      - "op1_l2_data:/db"
       - "${DEVNET_DIR}/genesis-l2.json:/genesis.json"
       - "${PWD}/test-jwt-secret.txt:/config/test-jwt-secret.txt"
     entrypoint:
@@ -43,17 +43,17 @@ services:
       - "/entrypoint.sh"
       - "--authrpc.jwtsecret=/config/test-jwt-secret.txt"
 
-  op-node:
+  op1-node:
     depends_on:
       - l1
-      - l2
+      - op1-l2
     build:
       context: ../
       dockerfile: ./op-node/Dockerfile
     command: >
       op-node
       --l1=ws://l1:8546
-      --l2=http://l2:8551
+      --l2=http://op1-l2:8551
       --l2.jwt-secret=/config/test-jwt-secret.txt
       --sequencer.enabled
       --sequencer.l1-confs=0
@@ -86,13 +86,13 @@ services:
       - "${PWD}/p2p-node-key.txt:/config/p2p-node-key.txt"
       - "${PWD}/test-jwt-secret.txt:/config/test-jwt-secret.txt"
       - "${DEVNET_DIR}/rollup.json:/rollup.json"
-      - op_log:/op_log
+      - op1_log:/op_log
 
-  op-proposer:
+  op1-proposer:
     depends_on:
       - l1
-      - l2
-      - op-node
+      - op1-l2
+      - op1-node
     build:
       context: ../
       dockerfile: ./op-proposer/Dockerfile
@@ -101,7 +101,7 @@ services:
       - "$OP1_PROPOSER_METRICS_PORT:7300"
     environment:
       OP_PROPOSER_L1_ETH_RPC: http://l1:8545
-      OP_PROPOSER_ROLLUP_RPC: http://op-node:8545
+      OP_PROPOSER_ROLLUP_RPC: http://op1-node:8545
       OP_PROPOSER_POLL_INTERVAL: 1s
       OP_PROPOSER_NUM_CONFIRMATIONS: 1
       OP_PROPOSER_MNEMONIC: test test test test test test test test test test test junk
@@ -111,11 +111,11 @@ services:
       OP_PROPOSER_METRICS_ENABLED: "true"
       OP_PROPOSER_ALLOW_NON_FINALIZED: "true"
 
-  op-batcher:
+  op1-batcher:
     depends_on:
       - l1
-      - l2
-      - op-node
+      - op1-l2
+      - op1-node
     build:
       context: ../
       dockerfile: ./op-batcher/Dockerfile
@@ -125,8 +125,8 @@ services:
       - "$OP1_BATCHER_RPC_PORT:8545"
     environment:
       OP_BATCHER_L1_ETH_RPC: http://l1:8545
-      OP_BATCHER_L2_ETH_RPC: http://l2:8545
-      OP_BATCHER_ROLLUP_RPC: http://op-node:8545
+      OP_BATCHER_L2_ETH_RPC: http://op1-l2:8545
+      OP_BATCHER_ROLLUP_RPC: http://op1-node:8545
       OP_BATCHER_MAX_CHANNEL_DURATION: 1
       OP_BATCHER_SUB_SAFETY_MARGIN: 4 # SWS is 15, ChannelTimeout is 40
       OP_BATCHER_POLL_INTERVAL: 1s
@@ -136,6 +136,20 @@ services:
       OP_BATCHER_PPROF_ENABLED: "true"
       OP_BATCHER_METRICS_ENABLED: "true"
       OP_BATCHER_RPC_ENABLE_ADMIN: "true"
+
+  op1-geth-proxy:
+    build:
+      context: ../
+      dockerfile: ./op-geth-proxy/Dockerfile
+    ports:
+      - "$OP1_GETH_PROXY_PORT:9090"
+    environment:
+      - OP_GETH_PROXY_GETH_ADDR=http://op1-l2:8545
+      - OP_GETH_PROXY_LISTEN_ADDR=0.0.0.0:9090
+      - OP_GETH_PROXY_SEQ_ADDR=http://sequencer0:8080
+      - OP_GETH_PROXY_VM_ID=$OP1_CHAIN_ID
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   artifact-server:
     depends_on:
@@ -160,21 +174,7 @@ services:
     ports:
       - "9090:8080"
     volumes:
-      - op_log:/op_log:ro
-
-  op-geth-proxy:
-    build:
-      context: ../
-      dockerfile: ./op-geth-proxy/Dockerfile
-    ports:
-      - "$OP1_GETH_PROXY_PORT:9090"
-    environment:
-      - OP_GETH_PROXY_GETH_ADDR=http://l2:8545
-      - OP_GETH_PROXY_LISTEN_ADDR=0.0.0.0:9090
-      - OP_GETH_PROXY_SEQ_ADDR=http://sequencer0:8080
-      - OP_GETH_PROXY_VM_ID=$OP1_CHAIN_ID
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - op1_log:/op_log:ro
 
   orchestrator:
     image: ghcr.io/espressosystems/espresso-sequencer/orchestrator:main
