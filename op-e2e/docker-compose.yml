@@ -98,7 +98,7 @@ services:
     - ESPRESSO_SEQUENCER_URL=http://sequencer0:8080
     - ESPRESSO_SEQUENCER_L1_PROVIDER
     - ESPRESSO_SEQUENCER_ETH_MNEMONIC=test test test test test test test test test test test junk
-    - ESPRESSO_SEQUENCER_HOTSHOT_ACCOUNT_INDEX=1
+    - ESPRESSO_SEQUENCER_HOTSHOT_ACCOUNT_INDEX=10
     - RUST_LOG
     extra_hosts:
       - "host.docker.internal:host-gateway"
