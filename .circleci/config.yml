@@ -1198,9 +1198,11 @@ workflows:
           requires:
             - pnpm-monorepo
       - devnet:
+          name: devnet-legacy
           requires:
             - pnpm-monorepo
-      - devnet-espresso:
+      - devnet:
+          name: devnet-espresso
           devnet-up: devnet-up-espresso
           devnet-test: devnet-test-espresso
           requires:
