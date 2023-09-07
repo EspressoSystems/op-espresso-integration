@@ -254,6 +254,11 @@ func (i *U256) SetUint64(n uint64) *U256 {
 	return i
 }
 
+func (i *U256) SetBytes(buf [32]byte) *U256 {
+	i.Int.SetBytes(buf[:])
+	return i
+}
+
 func (i U256) MarshalJSON() ([]byte, error) {
 	return json.Marshal(fmt.Sprintf("0x%s", i.Text(16)))
 }

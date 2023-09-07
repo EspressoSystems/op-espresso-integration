@@ -187,6 +187,13 @@ func TestEspressoTypesHeaderCommit(t *testing.T) {
 	require.Equal(t, ReferenceHeader.Commit(), Commitment{26, 77, 186, 162, 251, 241, 135, 23, 132, 5, 196, 207, 131, 64, 207, 215, 141, 144, 146, 65, 158, 30, 169, 102, 251, 183, 101, 149, 168, 173, 161, 149})
 }
 
+func TestEspressoCommitmentFromU256TrailingZero(t *testing.T) {
+	comm := Commitment{209, 146, 197, 195, 145, 148, 17, 211, 52, 72, 28, 120, 88, 182, 204, 206, 77, 36, 56, 35, 3, 143, 77, 186, 69, 233, 104, 30, 90, 105, 48, 0}
+	roundTrip, err := CommitmentFromUint256(comm.Uint256())
+	require.Nil(t, err)
+	require.Equal(t, comm, roundTrip)
+}
+
 func CheckJsonRequiredFields[T any](t *testing.T, data []byte, fields ...string) {
 	// Parse the JSON object into a map so we can selectively delete fields.
 	var obj map[string]json.RawMessage

@@ -21,9 +21,11 @@ func CommitmentFromUint256(n *U256) (Commitment, error) {
 	}
 
 	// `n` might have fewer than 32 bytes, if the commitment starts with one or more zeros. Pad out
-	// to 32 bytes exactly, adding zeros at the end to be consistent with big-endian byte order.
-	for len(bigEndian) < 32 {
-		bigEndian = append(bigEndian, 0)
+	// to 32 bytes exactly, adding zeros at the beginning to be consistent with big-endian byte
+	// order.
+	if len(bigEndian) < 32 {
+		zeros := make([]byte, 32-len(bigEndian))
+		bigEndian = append(zeros, bigEndian...)
 	}
 
 	for i, b := range bigEndian {
@@ -32,6 +34,16 @@ func CommitmentFromUint256(n *U256) (Commitment, error) {
 		bytes[31-i] = b
 	}
 	return bytes, nil
+}
+
+func (c Commitment) Uint256() *U256 {
+	var bigEndian [32]byte
+	for i, b := range c {
+		// HotShot interprets the commitment as a little-endian integer. `SetBytes` takes the bytes
+		// in big-endian order, so we populate the bytes in reverse order.
+		bigEndian[31-i] = b
+	}
+	return NewU256().SetBytes(bigEndian)
 }
 
 func (c Commitment) Equals(other Commitment) bool {
