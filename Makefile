@@ -98,6 +98,9 @@ nuke: clean devnet-clean
 .PHONY: nuke
 
 devnet-up:
+	@if [ ! -e op-program/bin ]; then \
+		make cannon-prestate; \
+	fi
 	$(shell ./ops/scripts/newer-file.sh .devnet/allocs-l1.json ./packages/contracts-bedrock)
 	if [ $(.SHELLSTATUS) -ne 0 ]; then \
 		make devnet-allocs; \
@@ -113,14 +116,14 @@ devnet-test:
 .PHONY: devnet-test
 
 devnet-down:
-	@(cd ./ops-bedrock && GENESIS_TIMESTAMP=$(shell date +%s) docker-compose stop)
+	@(cd ./ops-bedrock && GENESIS_TIMESTAMP=$(shell date +%s) docker compose stop)
 .PHONY: devnet-down
 
 devnet-clean:
 	rm -rf ./packages/contracts-bedrock/deployments/devnetL1
 	rm -rf ./.devnet
 	rm -rf ./.devnet-espresso
-	cd ./ops-bedrock && docker-compose down
+	cd ./ops-bedrock && docker compose down
 	docker image ls 'ops-bedrock*' --format='{{.Repository}}' | xargs -r docker rmi
 	docker volume ls --filter name=ops-bedrock --format='{{.Name}}' | xargs -r docker volume rm
 .PHONY: devnet-clean
@@ -132,15 +135,15 @@ devnet-allocs-espresso:
 	PYTHONPATH=./bedrock-devnet python3 ./bedrock-devnet/main.py --monorepo-dir=. --deploy-config="devnetL1-espresso.json" --devnet-dir=".devnet-espresso" --allocs
 
 devnet-logs:
-	@(cd ./ops-bedrock && docker-compose logs -f)
+	@(cd ./ops-bedrock && docker compose logs -f)
 .PHONY: devnet-logs
 
 devnet-build:
-	@(cd ./ops-bedrock && docker-compose build)
+	@(cd ./ops-bedrock && docker compose build)
 .PHONY: devnet-build
 
 devnet-pull:
-	@(cd ./ops-bedrock && docker-compose pull)
+	@(cd ./ops-bedrock && docker compose pull)
 .PHONY: devnet-pull
 
 e2e-pull:

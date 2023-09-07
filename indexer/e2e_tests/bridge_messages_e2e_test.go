@@ -59,9 +59,9 @@ func TestE2EBridgeL1CrossDomainMessenger(t *testing.T) {
 	require.NotNil(t, sentMessage)
 	require.NotNil(t, sentMessage.SentMessageEventGUID)
 	require.Equal(t, depositInfo.DepositTx.SourceHash, sentMessage.TransactionSourceHash)
-	require.Equal(t, nonce.Uint64(), sentMessage.Nonce.Int.Uint64())
-	require.Equal(t, uint64(100_000), sentMessage.GasLimit.Int.Uint64())
-	require.Equal(t, big.NewInt(params.Ether), sentMessage.Tx.Amount.Int)
+	require.Equal(t, nonce.Uint64(), sentMessage.Nonce.Uint64())
+	require.Equal(t, uint64(100_000), sentMessage.GasLimit.Uint64())
+	require.Equal(t, uint64(params.Ether), sentMessage.Tx.Amount.Uint64())
 	require.Equal(t, aliceAddr, sentMessage.Tx.FromAddress)
 	require.Equal(t, aliceAddr, sentMessage.Tx.ToAddress)
 	require.ElementsMatch(t, calldata, sentMessage.Tx.Data)
@@ -146,16 +146,16 @@ func TestE2EBridgeL2CrossDomainMessenger(t *testing.T) {
 	require.NotNil(t, sentMessage)
 	require.NotNil(t, sentMessage.SentMessageEventGUID)
 	require.Equal(t, withdrawalHash, sentMessage.TransactionWithdrawalHash)
-	require.Equal(t, nonce.Uint64(), sentMessage.Nonce.Int.Uint64())
-	require.Equal(t, uint64(100_000), sentMessage.GasLimit.Int.Uint64())
-	require.Equal(t, big.NewInt(params.Ether), sentMessage.Tx.Amount.Int)
+	require.Equal(t, nonce.Uint64(), sentMessage.Nonce.Uint64())
+	require.Equal(t, uint64(100_000), sentMessage.GasLimit.Uint64())
+	require.Equal(t, uint64(params.Ether), sentMessage.Tx.Amount.Uint64())
 	require.Equal(t, aliceAddr, sentMessage.Tx.FromAddress)
 	require.Equal(t, aliceAddr, sentMessage.Tx.ToAddress)
 	require.ElementsMatch(t, calldata, sentMessage.Tx.Data)
 
 	// (2) Process RelayedMessage on withdrawal finalization
 	require.Nil(t, sentMessage.RelayedMessageEventGUID)
-	_, finalizedReceipt := op_e2e.ProveAndFinalizeWithdrawal(t, *testSuite.OpCfg, testSuite.L1Client, testSuite.OpSys.Nodes["sequencer"], testSuite.OpCfg.Secrets.Alice, sentMsgReceipt)
+	_, finalizedReceipt := op_e2e.ProveAndFinalizeWithdrawal(t, *testSuite.OpCfg, testSuite.L1Client, testSuite.OpSys.EthInstances["sequencer"], testSuite.OpCfg.Secrets.Alice, sentMsgReceipt)
 
 	// wait for processor catchup
 	require.NoError(t, wait.For(context.Background(), 500*time.Millisecond, func() (bool, error) {

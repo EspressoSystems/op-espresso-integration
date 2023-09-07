@@ -141,7 +141,7 @@ type L1Client interface {
 func (cfg *Config) CheckL1ChainID(ctx context.Context, client L1Client) error {
 	id, err := client.ChainID(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get L1 chain ID: %w", err)
 	}
 	if cfg.L1ChainID.Cmp(id) != 0 {
 		return fmt.Errorf("incorrect L1 RPC chain id %d, expected %d", id, cfg.L1ChainID)
@@ -153,7 +153,7 @@ func (cfg *Config) CheckL1ChainID(ctx context.Context, client L1Client) error {
 func (cfg *Config) CheckL1GenesisBlockHash(ctx context.Context, client L1Client) error {
 	l1GenesisBlockRef, err := client.L1BlockRefByNumber(ctx, cfg.Genesis.L1.Number)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get L1 genesis blockhash: %w", err)
 	}
 	if l1GenesisBlockRef.Hash != cfg.Genesis.L1.Hash {
 		return fmt.Errorf("incorrect L1 genesis block hash %s, expected %s", l1GenesisBlockRef.Hash, cfg.Genesis.L1.Hash)
@@ -170,7 +170,7 @@ type L2Client interface {
 func (cfg *Config) CheckL2ChainID(ctx context.Context, client L2Client) error {
 	id, err := client.ChainID(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get L2 chain ID: %w", err)
 	}
 	if cfg.L2ChainID.Cmp(id) != 0 {
 		return fmt.Errorf("incorrect L2 RPC chain id %d, expected %d", id, cfg.L2ChainID)
@@ -182,7 +182,7 @@ func (cfg *Config) CheckL2ChainID(ctx context.Context, client L2Client) error {
 func (cfg *Config) CheckL2GenesisBlockHash(ctx context.Context, client L2Client) error {
 	l2GenesisBlockRef, err := client.L2BlockRefByNumber(ctx, cfg.Genesis.L2.Number)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get L2 genesis blockhash: %w", err)
 	}
 	if l2GenesisBlockRef.Hash != cfg.Genesis.L2.Hash {
 		return fmt.Errorf("incorrect L2 genesis block hash %s, expected %s", l2GenesisBlockRef.Hash, cfg.Genesis.L2.Hash)

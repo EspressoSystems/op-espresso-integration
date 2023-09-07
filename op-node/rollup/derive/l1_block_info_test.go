@@ -1,6 +1,7 @@
 package derive
 
 import (
+	crand "crypto/rand"
 	"math/big"
 	"math/rand"
 	"testing"
@@ -100,7 +101,7 @@ func TestParseL1InfoDepositTxData(t *testing.T) {
 		justification := testutils.RandomL2BatchJustification(rng)
 		depTx, err := L1InfoDeposit(randomSeqNr(rng), info, randomL1Cfg(rng, info), justification, false)
 		require.NoError(t, err)
-		_, err = rand.Read(depTx.Data[0:4])
+		_, err = crand.Read(depTx.Data[0:4])
 		require.NoError(t, err)
 		_, err = L1InfoDepositTxData(depTx.Data)
 		require.ErrorContains(t, err, "function signature")

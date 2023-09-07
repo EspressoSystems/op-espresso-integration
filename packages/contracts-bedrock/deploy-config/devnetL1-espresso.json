@@ -41,11 +41,11 @@
   "governanceTokenOwner": "0xa0Ee7A142d267C1f36714E4a8F75612F20a79720",
   "eip1559Denominator": 50,
   "eip1559Elasticity": 6,
-  "l1GenesisBlockTimestamp": "0x64e3d4c4",
+  "l1GenesisBlockTimestamp": "0x64c811bf",
   "l2GenesisRegolithTimeOffset": "0x0",
   "faultGameAbsolutePrestate": "0x41c7ae758795765c6664a5d39bf63841c71ff191e9189522bad8ebff5d4eca98",
   "faultGameMaxDepth": 30,
-  "faultGameMaxDuration": 300,
+  "faultGameMaxDuration": 1200,
   "systemConfigStartBlock": 0,
   "hotshotContractAddress": "0x8464135c8f25da09e49bc8782676a84730c318bc",
   "espresso": true

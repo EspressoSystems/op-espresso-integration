@@ -235,6 +235,14 @@ var (
 		EnvVars:  prefixEnvVars("ESPRESSO_URL"),
 		Required: false,
 	}
+	BetaExtraNetworks = &cli.BoolFlag{
+		Name: "beta.extra-networks",
+		Usage: fmt.Sprintf("Beta feature: enable selection of a predefined-network from the superchain-registry. "+
+			"The superchain-registry is experimental, and the availability of configurations may change."+
+			"Available networks: %s", strings.Join(chaincfg.BetaAvailableNetworks(), ", ")),
+		EnvVars: prefixEnvVars("BETA_EXTRA_NETWORKS"),
+		Hidden:  true,
+	}
 )
 
 var requiredFlags = []cli.Flag{
@@ -275,6 +283,7 @@ var optionalFlags = []cli.Flag{
 	BackupL2UnsafeSyncRPCTrustRPC,
 	L2EngineSyncEnabled,
 	SkipSyncStartCheck,
+	BetaExtraNetworks,
 }
 
 // Flags contains the list of configuration options available to the binary.
