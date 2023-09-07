@@ -278,7 +278,7 @@ def devnet_deploy(paths, args):
     # its own block explorer and then run this command unconditionally.
     if not args.deploy_l2:
         log.info('Starting block explorer')
-        run_command(['docker-compose', 'up', '-d', 'blockscout-l2'], cwd=paths.ops_bedrock_dir)
+        run_command(['docker-compose', 'up', '-d', f'{l2}-blockscout'], cwd=paths.ops_bedrock_dir)
 
     log.info('Devnet ready.')
 
