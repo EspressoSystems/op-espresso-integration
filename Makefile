@@ -1,6 +1,7 @@
 COMPOSEFLAGS=-d
 ITESTS_L2_HOST=http://localhost:9545
 BEDROCK_TAGS_REMOTE?=origin
+DEVNET_ESPRESSO_FLAGS=--espresso --deploy-config="devnetL1-espresso.json" --deployment="devnetL1-espresso" --devnet-dir=".devnet-espresso" --l2-provider-url="http://localhost:19090"
 monorepo-base := $(realpath .)
 
 build: build-go build-ts
@@ -113,7 +114,7 @@ devnet-up-espresso:
 	if [ $(.SHELLSTATUS) -ne 0 ]; then \
 		make devnet-allocs-espresso; \
 	fi
-	PYTHONPATH=./bedrock-devnet python3 ./bedrock-devnet/main.py --monorepo-dir=. --espresso --deploy-config="devnetL1-espresso.json" --deployment="devnetL1-espresso" --devnet-dir=".devnet-espresso"
+	PYTHONPATH=./bedrock-devnet python3 ./bedrock-devnet/main.py --monorepo-dir=. $(DEVNET_ESPRESSO_FLAGS)
 .PHONY: devnet-up-espresso
 
 
@@ -125,7 +126,7 @@ devnet-test:
 .PHONY: devnet-test
 
 devnet-test-espresso:
-	PYTHONPATH=./bedrock-devnet python3 ./bedrock-devnet/main.py --monorepo-dir=. --espresso --deploy-config="devnetL1-espresso.json" --deployment="devnetL1-espresso" --devnet-dir=".devnet-espresso" --l2-provider-url="http://localhost:9090" --test
+	PYTHONPATH=./bedrock-devnet python3 ./bedrock-devnet/main.py --monorepo-dir=. $(DEVNET_ESPRESSO_FLAGS) --test
 .PHONY: devnet-test-espresso
 
 devnet-down:
@@ -146,7 +147,7 @@ devnet-allocs:
 	PYTHONPATH=./bedrock-devnet python3 ./bedrock-devnet/main.py --monorepo-dir=. --allocs
 
 devnet-allocs-espresso:
-	PYTHONPATH=./bedrock-devnet python3 ./bedrock-devnet/main.py --monorepo-dir=. --espresso --deploy-config="devnetL1-espresso.json" --deployment="devnetL1-espresso" --devnet-dir=".devnet-espresso" --allocs
+	PYTHONPATH=./bedrock-devnet python3 ./bedrock-devnet/main.py --monorepo-dir=. $(DEVNET_ESPRESSO_FLAGS) --allocs
 
 devnet-logs:
 	@(cd ./ops-bedrock && docker compose logs -f)

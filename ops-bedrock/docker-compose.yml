@@ -31,8 +31,8 @@ services:
       context: .
       dockerfile: Dockerfile.l2
     ports:
-      - "9545:8545"
-      - "8060:6060"
+      - "19545:8545"
+      - "18060:6060"
     volumes:
       - "l2_data:/db"
       - "${DEVNET_DIR}/genesis-l2.json:/genesis.json"
@@ -75,10 +75,10 @@ services:
       --pprof.enabled
       --rpc.enable-admin
     ports:
-      - "7545:8545"
-      - "9003:9003"
-      - "7300:7300"
-      - "6060:6060"
+      - "17545:8545"
+      - "19003:9003"
+      - "17300:7300"
+      - "16060:6060"
     environment:
       - OP_NODE_ESPRESSO_URL=http://sequencer0:8080
     volumes:
@@ -97,8 +97,8 @@ services:
       context: ../
       dockerfile: ./op-proposer/Dockerfile
     ports:
-      - "6062:6060"
-      - "7302:7300"
+      - "16062:6060"
+      - "17302:7300"
     environment:
       OP_PROPOSER_L1_ETH_RPC: http://l1:8545
       OP_PROPOSER_ROLLUP_RPC: http://op-node:8545
@@ -120,9 +120,9 @@ services:
       context: ../
       dockerfile: ./op-batcher/Dockerfile
     ports:
-      - "6061:6060"
-      - "7301:7300"
-      - "6545:8545"
+      - "16061:6060"
+      - "17301:7300"
+      - "16545:8545"
     environment:
       OP_BATCHER_L1_ETH_RPC: http://l1:8545
       OP_BATCHER_L2_ETH_RPC: http://l2:8545
@@ -167,7 +167,7 @@ services:
       context: ../
       dockerfile: ./op-geth-proxy/Dockerfile
     ports:
-      - "9090:9090"
+      - "19090:9090"
     environment:
       - OP_GETH_PROXY_GETH_ADDR
       - OP_GETH_PROXY_LISTEN_ADDR=0.0.0.0:9090
@@ -229,7 +229,7 @@ services:
   sequencer0:
     image: ghcr.io/espressosystems/espresso-sequencer/sequencer:main
     ports:
-      - "8080"
+      - "50000:8080"
     # Run the API server (with options taken from the environment) and the optional submission API
     command: sequencer -- http -- query -- submit
     environment:

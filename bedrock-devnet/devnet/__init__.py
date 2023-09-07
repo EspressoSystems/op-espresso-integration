@@ -19,7 +19,7 @@ parser = argparse.ArgumentParser(description='Bedrock devnet launcher')
 parser.add_argument('--monorepo-dir', help='Directory of the monorepo', default=os.getcwd())
 parser.add_argument('--allocs', help='Only create the allocs and exit', type=bool, action=argparse.BooleanOptionalAction)
 parser.add_argument('--test', help='Tests the deployment, must already be deployed', type=bool, action=argparse.BooleanOptionalAction)
-parser.add_argument('--l2-provider-url', help='URL for the L2 RPC node', type=str, default='http://localhost:9545')
+parser.add_argument('--l2-provider-url', help='URL for the L2 RPC node', type=str, default='http://localhost:19545')
 parser.add_argument('--deploy-config', help='Deployment config, relative to packages/contracts-bedrock/deploy-config', default='devnetL1.json')
 parser.add_argument('--deployment', help='Path to deployment output files, relative to packages/contracts-bedrock/deployments', default='devnetL1.json')
 parser.add_argument('--devnet-dir', help='Output path for devnet config, relative to --monorepo-dir', default='.devnet')
@@ -113,7 +113,7 @@ def main():
         return
 
     log.info('Devnet starting')
-    devnet_deploy(paths, args.espresso)
+    devnet_deploy(paths, args.espresso, args.l2_provider_url)
 
 
 def deploy_contracts(paths):
@@ -164,7 +164,7 @@ def devnet_l1_genesis(paths):
 
 
 # Bring up the devnet where the contracts are deployed to L1
-def devnet_deploy(paths, espresso: bool):
+def devnet_deploy(paths, espresso: bool, l2_provider_url: str):
     if os.path.exists(paths.genesis_l1_path) and os.path.isfile(paths.genesis_l1_path):
         log.info('L1 genesis already generated.')
     else:
@@ -233,8 +233,11 @@ def devnet_deploy(paths, espresso: bool):
         'PWD': paths.ops_bedrock_dir,
         'DEVNET_DIR': paths.devnet_dir
     })
-    wait_up(9545)
-    wait_for_rpc_server('127.0.0.1:9545')
+
+    l2_provider_port = int(l2_provider_url.split(':')[-1])
+    l2_provider_http = l2_provider_url.removeprefix('http://')
+    wait_up(l2_provider_port)
+    wait_for_rpc_server(l2_provider_http)
 
     l2_output_oracle = addresses['L2OutputOracleProxy']
     log.info(f'Using L2OutputOracle {l2_output_oracle}')
