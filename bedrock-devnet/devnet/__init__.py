@@ -19,8 +19,12 @@ parser = argparse.ArgumentParser(description='Bedrock devnet launcher')
 parser.add_argument('--monorepo-dir', help='Directory of the monorepo', default=os.getcwd())
 parser.add_argument('--allocs', help='Only create the allocs and exit', type=bool, action=argparse.BooleanOptionalAction)
 parser.add_argument('--test', help='Tests the deployment, must already be deployed', type=bool, action=argparse.BooleanOptionalAction)
-parser.add_argument('--deploy-config', help='Path to deployment config, relative to --monorepo-dir', default='devnetL1.json')
+parser.add_argument('--deploy-config', help='Deployment config, relative to packages/contracts-bedrock/deploy-config', default='devnetL1.json')
+parser.add_argument('--deployment', help='Path to deployment output files, relative to packages/contracts-bedrock/deployments', default='devnetL1.json')
 parser.add_argument('--devnet-dir', help='Output path for devnet config, relative to --monorepo-dir', default='.devnet')
+parser.add_argument('--espresso', help='Run on Espresso Sequencer', type=bool, action=argparse.BooleanOptionalAction)
+parser.add_argument('--skip-build', help='Skip building docker images', type=bool, action=argparse.BooleanOptionalAction)
+parser.add_argument('--build', help='Only build docker images', type=bool, action=argparse.BooleanOptionalAction)
 
 log = logging.getLogger()
 
@@ -94,13 +98,21 @@ def main():
         devnet_l1_genesis(paths)
         return
 
-    log.info('Building docker images')
-    run_command(['docker', 'compose', 'build', '--progress', 'plain'], cwd=paths.ops_bedrock_dir, env={
-        'PWD': paths.ops_bedrock_dir
-    })
+    if args.skip_build:
+        log.warn('Skipping building docker images')
+    else:
+        log.info('Building docker images')
+        run_command(['docker', 'compose', 'build', '--progress', 'plain'], cwd=paths.ops_bedrock_dir, env={
+            'PWD': paths.ops_bedrock_dir,
+            'DEVNET_DIR': paths.devnet_dir
+        })
+
+    if args.build:
+        log.info("Finished building")
+        return
 
     log.info('Devnet starting')
-    devnet_deploy(paths)
+    devnet_deploy(paths, args.espresso)
 
 
 def deploy_contracts(paths):
@@ -151,8 +163,8 @@ def devnet_l1_genesis(paths):
 
 
 # Bring up the devnet where the contracts are deployed to L1
-def devnet_deploy(paths):
-    if os.path.exists(paths.genesis_l1_path):
+def devnet_deploy(paths, espresso: bool):
+    if os.path.exists(paths.genesis_l1_path) and os.path.isfile(paths.genesis_l1_path):
         log.info('L1 genesis already generated.')
     else:
         log.info('Generating L1 genesis.')
@@ -176,12 +188,30 @@ def devnet_deploy(paths):
 
     log.info('Starting L1.')
     run_command(['docker', 'compose', 'up', '-d', 'l1'], cwd=paths.ops_bedrock_dir, env={
-        'PWD': paths.ops_bedrock_dir
+        'PWD': paths.ops_bedrock_dir,
+        'DEVNET_DIR': paths.devnet_dir
     })
     wait_up(8545)
     wait_for_rpc_server('127.0.0.1:8545')
 
-    if os.path.exists(paths.genesis_l2_path):
+    if espresso:
+        log.info('Starting Espresso sequencer.')
+        espresso_services = [
+            'op-geth-proxy',
+            'orchestrator',
+            'da-server',
+            'consensus-server',
+            'commitment-task',
+            'sequencer0',
+            'sequencer1',
+        ]
+        run_command(['docker-compose', 'up', '-d'] + espresso_services, cwd=paths.ops_bedrock_dir, env={
+            'PWD': paths.ops_bedrock_dir,
+            'DEVNET_DIR': paths.devnet_dir
+        })
+
+    # Re-build the L2 genesis unconditionally in Espresso mode, since we require the timestamps to be recent.
+    if not espresso and os.path.exists(paths.genesis_l2_path) and os.path.isfile(paths.genesis_l2_path):
         log.info('L2 genesis and rollup configs already generated.')
     else:
         log.info('Generating L2 genesis and rollup configs.')
@@ -199,7 +229,8 @@ def devnet_deploy(paths):
 
     log.info('Bringing up L2.')
     run_command(['docker', 'compose', 'up', '-d', 'l2'], cwd=paths.ops_bedrock_dir, env={
-        'PWD': paths.ops_bedrock_dir
+        'PWD': paths.ops_bedrock_dir,
+        'DEVNET_DIR': paths.devnet_dir
     })
     wait_up(9545)
     wait_for_rpc_server('127.0.0.1:9545')
@@ -210,11 +241,16 @@ def devnet_deploy(paths):
     log.info(f'Using batch inbox {batch_inbox_address}')
 
     log.info('Bringing up everything else.')
-    run_command(['docker', 'compose', 'up', '-d', 'op-node', 'op-proposer', 'op-batcher'], cwd=paths.ops_bedrock_dir, env={
+    services = ['op-node', 'op-proposer', 'op-batcher']
+    run_command(['docker', 'compose', 'up', '-d'] + services, cwd=paths.ops_bedrock_dir, env={
         'PWD': paths.ops_bedrock_dir,
         'L2OO_ADDRESS': l2_output_oracle,
-        'SEQUENCER_BATCH_INBOX_ADDRESS': batch_inbox_address
+        'SEQUENCER_BATCH_INBOX_ADDRESS': batch_inbox_address,
+        'DEVNET_DIR': paths.devnet_dir
     })
+
+    log.info('Starting block explorer')
+    run_command(['docker-compose', 'up', '-d', 'blockscout-l2'], cwd=paths.ops_bedrock_dir)
 
     log.info('Devnet ready.')
 
@@ -259,6 +295,7 @@ def wait_for_rpc_server(url):
                 log.info(f'RPC server at {url} ready')
                 return
         except Exception as e:
+            log.info(f'Error connecting to RPC: {e}')
             log.info(f'Waiting for RPC server at {url}')
             time.sleep(1)
 

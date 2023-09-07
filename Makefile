@@ -108,6 +108,15 @@ devnet-up:
 	PYTHONPATH=./bedrock-devnet python3 ./bedrock-devnet/main.py --monorepo-dir=.
 .PHONY: devnet-up
 
+devnet-up-espresso:
+	$(shell ./ops/scripts/newer-file.sh .devnet-espresso/allocs-l1.json ./packages/contracts-bedrock)
+	if [ $(.SHELLSTATUS) -ne 0 ]; then \
+		make devnet-allocs-espresso; \
+	fi
+	PYTHONPATH=./bedrock-devnet python3 ./bedrock-devnet/main.py --monorepo-dir=. --espresso --deploy-config="devnetL1-espresso.json" --deployment="devnetL1-espresso" --devnet-dir=".devnet-espresso"
+.PHONY: devnet-up-espresso
+
+
 # alias for devnet-up
 devnet-up-deploy: devnet-up
 
@@ -116,14 +125,15 @@ devnet-test:
 .PHONY: devnet-test
 
 devnet-down:
-	@(cd ./ops-bedrock && GENESIS_TIMESTAMP=$(shell date +%s) docker compose stop)
+	@(cd ./ops-bedrock && GENESIS_TIMESTAMP=$(shell date +%s) docker compose down -v)
 .PHONY: devnet-down
 
 devnet-clean:
 	rm -rf ./packages/contracts-bedrock/deployments/devnetL1
+	rm -rf ./packages/contracts-bedrock/deployments/devnetL1-espresso
 	rm -rf ./.devnet
 	rm -rf ./.devnet-espresso
-	cd ./ops-bedrock && docker compose down
+	cd ./ops-bedrock && docker compose down -v
 	docker image ls 'ops-bedrock*' --format='{{.Repository}}' | xargs -r docker rmi
 	docker volume ls --filter name=ops-bedrock --format='{{.Name}}' | xargs -r docker volume rm
 .PHONY: devnet-clean
@@ -132,7 +142,7 @@ devnet-allocs:
 	PYTHONPATH=./bedrock-devnet python3 ./bedrock-devnet/main.py --monorepo-dir=. --allocs
 
 devnet-allocs-espresso:
-	PYTHONPATH=./bedrock-devnet python3 ./bedrock-devnet/main.py --monorepo-dir=. --deploy-config="devnetL1-espresso.json" --devnet-dir=".devnet-espresso" --allocs
+	PYTHONPATH=./bedrock-devnet python3 ./bedrock-devnet/main.py --monorepo-dir=. --espresso --deploy-config="devnetL1-espresso.json" --deployment="devnetL1-espresso" --devnet-dir=".devnet-espresso" --allocs
 
 devnet-logs:
 	@(cd ./ops-bedrock && docker compose logs -f)
