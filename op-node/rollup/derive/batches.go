@@ -362,7 +362,7 @@ func (e windowEndpoint) Bookends(jst *eth.L2BatchJustification) (prev *espresso.
 		}
 	case WindowEnd:
 		if len(jst.Blocks) != 0 {
-			// If the window is not empty, the last bock defines its end.
+			// If the window is not empty, the last block defines its end.
 			prev = &jst.Blocks[len(jst.Blocks)-1].Header
 		} else {
 			// Otherwise, the first block before where the window would be defines the end of the
