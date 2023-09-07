@@ -133,7 +133,7 @@ devnet-clean:
 	rm -rf ./packages/contracts-bedrock/deployments/devnetL1-espresso
 	rm -rf ./.devnet
 	rm -rf ./.devnet-espresso
-	cd ./ops-bedrock && docker compose down
+	cd ./ops-bedrock && docker compose down -v
 	docker image ls 'ops-bedrock*' --format='{{.Repository}}' | xargs -r docker rmi
 	docker volume ls --filter name=ops-bedrock --format='{{.Name}}' | xargs -r docker volume rm
 .PHONY: devnet-clean
