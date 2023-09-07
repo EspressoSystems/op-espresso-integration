@@ -12,6 +12,28 @@ import (
 
 type Commitment [32]byte
 
+func CommitmentFromUint256(n *U256) (Commitment, error) {
+	var bytes [32]byte
+
+	bigEndian := n.Bytes()
+	if len(bigEndian) > 32 {
+		return Commitment{}, fmt.Errorf("integer out of range for U256 (%d)", n)
+	}
+
+	// `n` might have fewer than 32 bytes, if the commitment starts with one or more zeros. Pad out
+	// to 32 bytes exactly, adding zeros at the end to be consistent with big-endian byte order.
+	for len(bigEndian) < 32 {
+		bigEndian = append(bigEndian, 0)
+	}
+
+	for i, b := range bigEndian {
+		// Bytes() returns the bytes in big endian order, but HotShot encodes commitments as
+		// U256 in little endian order, so we populate the bytes in reverse order.
+		bytes[31-i] = b
+	}
+	return bytes, nil
+}
+
 func (c Commitment) Equals(other Commitment) bool {
 	return bytes.Equal(c[:], other[:])
 }

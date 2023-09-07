@@ -88,7 +88,7 @@ func NewDerivationPipeline(log log.Logger, cfg *rollup.Config, l1Fetcher L1Fetch
 
 	var espressoProvider EspressoL1Provider
 	if cfg.HotShotContractAddress != nil {
-		espressoProvider = NewEspressoProvider(*cfg.HotShotContractAddress, l1Fetcher)
+		espressoProvider = NewEspressoProvider(log, *cfg.HotShotContractAddress, l1Fetcher)
 	}
 	// Pull stages
 	l1Traversal := NewL1Traversal(log, cfg, l1Fetcher)

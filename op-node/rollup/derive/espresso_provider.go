@@ -8,17 +8,20 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 type EspressoProvider struct {
 	HotShotAddr common.Address
 	L1Fetcher   L1Fetcher
+	log         log.Logger
 }
 
-func NewEspressoProvider(hotshotAddr common.Address, l1Fetcher L1Fetcher) *EspressoProvider {
+func NewEspressoProvider(log log.Logger, hotshotAddr common.Address, l1Fetcher L1Fetcher) *EspressoProvider {
 	return &EspressoProvider{
 		HotShotAddr: hotshotAddr,
 		L1Fetcher:   l1Fetcher,
+		log:         log,
 	}
 
 }
@@ -35,6 +38,7 @@ func (provider *EspressoProvider) VerifyCommitments(firstHeight uint64, comms []
 
 	for i, comm := range comms {
 		if !comm.Equals(fetchedComms[i]) {
+			provider.log.Warn("commitment does not match expected", "first", firstHeight, "i", i, "comm", comm, "expected", fetchedComms[i])
 			return false, nil
 		}
 	}

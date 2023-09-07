@@ -244,6 +244,11 @@ func NewU256() *U256 {
 	return new(U256)
 }
 
+func (i *U256) SetBigInt(n *big.Int) *U256 {
+	i.Int.Set(n)
+	return i
+}
+
 func (i *U256) SetUint64(n uint64) *U256 {
 	i.Int.SetUint64(n)
 	return i
