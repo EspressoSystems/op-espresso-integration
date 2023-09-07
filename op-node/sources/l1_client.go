@@ -135,8 +135,8 @@ func (s *L1Client) L1HotShotCommitmentsFromHeight(firstBlockHeight uint64, numHe
 	if err != nil {
 		return nil, err
 	}
-	if blockHeight.Cmp(big.NewInt(int64(firstBlockHeight + numHeaders))) < 0 {
-		return nil, fmt.Errorf("commitments up to %d are not available (current block height %d)", firstBlockHeight + numHeaders, blockHeight)
+	if blockHeight.Cmp(big.NewInt(int64(firstBlockHeight+numHeaders))) < 0 {
+		return nil, fmt.Errorf("commitments up to %d are not available (current block height %d)", firstBlockHeight+numHeaders, blockHeight)
 	}
 
 	for i := 0; i < int(numHeaders); i++ {
@@ -149,7 +149,7 @@ func (s *L1Client) L1HotShotCommitmentsFromHeight(firstBlockHeight uint64, numHe
 		for i, b := range comm.Bytes() {
 			// Bytes() returns the bytes in big endian order, but HotShot encodes commitments as
 			// U256 in little endian order, so we populate the bytes in reverse order.
-			bytes[31 - i] = b
+			bytes[31-i] = b
 		}
 
 		comms = append(comms, bytes)
