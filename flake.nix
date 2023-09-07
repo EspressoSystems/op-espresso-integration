@@ -2,8 +2,6 @@
   description = "A Nix-flake-based Go 1.17 development environment";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
-  # Be consistent with CI, which uses an older version of geth.
-  inputs.nixpkgs-geth.url = "github:NixOS/nixpkgs/611bf8f183e6360c2a215fa70dfd659943a9857f";
   inputs.flake-utils.url = "github:numtide/flake-utils";
   inputs.flake-compat.url = "github:edolstra/flake-compat";
   inputs.flake-compat.flake = false;
@@ -12,7 +10,7 @@
   inputs.foundry.url = "github:shazow/foundry.nix/fef36a77f0838fe278cc01ccbafbab8cd38ad26f";
 
 
-  outputs = { self, flake-utils, nixpkgs, nixpkgs-geth, foundry, ... }:
+  outputs = { self, flake-utils, nixpkgs, foundry, ... }:
     let
       goVersion = 20; # Change this to update the whole stack
       overlays = [
@@ -23,7 +21,6 @@
           nodejs = prev.nodejs-16_x;
           pnpm = prev.nodePackages.pnpm;
           yarn = prev.nodePackages.yarn;
-          go-ethereum = nixpkgs-geth.legacyPackages.${prev.system}.go-ethereum;
         })
         foundry.overlay
       ];
@@ -33,7 +30,7 @@
         pkgs = import nixpkgs {
           inherit overlays system;
           config = {
-            permittedInsecurePackages = [ "nodejs-16.20.1" ];
+            permittedInsecurePackages = [ "nodejs-16.20.2" ];
           };
         };
       in

@@ -251,6 +251,7 @@ var requiredFlags = []cli.Flag{
 }
 
 var optionalFlags = []cli.Flag{
+	EspressoUrl,
 	RPCListenAddr,
 	RPCListenPort,
 	RollupConfig,
