@@ -21,6 +21,7 @@ parser.add_argument('--allocs', help='Only create the allocs and exit', type=boo
 parser.add_argument('--test', help='Tests the deployment, must already be deployed', type=bool, action=argparse.BooleanOptionalAction)
 parser.add_argument('--l2', help='Which L2 to run', type=str, default='op1')
 parser.add_argument('--l2-provider-url', help='URL for the L2 RPC node', type=str, default='http://localhost:19545')
+parser.add_argument('--deploy-l2', help='Deploy the L2 onto a running L1 and sequencer network', type=bool, action=argparse.BooleanOptionalAction)
 parser.add_argument('--deploy-config', help='Deployment config, relative to packages/contracts-bedrock/deploy-config', default='devnetL1.json')
 parser.add_argument('--deployment', help='Path to deployment output files, relative to packages/contracts-bedrock/deployments', default='devnetL1')
 parser.add_argument('--devnet-dir', help='Output path for devnet config, relative to --monorepo-dir', default='.devnet')
@@ -176,7 +177,8 @@ def devnet_deploy(paths, args):
 
     if os.path.exists(paths.genesis_l1_path) and os.path.isfile(paths.genesis_l1_path):
         log.info('L1 genesis already generated.')
-    else:
+    elif not args.deploy_l2:
+        # Generate the L1 genesis, unless we are deploying an L2 onto an existing L1.
         log.info('Generating L1 genesis.')
         if os.path.exists(paths.allocs_path) == False:
             devnet_l1_genesis(paths, args.deploy_config)
@@ -196,29 +198,33 @@ def devnet_deploy(paths, args):
             '--outfile.l1', outfile_l1,
         ], cwd=paths.op_node_dir)
 
-    log.info('Starting L1.')
-    run_command(['docker', 'compose', 'up', '-d', 'l1'], cwd=paths.ops_bedrock_dir, env={
-        'PWD': paths.ops_bedrock_dir,
-        'DEVNET_DIR': paths.devnet_dir
-    })
-    wait_up(8545)
-    wait_for_rpc_server('127.0.0.1:8545')
-
-    if espresso:
-        log.info('Starting Espresso sequencer.')
-        espresso_services = [
-            f'{l2}-geth-proxy',
-            'orchestrator',
-            'da-server',
-            'consensus-server',
-            'commitment-task',
-            'sequencer0',
-            'sequencer1',
-        ]
-        run_command(['docker-compose', 'up', '-d'] + espresso_services, cwd=paths.ops_bedrock_dir, env={
+    if args.deploy_l2:
+        # L1 and sequencer already exist, just deploy the L1 contracts for the new L2.
+        deploy_contracts(paths, args.deploy_config)
+    else:
+        # Deploy L1 and sequencer network.
+        log.info('Starting L1.')
+        run_command(['docker', 'compose', 'up', '-d', 'l1'], cwd=paths.ops_bedrock_dir, env={
             'PWD': paths.ops_bedrock_dir,
             'DEVNET_DIR': paths.devnet_dir
         })
+        wait_up(8545)
+        wait_for_rpc_server('127.0.0.1:8545')
+
+        if espresso:
+            log.info('Starting Espresso sequencer.')
+            espresso_services = [
+                'orchestrator',
+                'da-server',
+                'consensus-server',
+                'commitment-task',
+                'sequencer0',
+                'sequencer1',
+            ]
+            run_command(['docker-compose', 'up', '-d'] + espresso_services, cwd=paths.ops_bedrock_dir, env={
+                'PWD': paths.ops_bedrock_dir,
+                'DEVNET_DIR': paths.devnet_dir
+            })
 
     # Re-build the L2 genesis unconditionally in Espresso mode, since we require the timestamps to be recent.
     if not espresso and os.path.exists(paths.genesis_l2_path) and os.path.isfile(paths.genesis_l2_path):
@@ -238,7 +244,7 @@ def devnet_deploy(paths, args):
     addresses = read_json(paths.addresses_json_path)
 
     log.info('Bringing up L2.')
-    run_command(['docker', 'compose', 'up', '-d', f'{l2}-l2'], cwd=paths.ops_bedrock_dir, env={
+    run_command(['docker', 'compose', 'up', '-d', f'{l2}-l2', f'{l2}-geth-proxy'], cwd=paths.ops_bedrock_dir, env={
         'PWD': paths.ops_bedrock_dir,
         'DEVNET_DIR': paths.devnet_dir
     })
@@ -254,16 +260,25 @@ def devnet_deploy(paths, args):
     log.info(f'Using batch inbox {batch_inbox_address}')
 
     log.info('Bringing up everything else.')
+    command = ['docker', 'compose', 'up', '-d']
+    if args.deploy_l2:
+        # If we are deploying onto an existing L1, don't restart the services that are already
+        # running.
+        command.append('--no-recreate')
     services = [f'{l2}-node', f'{l2}-proposer', f'{l2}-batcher']
-    run_command(['docker', 'compose', 'up', '-d'] + services, cwd=paths.ops_bedrock_dir, env={
+    run_command(command + services, cwd=paths.ops_bedrock_dir, env={
         'PWD': paths.ops_bedrock_dir,
         'L2OO_ADDRESS': l2_output_oracle,
         'SEQUENCER_BATCH_INBOX_ADDRESS': batch_inbox_address,
         'DEVNET_DIR': paths.devnet_dir
     })
 
-    log.info('Starting block explorer')
-    run_command(['docker-compose', 'up', '-d', 'blockscout-l2'], cwd=paths.ops_bedrock_dir)
+    # TODO the block explorer doesn't support running multiple instances simultaneously, so only
+    # start it with the first L2, not ones deployed after the fact. We should support each L2 having
+    # its own block explorer and then run this command unconditionally.
+    if not args.deploy_l2:
+        log.info('Starting block explorer')
+        run_command(['docker-compose', 'up', '-d', 'blockscout-l2'], cwd=paths.ops_bedrock_dir)
 
     log.info('Devnet ready.')
 
