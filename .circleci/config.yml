@@ -939,6 +939,15 @@ jobs:
       image: ubuntu-2204:2022.10.2
     environment:
       DOCKER_BUILDKIT: 1
+    parameters:
+      devnet-up:
+        description: The make target to use to start the devnet
+        type: string
+        default: devnet-up
+      devnet-test:
+        description: The make target to use to test the devnet
+        type: string
+        default: devnet-test
     steps:
       - checkout
       - check-changed:
@@ -990,10 +999,10 @@ jobs:
           command: make cannon-prestate
       - run:
           name: Bring up the stack
-          command: make devnet-up
+          command: make <<parameters.devnet-up>>
       - run:
           name: Test the stack
-          command: make devnet-test
+          command: make <<parameters.devnet-test>>
       - run:
           name: Dump op-node logs
           command: |
@@ -1189,6 +1198,11 @@ workflows:
           requires:
             - pnpm-monorepo
       - devnet:
+          requires:
+            - pnpm-monorepo
+      - devnet-espresso:
+          devnet-up: devnet-up-espresso
+          devnet-test: devnet-test-espresso
           requires:
             - pnpm-monorepo
       - go-lint-test-build:
