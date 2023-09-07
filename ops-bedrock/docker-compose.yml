@@ -5,14 +5,20 @@ version: '3.4'
 # service.
 
 volumes:
-  op1_l1_data:
+  l1_data:
   op1_l2_data:
   op1_log:
+  op2_l2_data:
+  op2_log:
   blockscout_db:
   blockscout_logs:
   blockscout_redis:
 
 services:
+  ##################################################################################################
+  # L1
+  #
+
   l1:
     build:
       context: .
@@ -22,9 +28,13 @@ services:
       - "8546:8546"
       - "7060:6060"
     volumes:
-      - "op1_l1_data:/db"
+      - "l1_data:/db"
       - "${DEVNET_DIR}/genesis-l1.json:/genesis.json"
       - "${PWD}/test-jwt-secret.txt:/config/test-jwt-secret.txt"
+
+  ##################################################################################################
+  # OP stack 901
+  #
 
   op1-l2:
     build:
@@ -175,6 +185,139 @@ services:
       - "9090:8080"
     volumes:
       - op1_log:/op_log:ro
+
+  ##################################################################################################
+  # OP stack 902
+  #
+
+  op2-l2:
+    build:
+      context: .
+      dockerfile: Dockerfile.l2
+    ports:
+      - "$OP2_L2_RPC_PORT:8545"
+      - "$OP2_L2_DEBUG_PORT:6060"
+    volumes:
+      - "op2_l2_data:/db"
+      - "${DEVNET_DIR}/genesis-l2.json:/genesis.json"
+      - "${PWD}/test-jwt-secret.txt:/config/test-jwt-secret.txt"
+    entrypoint:
+      # pass the L2 specific flags by overriding the entry-point and adding extra arguments
+      - "/bin/sh"
+      - "/entrypoint.sh"
+      - "--authrpc.jwtsecret=/config/test-jwt-secret.txt"
+
+  op2-node:
+    depends_on:
+      - l1
+      - op2-l2
+    build:
+      context: ../
+      dockerfile: ./op-node/Dockerfile
+    command: >
+      op-node
+      --l1=ws://l1:8546
+      --l2=http://op2-l2:8551
+      --l2.jwt-secret=/config/test-jwt-secret.txt
+      --sequencer.enabled
+      --sequencer.l1-confs=0
+      --verifier.l1-confs=0
+      --p2p.sequencer.key=8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba
+      --rollup.config=/rollup.json
+      --rpc.addr=0.0.0.0
+      --rpc.port=8545
+      --p2p.listen.ip=0.0.0.0
+      --p2p.listen.tcp=9003
+      --p2p.listen.udp=9003
+      --p2p.scoring.peers=light
+      --p2p.ban.peers=true
+      --snapshotlog.file=/op_log/snapshot.log
+      --p2p.priv.path=/config/p2p-node-key.txt
+      --metrics.enabled
+      --metrics.addr=0.0.0.0
+      --metrics.port=7300
+      --pprof.enabled
+      --rpc.enable-admin
+    ports:
+      - "$OP2_NODE_RPC_PORT:8545"
+      - "$OP2_NODE_P2P_PORT:9003"
+      - "$OP2_NODE_METRICS_PORT:7300"
+      - "$OP2_NODE_DEBUG_PORT:6060"
+    environment:
+      - OP_NODE_ESPRESSO_URL=http://sequencer0:8080
+    volumes:
+      - "${PWD}/p2p-sequencer-key.txt:/config/p2p-sequencer-key.txt"
+      - "${PWD}/p2p-node-key.txt:/config/p2p-node-key.txt"
+      - "${PWD}/test-jwt-secret.txt:/config/test-jwt-secret.txt"
+      - "${DEVNET_DIR}/rollup.json:/rollup.json"
+      - op2_log:/op_log
+
+  op2-proposer:
+    depends_on:
+      - l1
+      - op2-l2
+      - op2-node
+    build:
+      context: ../
+      dockerfile: ./op-proposer/Dockerfile
+    ports:
+      - "$OP2_PROPOSER_DEBUG_PORT:6060"
+      - "$OP2_PROPOSER_METRICS_PORT:7300"
+    environment:
+      OP_PROPOSER_L1_ETH_RPC: http://l1:8545
+      OP_PROPOSER_ROLLUP_RPC: http://op2-node:8545
+      OP_PROPOSER_POLL_INTERVAL: 1s
+      OP_PROPOSER_NUM_CONFIRMATIONS: 1
+      OP_PROPOSER_MNEMONIC: test test test test test test test test test test test junk
+      OP_PROPOSER_L2_OUTPUT_HD_PATH: "m/44'/60'/0'/0/5"
+      OP_PROPOSER_L2OO_ADDRESS: "${L2OO_ADDRESS}"
+      OP_PROPOSER_PPROF_ENABLED: "true"
+      OP_PROPOSER_METRICS_ENABLED: "true"
+      OP_PROPOSER_ALLOW_NON_FINALIZED: "true"
+
+  op2-batcher:
+    depends_on:
+      - l1
+      - op2-l2
+      - op2-node
+    build:
+      context: ../
+      dockerfile: ./op-batcher/Dockerfile
+    ports:
+      - "$OP2_BATCHER_DEBUG_PORT:6060"
+      - "$OP2_BATCHER_METRICS_PORT:7300"
+      - "$OP2_BATCHER_RPC_PORT:8545"
+    environment:
+      OP_BATCHER_L1_ETH_RPC: http://l1:8545
+      OP_BATCHER_L2_ETH_RPC: http://op2-l2:8545
+      OP_BATCHER_ROLLUP_RPC: http://op2-node:8545
+      OP_BATCHER_MAX_CHANNEL_DURATION: 1
+      OP_BATCHER_SUB_SAFETY_MARGIN: 4 # SWS is 15, ChannelTimeout is 40
+      OP_BATCHER_POLL_INTERVAL: 1s
+      OP_BATCHER_NUM_CONFIRMATIONS: 1
+      OP_BATCHER_MNEMONIC: test test test test test test test test test test test junk
+      OP_BATCHER_SEQUENCER_HD_PATH: "m/44'/60'/0'/0/6"
+      OP_BATCHER_PPROF_ENABLED: "true"
+      OP_BATCHER_METRICS_ENABLED: "true"
+      OP_BATCHER_RPC_ENABLE_ADMIN: "true"
+
+  op2-geth-proxy:
+    build:
+      context: ../
+      dockerfile: ./op-geth-proxy/Dockerfile
+    ports:
+      - "$OP2_GETH_PROXY_PORT:9090"
+    environment:
+      - OP_GETH_PROXY_GETH_ADDR=http://op2-l2:8545
+      - OP_GETH_PROXY_LISTEN_ADDR=0.0.0.0:9090
+      - OP_GETH_PROXY_SEQ_ADDR=http://sequencer0:8080
+      - OP_GETH_PROXY_VM_ID=$OP2_CHAIN_ID
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  ##################################################################################################
+  # Espresso Sequencer
+  #
 
   orchestrator:
     image: ghcr.io/espressosystems/espresso-sequencer/orchestrator:main

@@ -22,7 +22,7 @@ parser.add_argument('--test', help='Tests the deployment, must already be deploy
 parser.add_argument('--l2', help='Which L2 to run', type=str, default='op1')
 parser.add_argument('--l2-provider-url', help='URL for the L2 RPC node', type=str, default='http://localhost:19545')
 parser.add_argument('--deploy-config', help='Deployment config, relative to packages/contracts-bedrock/deploy-config', default='devnetL1.json')
-parser.add_argument('--deployment', help='Path to deployment output files, relative to packages/contracts-bedrock/deployments', default='devnetL1.json')
+parser.add_argument('--deployment', help='Path to deployment output files, relative to packages/contracts-bedrock/deployments', default='devnetL1')
 parser.add_argument('--devnet-dir', help='Output path for devnet config, relative to --monorepo-dir', default='.devnet')
 parser.add_argument('--espresso', help='Run on Espresso Sequencer', type=bool, action=argparse.BooleanOptionalAction)
 parser.add_argument('--skip-build', help='Skip building docker images', type=bool, action=argparse.BooleanOptionalAction)
@@ -61,7 +61,7 @@ def main():
     monorepo_dir = os.path.abspath(args.monorepo_dir)
     devnet_dir = pjoin(monorepo_dir, args.devnet_dir)
     contracts_bedrock_dir = pjoin(monorepo_dir, 'packages', 'contracts-bedrock')
-    deployment_dir = pjoin(contracts_bedrock_dir, 'deployments', 'devnetL1')
+    deployment_dir = pjoin(contracts_bedrock_dir, 'deployments', args.deployment)
     op_node_dir = pjoin(args.monorepo_dir, 'op-node')
     ops_bedrock_dir = pjoin(monorepo_dir, 'ops-bedrock')
     deploy_config_dir = pjoin(contracts_bedrock_dir, 'deploy-config'),
@@ -97,7 +97,7 @@ def main():
     os.makedirs(devnet_dir, exist_ok=True)
 
     if args.allocs:
-        devnet_l1_genesis(paths)
+        devnet_l1_genesis(paths, args.deploy_config)
         return
 
     if args.skip_build:
@@ -114,10 +114,10 @@ def main():
         return
 
     log.info('Devnet starting')
-    devnet_deploy(paths, args.espresso, args.l2, args.l2_provider_url)
+    devnet_deploy(paths, args)
 
 
-def deploy_contracts(paths):
+def deploy_contracts(paths, deploy_config: str):
     wait_up(8545)
     wait_for_rpc_server('127.0.0.1:8545')
     res = eth_accounts('127.0.0.1:8545')
@@ -130,7 +130,9 @@ def deploy_contracts(paths):
         'forge', 'script', fqn, '--sender', account,
         '--rpc-url', 'http://127.0.0.1:8545', '--broadcast',
         '--unlocked'
-    ], env={}, cwd=paths.contracts_bedrock_dir)
+    ], env={
+        'DEPLOYMENT_CONTEXT': deploy_config.removesuffix('.json')
+    }, cwd=paths.contracts_bedrock_dir)
 
     shutil.copy(paths.l1_deployments_path, paths.addresses_json_path)
 
@@ -138,18 +140,20 @@ def deploy_contracts(paths):
     run_command([
         'forge', 'script', fqn, '--sig', 'sync()',
         '--rpc-url', 'http://127.0.0.1:8545'
-    ], env={}, cwd=paths.contracts_bedrock_dir)
+    ], env={
+        'DEPLOYMENT_CONTEXT': deploy_config.removesuffix('.json')
+    }, cwd=paths.contracts_bedrock_dir)
 
 
 
-def devnet_l1_genesis(paths):
+def devnet_l1_genesis(paths, deploy_config: str):
     log.info('Generating L1 genesis state')
     geth = subprocess.Popen([
         'geth', '--dev', '--http', '--http.api', 'eth,debug',
         '--verbosity', '4', '--gcmode', 'archive', '--dev.gaslimit', '30000000'
     ])
 
-    forge = ChildProcess(deploy_contracts, paths)
+    forge = ChildProcess(deploy_contracts, paths, deploy_config)
     forge.start()
     forge.join()
     err = forge.get_error()
@@ -165,13 +169,17 @@ def devnet_l1_genesis(paths):
 
 
 # Bring up the devnet where the contracts are deployed to L1
-def devnet_deploy(paths, espresso: bool, l2: str, l2_provider_url: str):
+def devnet_deploy(paths, args):
+    espresso = args.espresso
+    l2 = args.l2
+    l2_provider_url = args.l2_provider_url
+
     if os.path.exists(paths.genesis_l1_path) and os.path.isfile(paths.genesis_l1_path):
         log.info('L1 genesis already generated.')
     else:
         log.info('Generating L1 genesis.')
         if os.path.exists(paths.allocs_path) == False:
-            devnet_l1_genesis(paths)
+            devnet_l1_genesis(paths, args.deploy_config)
 
         devnet_config_backup = pjoin(paths.devnet_dir, 'devnetL1.json.bak')
         shutil.copy(paths.devnet_config_path, devnet_config_backup)
