@@ -129,19 +129,41 @@ func (s *L1Client) L1HotShotCommitmentsFromHeight(firstBlockHeight uint64, numHe
 	if err != nil {
 		return nil, err
 	}
+
+	// Check if the requested commitments are even available yet on L1.
+	blockHeight, err := hotshot.HotshotCaller.BlockHeight(nil)
+	if err != nil {
+		return nil, err
+	}
+	if blockHeight.Cmp(big.NewInt(int64(firstBlockHeight+numHeaders))) < 0 {
+		return nil, fmt.Errorf("commitments up to %d are not available (current block height %d)", firstBlockHeight+numHeaders, blockHeight)
+	}
+
 	for i := 0; i < int(numHeaders); i++ {
-		var height big.Int
-		height.SetUint64(firstBlockHeight + uint64(i))
-		comm, err := hotshot.HotshotCaller.Commitments(nil, &height)
+		height := big.NewInt(int64(firstBlockHeight + uint64(i)))
+		commAsInt, err := hotshot.HotshotCaller.Commitments(nil, height)
 		if err != nil {
 			return comms, err
 		}
-		var bytes [32]byte
-		for i, b := range comm.Bytes() {
-			bytes[i] = b
+		if commAsInt.Cmp(big.NewInt(0)) == 0 {
+			// A commitment of 0 indicates that this commitment hasn't been set yet in the contract.
+			// Since we checked the contract block height above, this can only happen if there was
+			// a reorg on L1 just now. In this case, return an error rather than reporting
+			// definitive commitments. The caller will retry and we will succeed eventually when we
+			// manage to get a consistent snapshot of the L1.
+			//
+			// Note that in all other reorg cases, where the L1 reorgs but we read a nonzero
+			// commitment, we are fine, since the HotShot contract will only ever record a single
+			// ledger, consistent across all L1 forks, determined by HotShot consensus. The only
+			// question is whether the recorded ledger extends far enough for the commitments we're
+			// trying to read on the current fork of L1.
+			return nil, fmt.Errorf("read 0 for commitment %d below block height %d, this indicates an L1 reorg", firstBlockHeight+uint64(i), blockHeight)
 		}
-
-		comms = append(comms, bytes)
+		comm, err := espresso.CommitmentFromUint256(espresso.NewU256().SetBigInt(commAsInt))
+		if err != nil {
+			return comms, err
+		}
+		comms = append(comms, comm)
 	}
 	return comms, nil
 }

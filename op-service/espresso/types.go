@@ -52,7 +52,6 @@ func (self *Header) Commit() Commitment {
 		OptionalField("l1_finalized", l1FinalizedComm).
 		Field("transactions_root", self.TransactionsRoot.Commit()).
 		Finalize()
-
 }
 
 type Metadata struct {
@@ -243,6 +242,11 @@ type U256 struct {
 
 func NewU256() *U256 {
 	return new(U256)
+}
+
+func (i *U256) SetBigInt(n *big.Int) *U256 {
+	i.Int.Set(n)
+	return i
 }
 
 func (i *U256) SetUint64(n uint64) *U256 {

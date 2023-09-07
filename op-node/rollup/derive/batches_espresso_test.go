@@ -1,8 +1,10 @@
 package derive
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"math/big"
 	"math/rand"
 	"testing"
 
@@ -13,7 +15,10 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/testutils"
 	"github.com/ethereum-optimism/optimism/op-service/espresso"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 )
 
@@ -26,39 +31,40 @@ type EspressoValidBatchTestCase struct {
 	Headers    []espresso.Header
 }
 
-type mockHotShotProvider struct {
-	Headers []espresso.Header
+type mockL1Provider struct {
+	L1Blocks []eth.L1BlockRef
+	Headers  []espresso.Header
 }
 
-func (m *mockHotShotProvider) VerifyHeaders(headers []espresso.Header, height uint64) (bool, error) {
-	if height+uint64(len(headers)) > uint64(len(m.Headers)) {
-		fmt.Println("Headers unavailable")
+func (m *mockL1Provider) L1BlockRefByNumber(ctx context.Context, num uint64) (eth.L1BlockRef, error) {
+	if num >= uint64(len(m.L1Blocks)) {
+		return eth.L1BlockRef{}, fmt.Errorf("L1 block number %d not available", num)
+	}
+	return m.L1Blocks[num], nil
+}
+
+func (m *mockL1Provider) FetchReceipts(ctx context.Context, blockHash common.Hash) (eth.BlockInfo, types.Receipts, error) {
+	return nil, nil, fmt.Errorf("not implemented: FetchReceipts")
+}
+
+func (m *mockL1Provider) VerifyCommitments(firstBlockHeight uint64, comms []espresso.Commitment) (bool, error) {
+	if int(firstBlockHeight)+len(comms) > len(m.Headers) {
 		return false, NewCriticalError(errors.New("Headers unavailable"))
 	}
-	// For testing purposes, use the timestamp to check equality
-	for i, header := range headers {
-		if header.Timestamp != m.Headers[uint64(i)+height].Timestamp {
-			fmt.Println("Invalid header")
-			return false, nil
 
+	for i, comm := range comms {
+		if !comm.Equals(m.Headers[int(firstBlockHeight)+i].Commit()) {
+			return false, nil
 		}
 	}
 	return true, nil
 }
 
-func (m *mockHotShotProvider) GetCommitmentsFromHeight(firstBlockHeight uint64, numHeaders uint64) ([]espresso.Commitment, error) {
-	if firstBlockHeight+numHeaders > uint64(len(m.Headers)) {
-		fmt.Println("Commitments unavailable")
-		return nil, NewCriticalError(errors.New("Commitments unavailable"))
-	}
-	var comms []espresso.Commitment
-	for i := 0; i < int(numHeaders); i++ {
-		comms = append(comms, m.Headers[int(firstBlockHeight)+i].Commit())
-	}
-	return comms, nil
+func (m *mockL1Provider) setBlocks(blocks []eth.L1BlockRef) {
+	m.L1Blocks = blocks
 }
 
-func (m *mockHotShotProvider) setHeaders(headers []espresso.Header) {
+func (m *mockL1Provider) setHeaders(headers []espresso.Header) {
 	m.Headers = headers
 }
 
@@ -78,11 +84,17 @@ func TestValidBatchEspresso(t *testing.T) {
 		BlockTime:         2,
 		SeqWindowSize:     4,
 		MaxSequencerDrift: 6,
+		L2ChainID:         big.NewInt(901),
 		// other config fields are ignored and can be left empty.
 	}
 
 	rng := rand.New(rand.NewSource(1234))
-	l1A := testutils.RandomBlockRef(rng)
+	l1A := eth.L1BlockRef{
+		Hash:       testutils.RandomHash(rng),
+		Number:     0,
+		ParentHash: testutils.RandomHash(rng),
+		Time:       rng.Uint64(),
+	}
 	l1B := eth.L1BlockRef{
 		Hash:       testutils.RandomHash(rng),
 		Number:     l1A.Number + 1,
@@ -141,15 +153,16 @@ func TestValidBatchEspresso(t *testing.T) {
 		SequenceNumber: 0,
 	}
 
-	// Two valid windows, one with a hotshot block in between the first and last blocks
+	// Three valid windows, with varying numbers of HotShot blocks in the window.
 	hotshotHeaders := []espresso.Header{
 		makeHeader(l2A1.Time - 1),
 		makeHeader(l2A1.Time),
-		makeHeader(l2A2.Time - 1),
 		makeHeader(l2A2.Time),
 		makeHeader(l2A2.Time + 1),
-		makeHeader(l2A3.Time - 1),
 		makeHeader(l2A3.Time),
+		makeHeader(l2A3.Time + 1),
+		makeHeader(l2A3.Time + 1),
+		makeHeader(l2A3.Time + conf.BlockTime),
 	}
 
 	// Hotshot skipped an L1 block
@@ -163,13 +176,19 @@ func TestValidBatchEspresso(t *testing.T) {
 				L1Head:    l2A3.L1Origin.Number + 2,
 			},
 		},
+		{
+			Metadata: espresso.Metadata{
+				Timestamp: l2B0.Time + conf.BlockTime,
+				L1Head:    l2A3.L1Origin.Number + 2,
+			},
+		},
 	}
 
 	// Case where Hotshot window is genuinely empty
 	emptyHotshotWindowHeaders :=
 		[]espresso.Header{
-			makeHeader(l2B0.Time - 1),
-			makeHeader(l2B0.Time + 1000),
+			makeHeader(l2A1.Time - 1),
+			makeHeader(l2A1.Time + 1000),
 		}
 
 	// Case where Espresso tries to fool validator by providing a previous batch last block
@@ -178,11 +197,12 @@ func TestValidBatchEspresso(t *testing.T) {
 		[]espresso.Header{
 			makeHeader(l2B0.Time - 1),
 			makeHeader(l2B0.Time + 1000),
+			makeHeader(l2B0.Time + 1001),
 		}
 
 	testCases := []EspressoValidBatchTestCase{
 		{
-			Name:       "valid batch where hotshot transactions fall within the window",
+			Name:       "valid batch where one hotshot block falls within the window",
 			L1Blocks:   []eth.L1BlockRef{l1A, l1B, l1C},
 			L2SafeHead: l2A0,
 			Headers:    hotshotHeaders,
@@ -196,24 +216,22 @@ func TestValidBatchEspresso(t *testing.T) {
 						Timestamp:  l2A1.Time,
 					},
 					Justification: &eth.L2BatchJustification{
-						PrevBatchLastBlock: hotshotHeaders[0],
-						FirstBlock:         hotshotHeaders[1],
-						FirstBlockNumber:   1,
-						Payload: &eth.L2BatchPayloadJustification{
-							LastBlock:           hotshotHeaders[2],
-							NextBatchFirstBlock: hotshotHeaders[3],
-							NmtProofs: []espresso.Bytes{
-								[]byte{0x02, 0x42, 0x13, 0x37},
-								[]byte{0x02, 0xde, 0xad, 0xbe, 0xef},
+						Prev: &hotshotHeaders[0],
+						From: 1,
+						Blocks: []eth.EspressoBlockJustification{
+							{
+								Header: hotshotHeaders[1],
+								Proof:  nil,
 							},
 						},
+						Next: &hotshotHeaders[2],
 					},
 				}},
 			},
 			Expected: BatchAccept,
 		},
 		{
-			Name:       "valid batch where hotshot transactions fall within the window and there is a block in between first and last block",
+			Name:       "valid batch where two hotshot blocks fall within the window",
 			L1Blocks:   []eth.L1BlockRef{l1A, l1B, l1C},
 			L2SafeHead: l2A1,
 			Headers:    hotshotHeaders,
@@ -227,18 +245,56 @@ func TestValidBatchEspresso(t *testing.T) {
 						Timestamp:  l2A2.Time,
 					},
 					Justification: &eth.L2BatchJustification{
-						PrevBatchLastBlock: hotshotHeaders[2],
-						FirstBlock:         hotshotHeaders[3],
-						FirstBlockNumber:   3,
-						Payload: &eth.L2BatchPayloadJustification{
-							LastBlock:           hotshotHeaders[5],
-							NextBatchFirstBlock: hotshotHeaders[6],
-							NmtProofs: []espresso.Bytes{
-								[]byte{0x02, 0x42, 0x13, 0x37},
-								[]byte{0x02, 0x42, 0x13, 0x37},
-								[]byte{0x02, 0xde, 0xad, 0xbe, 0xef},
+						Prev: &hotshotHeaders[1],
+						From: 2,
+						Blocks: []eth.EspressoBlockJustification{
+							{
+								Header: hotshotHeaders[2],
+								Proof:  nil,
+							},
+							{
+								Header: hotshotHeaders[3],
+								Proof:  nil,
 							},
 						},
+						Next: &hotshotHeaders[4],
+					},
+				}},
+			},
+			Expected: BatchAccept,
+		},
+		{
+			Name:       "valid batch where three hotshot blocks fall within the window",
+			L1Blocks:   []eth.L1BlockRef{l1A, l1B, l1C},
+			L2SafeHead: l2A2,
+			Headers:    hotshotHeaders,
+			Batch: BatchWithL1InclusionBlock{
+				L1InclusionBlock: l1A,
+				Batch: &BatchData{BatchV2{
+					BatchV1: BatchV1{
+						ParentHash: l2A3.ParentHash,
+						EpochNum:   rollup.Epoch(l2A3.L1Origin.Number),
+						EpochHash:  l2A3.L1Origin.Hash,
+						Timestamp:  l2A3.Time,
+					},
+					Justification: &eth.L2BatchJustification{
+						Prev: &hotshotHeaders[3],
+						From: 4,
+						Blocks: []eth.EspressoBlockJustification{
+							{
+								Header: hotshotHeaders[4],
+								Proof:  nil,
+							},
+							{
+								Header: hotshotHeaders[5],
+								Proof:  nil,
+							},
+							{
+								Header: hotshotHeaders[6],
+								Proof:  nil,
+							},
+						},
+						Next: &hotshotHeaders[7],
 					},
 				}},
 			},
@@ -247,28 +303,28 @@ func TestValidBatchEspresso(t *testing.T) {
 		{
 			Name:       "empty batch due to empty hotshot window",
 			L1Blocks:   []eth.L1BlockRef{l1A, l1B, l1C},
-			L2SafeHead: l2A3,
+			L2SafeHead: l2A0,
 			Headers:    emptyHotshotWindowHeaders,
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1A,
 				Batch: &BatchData{BatchV2{
 					BatchV1: BatchV1{
-						ParentHash: l2B0.ParentHash,
-						EpochNum:   rollup.Epoch(l2A0.L1Origin.Number),
-						EpochHash:  l2A0.L1Origin.Hash,
-						Timestamp:  l2B0.Time,
+						ParentHash: l2A1.ParentHash,
+						EpochNum:   rollup.Epoch(l2A1.L1Origin.Number),
+						EpochHash:  l2A1.L1Origin.Hash,
+						Timestamp:  l2A1.Time,
 					},
 					Justification: &eth.L2BatchJustification{
-						PrevBatchLastBlock: emptyHotshotWindowHeaders[0],
-						FirstBlock:         emptyHotshotWindowHeaders[1],
-						FirstBlockNumber:   1,
+						Prev: &emptyHotshotWindowHeaders[0],
+						Next: &emptyHotshotWindowHeaders[1],
+						From: 1,
 					},
 				}},
 			},
 			Expected: BatchAccept,
 		},
 		{
-			Name:       "empty batch due to hotshot skipping an L1 block",
+			Name:       "valid batch where HotShot skips an L1 block",
 			L1Blocks:   []eth.L1BlockRef{l1A, l1B, l1C},
 			L2SafeHead: l2A3,
 			Headers:    hotshotSkippedHeaders,
@@ -283,9 +339,15 @@ func TestValidBatchEspresso(t *testing.T) {
 						Transactions: []hexutil.Bytes{},
 					},
 					Justification: &eth.L2BatchJustification{
-						PrevBatchLastBlock: hotshotSkippedHeaders[0],
-						FirstBlock:         hotshotSkippedHeaders[1],
-						FirstBlockNumber:   1,
+						Prev: &hotshotSkippedHeaders[0],
+						Blocks: []eth.EspressoBlockJustification{
+							{
+								Header: hotshotSkippedHeaders[1],
+								Proof:  nil,
+							},
+						},
+						Next: &hotshotSkippedHeaders[2],
+						From: 1,
 					},
 				}},
 			},
@@ -308,9 +370,9 @@ func TestValidBatchEspresso(t *testing.T) {
 					},
 					Justification: &eth.L2BatchJustification{
 						// Switch the blocks
-						PrevBatchLastBlock: hotshotSkippedHeaders[1],
-						FirstBlock:         hotshotSkippedHeaders[0],
-						FirstBlockNumber:   1,
+						Prev: &hotshotSkippedHeaders[1],
+						Next: &hotshotSkippedHeaders[0],
+						From: 1,
 					},
 				}},
 			},
@@ -332,9 +394,15 @@ func TestValidBatchEspresso(t *testing.T) {
 						Transactions: []hexutil.Bytes{},
 					},
 					Justification: &eth.L2BatchJustification{
-						PrevBatchLastBlock: hotshotDishonestHeaders[0],
-						FirstBlock:         hotshotDishonestHeaders[1],
-						FirstBlockNumber:   1,
+						Prev: &hotshotDishonestHeaders[0],
+						Blocks: []eth.EspressoBlockJustification{
+							{
+								Header: hotshotDishonestHeaders[1],
+								Proof:  nil,
+							},
+						},
+						Next: &hotshotDishonestHeaders[2],
+						From: 1,
 					},
 				}},
 			},
@@ -344,22 +412,28 @@ func TestValidBatchEspresso(t *testing.T) {
 			Name:     "invalid batch when hotshot skips an L1 block",
 			L1Blocks: []eth.L1BlockRef{l1A, l1B, l1C},
 			// In this case, the L1 origin wont increment
-			L2SafeHead: l2B0,
+			L2SafeHead: l2A3,
 			Headers:    hotshotSkippedHeaders,
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1B,
 				Batch: &BatchData{BatchV2{
 					BatchV1: BatchV1{
 						ParentHash:   l2B0.ParentHash,
-						EpochNum:     rollup.Epoch(l2B0.L1Origin.Number),
-						EpochHash:    l2B0.L1Origin.Hash,
+						EpochNum:     rollup.Epoch(l2A3.L1Origin.Number),
+						EpochHash:    l2A3.L1Origin.Hash,
 						Timestamp:    l2B0.Time,
 						Transactions: []hexutil.Bytes{},
 					},
 					Justification: &eth.L2BatchJustification{
-						PrevBatchLastBlock: hotshotSkippedHeaders[0],
-						FirstBlock:         hotshotSkippedHeaders[1],
-						FirstBlockNumber:   1,
+						Prev: &hotshotSkippedHeaders[0],
+						Blocks: []eth.EspressoBlockJustification{
+							{
+								Header: hotshotSkippedHeaders[1],
+								Proof:  nil,
+							},
+						},
+						Next: &hotshotSkippedHeaders[2],
+						From: 1,
 					},
 				}},
 			},
@@ -380,19 +454,21 @@ func TestValidBatchEspresso(t *testing.T) {
 						Timestamp:  l2A1.Time,
 					},
 					Justification: &eth.L2BatchJustification{
-						PrevBatchLastBlock: hotshotHeaders[0],
-						FirstBlock:         hotshotHeaders[1],
-						FirstBlockNumber:   1,
-						Payload: &eth.L2BatchPayloadJustification{
-							// Increment LastBlock and NextBatchFirstBlock from the valid test case by one
-							LastBlock:           hotshotHeaders[3],
-							NextBatchFirstBlock: hotshotHeaders[4],
-							NmtProofs: []espresso.Bytes{
-								[]byte{0x02, 0x42, 0x13, 0x37},
-								[]byte{0x02, 0x42, 0x13, 0x37},
-								[]byte{0x02, 0xde, 0xad, 0xbe, 0xef},
+						Prev: &hotshotHeaders[0],
+						Blocks: []eth.EspressoBlockJustification{
+							{
+								Header: hotshotHeaders[1],
+								Proof:  nil,
+							},
+							// Include an extra block that is outside the window
+							{
+								Header: hotshotHeaders[2],
+								Proof:  nil,
 							},
 						},
+						From: 1,
+						// Increment Next from the valid test case by one
+						Next: &hotshotHeaders[3],
 					},
 				}},
 			},
@@ -431,9 +507,9 @@ func TestValidBatchEspresso(t *testing.T) {
 						Timestamp:  l2B0.Time,
 					},
 					Justification: &eth.L2BatchJustification{
-						PrevBatchLastBlock: emptyHotshotWindowHeaders[0],
-						FirstBlock:         emptyHotshotWindowHeaders[1],
-						FirstBlockNumber:   1,
+						Prev: &emptyHotshotWindowHeaders[0],
+						Next: &emptyHotshotWindowHeaders[1],
+						From: 1,
 					},
 				}},
 			},
@@ -444,12 +520,13 @@ func TestValidBatchEspresso(t *testing.T) {
 	// Log level can be increased for debugging purposes
 	logger := testlog.Logger(t, log.LvlWarn)
 
-	var hotshot = &mockHotShotProvider{}
+	var l1 = &mockL1Provider{}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.Name, func(t *testing.T) {
-			hotshot.setHeaders(testCase.Headers)
-			validity := CheckBatch(&conf, logger, testCase.L1Blocks, testCase.L2SafeHead, &testCase.Batch, true, hotshot)
+			l1.setBlocks(testCase.L1Blocks)
+			l1.setHeaders(testCase.Headers)
+			validity := CheckBatch(&conf, logger, testCase.L1Blocks, testCase.L2SafeHead, &testCase.Batch, true, l1)
 			require.Equal(t, testCase.Expected, validity, "batch check must return expected validity level")
 		})
 	}

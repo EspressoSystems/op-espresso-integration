@@ -86,9 +86,9 @@ type DerivationPipeline struct {
 // NewDerivationPipeline creates a derivation pipeline, which should be reset before use.
 func NewDerivationPipeline(log log.Logger, cfg *rollup.Config, l1Fetcher L1Fetcher, engine Engine, metrics Metrics, syncCfg *sync.Config) *DerivationPipeline {
 
-	var hotshotProvider HotShotContractProvider
+	var espressoProvider EspressoL1Provider
 	if cfg.HotShotContractAddress != nil {
-		hotshotProvider = NewHotShotProvider(*cfg.HotShotContractAddress, l1Fetcher)
+		espressoProvider = NewEspressoProvider(log, *cfg.HotShotContractAddress, l1Fetcher)
 	}
 	// Pull stages
 	l1Traversal := NewL1Traversal(log, cfg, l1Fetcher)
@@ -97,7 +97,7 @@ func NewDerivationPipeline(log log.Logger, cfg *rollup.Config, l1Fetcher L1Fetch
 	frameQueue := NewFrameQueue(log, l1Src)
 	bank := NewChannelBank(log, cfg, frameQueue, l1Fetcher, metrics)
 	chInReader := NewChannelInReader(log, bank, metrics)
-	batchQueue := NewBatchQueue(log, cfg, chInReader, hotshotProvider)
+	batchQueue := NewBatchQueue(log, cfg, chInReader, espressoProvider)
 	attrBuilder := NewFetchingAttributesBuilder(cfg, l1Fetcher, engine)
 	attributesQueue := NewAttributesQueue(log, cfg, attrBuilder, batchQueue)
 
@@ -226,11 +226,14 @@ func (dp *DerivationPipeline) Step(ctx context.Context) error {
 }
 
 type HotShotContractProvider interface {
-	// Verifies a sequence of consecutive headers against the HotShot contract
-	// the bool indiciates whether header verification was successful, while the error
-	// represents an error encountered attempting to fetch the contract headers themselves (e.g. if the headers are unavailable)
-	VerifyHeaders(headers []espresso.Header, firstHeight uint64) (bool, error)
+	// Verifies that a sequence of consecutive Espresso commitments matches a trusted sequence.
+	// Returns a boolean indicating whether the commitments match the trusted sequence and nil error
+	// if able to successfully verify the commitments. If for any reason the authenticity of the
+	// commitments cannot be determined, a non-nil error is returned.
+	VerifyCommitments(firstHeight uint64, comms []espresso.Commitment) (bool, error)
+}
 
-	// Returns a sequence of consecutive HotShot header commitments from a given height
-	GetCommitmentsFromHeight(firstHeight uint64, numHeaders uint64) ([]espresso.Commitment, error)
+type EspressoL1Provider interface {
+	HotShotContractProvider
+	L1BlockRefByNumberFetcher
 }

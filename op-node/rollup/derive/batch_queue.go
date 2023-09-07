@@ -45,16 +45,16 @@ type BatchQueue struct {
 	// batches in order of when we've first seen them, grouped by L2 timestamp
 	batches map[uint64][]*BatchWithL1InclusionBlock
 
-	hotshot HotShotContractProvider
+	l1 EspressoL1Provider
 }
 
 // NewBatchQueue creates a BatchQueue, which should be Reset(origin) before use.
-func NewBatchQueue(log log.Logger, cfg *rollup.Config, prev NextBatchProvider, hotshot HotShotContractProvider) *BatchQueue {
+func NewBatchQueue(log log.Logger, cfg *rollup.Config, prev NextBatchProvider, l1 EspressoL1Provider) *BatchQueue {
 	return &BatchQueue{
-		log:     log,
-		config:  cfg,
-		prev:    prev,
-		hotshot: hotshot,
+		log:    log,
+		config: cfg,
+		prev:   prev,
+		l1:     l1,
 	}
 }
 
@@ -138,7 +138,7 @@ func (bq *BatchQueue) AddBatch(batch *BatchData, l2SafeHead eth.L2BlockRef, usin
 		L1InclusionBlock: bq.origin,
 		Batch:            batch,
 	}
-	validity := CheckBatch(bq.config, bq.log, bq.l1Blocks, l2SafeHead, &data, usingEspresso, bq.hotshot)
+	validity := CheckBatch(bq.config, bq.log, bq.l1Blocks, l2SafeHead, &data, usingEspresso, bq.l1)
 	if validity == BatchDrop {
 		return // if we do drop the batch, CheckBatch will log the drop reason with WARN level.
 	}
@@ -176,7 +176,7 @@ func (bq *BatchQueue) deriveNextBatch(ctx context.Context, outOfData bool, l2Saf
 	candidates := bq.batches[nextTimestamp]
 batchLoop:
 	for i, batch := range candidates {
-		validity := CheckBatch(bq.config, bq.log.New("batch_index", i), bq.l1Blocks, l2SafeHead, batch, usingEspresso, bq.hotshot)
+		validity := CheckBatch(bq.config, bq.log.New("batch_index", i), bq.l1Blocks, l2SafeHead, batch, usingEspresso, bq.l1)
 		switch validity {
 		case BatchFuture:
 			return nil, NewCriticalError(fmt.Errorf("found batch with timestamp %d marked as future batch, but expected timestamp %d", batch.Batch.Timestamp, nextTimestamp))

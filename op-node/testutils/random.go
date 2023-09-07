@@ -273,14 +273,13 @@ func RandomOutputResponse(rng *rand.Rand) *eth.OutputResponse {
 }
 
 func RandomL2BatchJustification(rng *rand.Rand) *eth.L2BatchJustification {
+	prev := RandomEspressoHeader(rng)
+	next := RandomEspressoHeader(rng)
 	return &eth.L2BatchJustification{
-		PrevBatchLastBlock: RandomEspressoHeader(rng),
-		FirstBlock:         RandomEspressoHeader(rng),
-		Payload: &eth.L2BatchPayloadJustification{
-			LastBlock:           RandomEspressoHeader(rng),
-			NextBatchFirstBlock: RandomEspressoHeader(rng),
-			NmtProofs:           make([]espresso.NmtProof, 0),
-		},
+		Prev:   &prev,
+		Next:   &next,
+		From:   RandomBlockID(rng).Number,
+		Blocks: make([]eth.EspressoBlockJustification, 0),
 	}
 }
 
