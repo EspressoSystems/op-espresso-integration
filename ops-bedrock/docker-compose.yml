@@ -286,7 +286,10 @@ services:
       - db
       - smart-contract-verifier
       - redis_db
-    image: blockscout/blockscout:${DOCKER_TAG:-latest}
+    # On ARM (M1, M2 macs) set env var
+    # BLOCKSCOUT_IMAGE=ghcr.io/espressosystems/blockscout/blockscout-arm:main
+    # until we find a better solution
+    image: ${BLOCKSCOUT_IMAGE:-blockscout/blockscout:latest}
     pull_policy: always
     restart: always
     stop_grace_period: 5m
