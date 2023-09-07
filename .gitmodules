@@ -16,3 +16,6 @@
 [submodule "blockscout"]
 	path = blockscout
 	url = https://github.com/blockscout/blockscout.git
+[submodule "espresso-sequencer"]
+	path = espresso-sequencer
+	url = https://github.com/EspressoSystems/espresso-sequencer.git

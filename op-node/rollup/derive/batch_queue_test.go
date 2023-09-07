@@ -105,7 +105,7 @@ func TestBatchQueueNewOrigin(t *testing.T) {
 		origin:  l1[0],
 	}
 
-	bq := NewBatchQueue(log, cfg, input)
+	bq := NewBatchQueue(log, cfg, input, nil)
 	_ = bq.Reset(context.Background(), l1[0], eth.SystemConfig{})
 	require.Equal(t, []eth.L1BlockRef{l1[0]}, bq.l1Blocks)
 
@@ -167,7 +167,7 @@ func TestBatchQueueEager(t *testing.T) {
 		origin:  l1[0],
 	}
 
-	bq := NewBatchQueue(log, cfg, input)
+	bq := NewBatchQueue(log, cfg, input, nil)
 	_ = bq.Reset(context.Background(), l1[0], eth.SystemConfig{})
 	// Advance the origin
 	input.origin = l1[1]
@@ -217,7 +217,7 @@ func TestBatchQueueInvalidInternalAdvance(t *testing.T) {
 		origin:  l1[0],
 	}
 
-	bq := NewBatchQueue(log, cfg, input)
+	bq := NewBatchQueue(log, cfg, input, nil)
 	_ = bq.Reset(context.Background(), l1[0], eth.SystemConfig{})
 
 	// Load continuous batches for epoch 0
@@ -311,7 +311,7 @@ func TestBatchQueueMissing(t *testing.T) {
 		origin:  l1[0],
 	}
 
-	bq := NewBatchQueue(log, cfg, input)
+	bq := NewBatchQueue(log, cfg, input, nil)
 	_ = bq.Reset(context.Background(), l1[0], eth.SystemConfig{})
 
 	for i := 0; i < len(batches); i++ {

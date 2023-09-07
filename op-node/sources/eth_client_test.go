@@ -2,8 +2,8 @@ package sources
 
 import (
 	"context"
+	crand "crypto/rand"
 	"math/big"
-	"math/rand"
 	"testing"
 
 	"github.com/stretchr/testify/mock"
@@ -37,6 +37,10 @@ func (m *mockRPC) EthSubscribe(ctx context.Context, channel any, args ...any) (e
 	return called.Get(0).(*rpc.ClientSubscription), called.Get(1).([]error)[0]
 }
 
+func (m *mockRPC) RawClient() *rpc.Client {
+	return nil
+}
+
 func (m *mockRPC) Close() {
 	m.MethodCalled("Close")
 }
@@ -56,7 +60,7 @@ var testEthClientConfig = &EthClientConfig{
 }
 
 func randHash() (out common.Hash) {
-	rand.Read(out[:])
+	_, _ = crand.Read(out[:])
 	return out
 }
 

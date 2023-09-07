@@ -102,7 +102,7 @@ def main():
         log.warn('Skipping building docker images')
     else:
         log.info('Building docker images')
-        run_command(['docker-compose', 'build', '--progress', 'plain'], cwd=paths.ops_bedrock_dir, env={
+        run_command(['docker', 'compose', 'build', '--progress', 'plain'], cwd=paths.ops_bedrock_dir, env={
             'PWD': paths.ops_bedrock_dir,
             'DEVNET_DIR': paths.devnet_dir
         })
@@ -187,7 +187,7 @@ def devnet_deploy(paths, espresso: bool):
         ], cwd=paths.op_node_dir)
 
     log.info('Starting L1.')
-    run_command(['docker-compose', 'up', '-d', 'l1'], cwd=paths.ops_bedrock_dir, env={
+    run_command(['docker', 'compose', 'up', '-d', 'l1'], cwd=paths.ops_bedrock_dir, env={
         'PWD': paths.ops_bedrock_dir,
         'DEVNET_DIR': paths.devnet_dir
     })
@@ -228,7 +228,7 @@ def devnet_deploy(paths, espresso: bool):
     addresses = read_json(paths.addresses_json_path)
 
     log.info('Bringing up L2.')
-    run_command(['docker-compose', 'up', '-d', 'l2'], cwd=paths.ops_bedrock_dir, env={
+    run_command(['docker', 'compose', 'up', '-d', 'l2'], cwd=paths.ops_bedrock_dir, env={
         'PWD': paths.ops_bedrock_dir,
         'DEVNET_DIR': paths.devnet_dir
     })
@@ -242,7 +242,7 @@ def devnet_deploy(paths, espresso: bool):
 
     log.info('Bringing up everything else.')
     services = ['op-node', 'op-proposer', 'op-batcher']
-    run_command(['docker-compose', 'up', '-d'] + services, cwd=paths.ops_bedrock_dir, env={
+    run_command(['docker', 'compose', 'up', '-d'] + services, cwd=paths.ops_bedrock_dir, env={
         'PWD': paths.ops_bedrock_dir,
         'L2OO_ADDRESS': l2_output_oracle,
         'SEQUENCER_BATCH_INBOX_ADDRESS': batch_inbox_address,

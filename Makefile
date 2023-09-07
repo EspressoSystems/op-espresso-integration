@@ -98,6 +98,9 @@ nuke: clean devnet-clean
 .PHONY: nuke
 
 devnet-up:
+	@if [ ! -e op-program/bin ]; then \
+		make cannon-prestate; \
+	fi
 	$(shell ./ops/scripts/newer-file.sh .devnet/allocs-l1.json ./packages/contracts-bedrock)
 	if [ $(.SHELLSTATUS) -ne 0 ]; then \
 		make devnet-allocs; \
@@ -122,7 +125,7 @@ devnet-test:
 .PHONY: devnet-test
 
 devnet-down:
-	@(cd ./ops-bedrock && GENESIS_TIMESTAMP=$(shell date +%s) docker-compose down -v)
+	@(cd ./ops-bedrock && GENESIS_TIMESTAMP=$(shell date +%s) docker compose down -v)
 .PHONY: devnet-down
 
 devnet-clean:
@@ -130,7 +133,7 @@ devnet-clean:
 	rm -rf ./packages/contracts-bedrock/deployments/devnetL1-espresso
 	rm -rf ./.devnet
 	rm -rf ./.devnet-espresso
-	cd ./ops-bedrock && docker-compose down
+	cd ./ops-bedrock && docker compose down
 	docker image ls 'ops-bedrock*' --format='{{.Repository}}' | xargs -r docker rmi
 	docker volume ls --filter name=ops-bedrock --format='{{.Name}}' | xargs -r docker volume rm
 .PHONY: devnet-clean
@@ -142,16 +145,20 @@ devnet-allocs-espresso:
 	PYTHONPATH=./bedrock-devnet python3 ./bedrock-devnet/main.py --monorepo-dir=. --espresso --deploy-config="devnetL1-espresso.json" --deployment="devnetL1-espresso" --devnet-dir=".devnet-espresso" --allocs
 
 devnet-logs:
-	@(cd ./ops-bedrock && docker-compose logs -f)
+	@(cd ./ops-bedrock && docker compose logs -f)
 .PHONY: devnet-logs
 
 devnet-build:
-	@(cd ./ops-bedrock && docker-compose build)
+	@(cd ./ops-bedrock && docker compose build)
 .PHONY: devnet-build
 
 devnet-pull:
-	@(cd ./ops-bedrock && docker-compose pull)
+	@(cd ./ops-bedrock && docker compose pull)
 .PHONY: devnet-pull
+
+e2e-pull:
+	@(cd ./op-e2e && docker-compose pull)
+.PHONY: e2e-pull
 
 test-unit:
 	make -C ./op-node test
@@ -176,7 +183,6 @@ clean-node-modules:
 	rm -rf node_modules
 	rm -rf packages/**/node_modules
 
-
 tag-bedrock-go-modules:
 	./ops/scripts/tag-bedrock-go-modules.sh $(BEDROCK_TAGS_REMOTE) $(VERSION)
 .PHONY: tag-bedrock-go-modules
@@ -192,3 +198,11 @@ bedrock-markdown-links:
 
 install-geth:
 	go install github.com/ethereum/go-ethereum/cmd/geth@v1.12.0
+
+generate-hotshot-binding:
+	forge build --root espresso-sequencer --out ../out --extra-output-files abi
+	mv ./out/HotShot.sol/HotShot.abi.json ./op-service/espresso/hotshot
+	rm -rf out
+	abigen --abi ./op-service/espresso/hotshot/HotShot.abi.json --pkg hotshot --out ./op-service/espresso/hotshot/hotshot.go
+	rm ./op-service/espresso/hotshot/HotShot.abi.json
+

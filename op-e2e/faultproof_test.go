@@ -12,8 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCannonMultipleGames(t *testing.T) {
-	t.Skip("Challenger doesn't yet support multiple games")
+func TestMultipleAlphabetGames(t *testing.T) {
 	InitParallel(t)
 
 	ctx := context.Background()
@@ -41,10 +40,16 @@ func TestCannonMultipleGames(t *testing.T) {
 	game2.WaitForClaimCount(ctx, 4)
 	game1.Defend(ctx, 1, common.Hash{0xaa})
 	game1.WaitForClaimCount(ctx, 4)
+
+	gameDuration := game1.GameDuration(ctx)
+	sys.TimeTravelClock.AdvanceTime(gameDuration)
+	require.NoError(t, wait.ForNextBlock(ctx, l1Client))
+
+	game1.WaitForGameStatus(ctx, disputegame.StatusChallengerWins)
+	game2.WaitForGameStatus(ctx, disputegame.StatusChallengerWins)
 }
 
 func TestMultipleCannonGames(t *testing.T) {
-	t.Skip("Cannon provider doesn't currently isolate different game traces")
 	InitParallel(t)
 
 	ctx := context.Background()
@@ -53,7 +58,7 @@ func TestMultipleCannonGames(t *testing.T) {
 
 	gameFactory := disputegame.NewFactoryHelper(t, ctx, sys.cfg.L1Deployments, l1Client)
 	// Start a challenger with the correct alphabet trace
-	gameFactory.StartChallenger(ctx, sys.NodeEndpoint("l1"), "TowerDefense",
+	challenger := gameFactory.StartChallenger(ctx, sys.NodeEndpoint("l1"), "TowerDefense",
 		challenger.WithCannon(t, sys.RollupConfig, sys.L2GenesisCfg, sys.NodeEndpoint("sequencer")),
 		challenger.WithPrivKey(sys.cfg.Secrets.Alice),
 		challenger.WithAgreeProposedOutput(true),
@@ -68,6 +73,9 @@ func TestMultipleCannonGames(t *testing.T) {
 	game1Claim := game1.GetClaimValue(ctx, 1)
 	game2Claim := game2.GetClaimValue(ctx, 1)
 	require.NotEqual(t, game1Claim, game2Claim, "games should have different cannon traces")
+
+	// Check that the helper finds the game directories correctly
+	challenger.VerifyGameDataExists(game1, game2)
 
 	// Push both games down to the step function
 	maxDepth := game1.MaxDepth(ctx)
@@ -92,8 +100,9 @@ func TestMultipleCannonGames(t *testing.T) {
 
 	game1.WaitForGameStatus(ctx, disputegame.StatusChallengerWins)
 	game2.WaitForGameStatus(ctx, disputegame.StatusChallengerWins)
-	game1.LogGameData(ctx)
-	game2.LogGameData(ctx)
+
+	// Check that the game directories are removed
+	challenger.WaitForGameDataDeletion(ctx, game1, game2)
 }
 
 func TestResolveDisputeGame(t *testing.T) {
@@ -403,7 +412,7 @@ func startFaultDisputeSystem(t *testing.T) (*System, *ethclient.Client) {
 	cfg.SupportL1TimeTravel = true
 	cfg.DeployConfig.L2OutputOracleSubmissionInterval = 1
 	cfg.NonFinalizedProposals = true // Submit output proposals asap
-	sys, err := cfg.Start()
-	require.NoError(t, err, "Error starting up system")
+	sys, err := cfg.Start(t)
+	require.Nil(t, err, "Error starting up system")
 	return sys, sys.Clients["l1"]
 }

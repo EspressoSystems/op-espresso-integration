@@ -86,6 +86,10 @@ func (w *PollingClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem)
 	return w.c.BatchCallContext(ctx, b)
 }
 
+func (w *PollingClient) RawClient() *rpc.Client {
+	return w.c.RawClient()
+}
+
 // EthSubscribe creates a new newHeads subscription. It takes identical arguments
 // to Geth's native EthSubscribe method. It will return an error, however, if the
 // passed in channel is not a *types.Headers channel or the subscription type is not

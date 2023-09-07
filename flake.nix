@@ -52,6 +52,7 @@
 
             # Foundry, and tools like the anvil dev node
             foundry-bin
+            solc
 
             # Docker
             docker-compose # provides the `docker-compose` command
@@ -62,6 +63,10 @@
 
             # geth node
             go-ethereum
+          ] ++ lib.optionals stdenv.isDarwin [
+            darwin.libobjc
+            darwin.IOKit
+            darwin.apple_sdk.frameworks.CoreFoundation
           ];
         };
       });
