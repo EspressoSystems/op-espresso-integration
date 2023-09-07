@@ -84,6 +84,8 @@ type Config struct {
 	DepositContractAddress common.Address `json:"deposit_contract_address"`
 	// L1 System Config Address
 	L1SystemConfigAddress common.Address `json:"l1_system_config_address"`
+	// L1 HotShot Contract Address
+	HotShotContractAddress *common.Address `json:"hotshot_contract_address"`
 }
 
 // ValidateL1Config checks L1 config variables for errors.

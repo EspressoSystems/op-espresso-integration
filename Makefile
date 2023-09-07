@@ -146,6 +146,10 @@ devnet-pull:
 	@(cd ./ops-bedrock && docker compose pull)
 .PHONY: devnet-pull
 
+e2e-pull:
+	@(cd ./op-e2e && docker-compose pull)
+.PHONY: e2e-pull
+
 test-unit:
 	make -C ./op-node test
 	make -C ./op-proposer test
@@ -169,7 +173,6 @@ clean-node-modules:
 	rm -rf node_modules
 	rm -rf packages/**/node_modules
 
-
 tag-bedrock-go-modules:
 	./ops/scripts/tag-bedrock-go-modules.sh $(BEDROCK_TAGS_REMOTE) $(VERSION)
 .PHONY: tag-bedrock-go-modules
@@ -185,3 +188,11 @@ bedrock-markdown-links:
 
 install-geth:
 	go install github.com/ethereum/go-ethereum/cmd/geth@v1.12.0
+
+generate-hotshot-binding:
+	forge build --root espresso-sequencer --out ../out --extra-output-files abi
+	mv ./out/HotShot.sol/HotShot.abi.json ./op-service/espresso/hotshot
+	rm -rf out
+	abigen --abi ./op-service/espresso/hotshot/HotShot.abi.json --pkg hotshot --out ./op-service/espresso/hotshot/hotshot.go
+	rm ./op-service/espresso/hotshot/HotShot.abi.json
+

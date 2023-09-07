@@ -72,6 +72,10 @@ func (m *MockRPC) popResult() {
 	m.callResults = m.callResults[1:]
 }
 
+func (m *MockRPC) RawClient() *rpc.Client {
+	return nil
+}
+
 func TestPollingClientSubscribeUnsubscribe(t *testing.T) {
 	lgr := log.New()
 	lgr.SetHandler(log.DiscardHandler())

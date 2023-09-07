@@ -55,6 +55,7 @@
 
             # Foundry, and tools like the anvil dev node
             foundry-bin
+            solc
 
             # Docker
             docker-compose # provides the `docker-compose` command

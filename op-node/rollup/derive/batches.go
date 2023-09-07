@@ -115,7 +115,7 @@ func CheckBatchEspresso(cfg *rollup.Config, log log.Logger, l2SafeHead eth.L2Blo
 		return BatchUndecided
 	}
 	if !validComms {
-		log.Warn("dropping batch because headers do not match contract")
+		log.Warn("dropping batch because headers do not match contract", "first", firstComm, "count", len(comms))
 		return BatchDrop
 	}
 
@@ -191,6 +191,7 @@ func CheckBatch(cfg *rollup.Config, log log.Logger, l1Blocks []eth.L1BlockRef, l
 	// add details to the log
 	log = log.New(
 		"batch_timestamp", batch.Batch.Timestamp,
+		"parent_number", l2SafeHead.Number,
 		"parent_hash", batch.Batch.ParentHash,
 		"batch_epoch", batch.Batch.Epoch(),
 		"txs", len(batch.Batch.Transactions),

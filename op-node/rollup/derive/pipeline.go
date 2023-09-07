@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/sync"
+	"github.com/ethereum-optimism/optimism/op-service/espresso"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
 
@@ -25,6 +27,7 @@ type Metrics interface {
 
 type L1Fetcher interface {
 	L1BlockRefByLabel(ctx context.Context, label eth.BlockLabel) (eth.L1BlockRef, error)
+	L1HotShotCommitmentsFromHeight(firstBlockHeight uint64, numHeaders uint64, hotshotAddr common.Address) ([]espresso.Commitment, error)
 	L1BlockRefByNumberFetcher
 	L1BlockRefByHashFetcher
 	L1ReceiptsFetcher
@@ -83,6 +86,10 @@ type DerivationPipeline struct {
 // NewDerivationPipeline creates a derivation pipeline, which should be reset before use.
 func NewDerivationPipeline(log log.Logger, cfg *rollup.Config, l1Fetcher L1Fetcher, engine Engine, metrics Metrics, syncCfg *sync.Config) *DerivationPipeline {
 
+	var espressoProvider EspressoL1Provider
+	if cfg.HotShotContractAddress != nil {
+		espressoProvider = NewEspressoProvider(*cfg.HotShotContractAddress, l1Fetcher)
+	}
 	// Pull stages
 	l1Traversal := NewL1Traversal(log, cfg, l1Fetcher)
 	dataSrc := NewDataSourceFactory(log, cfg, l1Fetcher) // auxiliary stage for L1Retrieval
@@ -90,7 +97,7 @@ func NewDerivationPipeline(log log.Logger, cfg *rollup.Config, l1Fetcher L1Fetch
 	frameQueue := NewFrameQueue(log, l1Src)
 	bank := NewChannelBank(log, cfg, frameQueue, l1Fetcher, metrics)
 	chInReader := NewChannelInReader(log, bank, metrics)
-	batchQueue := NewBatchQueue(log, cfg, chInReader, &FakeHotShot{l1Fetcher})
+	batchQueue := NewBatchQueue(log, cfg, chInReader, espressoProvider)
 	attrBuilder := NewFetchingAttributesBuilder(cfg, l1Fetcher, engine)
 	attributesQueue := NewAttributesQueue(log, cfg, attrBuilder, batchQueue)
 
@@ -216,4 +223,17 @@ func (dp *DerivationPipeline) Step(ctx context.Context) error {
 	} else {
 		return nil
 	}
+}
+
+type HotShotContractProvider interface {
+	// Verifies that a sequence of consecutive Espresso commitments matches a trusted sequence.
+	// Returns a boolean indicating whether the commitments match the trusted sequence and nil error
+	// if able to successfully verify the commitments. If for any reason the authenticity of the
+	// commitments cannot be determined, a non-nil error is returned.
+	VerifyCommitments(firstHeight uint64, comms []espresso.Commitment) (bool, error)
+}
+
+type EspressoL1Provider interface {
+	HotShotContractProvider
+	L1BlockRefByNumberFetcher
 }

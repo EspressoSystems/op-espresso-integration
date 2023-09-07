@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
-	"github.com/ethereum-optimism/optimism/op-service/espresso"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
 
@@ -31,30 +30,6 @@ import (
 type NextBatchProvider interface {
 	Origin() eth.L1BlockRef
 	NextBatch(ctx context.Context) (*BatchData, error)
-}
-
-type HotShotContractProvider interface {
-	// Verifies that a sequence of consecutive Espresso commitments matches a trusted sequence.
-	// Returns a boolean indicating whether the commitments match the trusted sequence and nil error
-	// if able to successfully verify the commitments. If for any reason the authenticity of the
-	// commitments cannot be determined, a non-nil error is returned.
-	VerifyCommitments(firstHeight uint64, comms []espresso.Commitment) (bool, error)
-}
-
-type EspressoL1Provider interface {
-	HotShotContractProvider
-	L1BlockRefByNumberFetcher
-}
-
-// Dummy `HotShotContractProvider` that always succeeds to enable testing.
-// TODO Delete this and replace it with a real implementation.
-// https://github.com/EspressoSystems/op-espresso-integration/issues/50
-type FakeHotShot struct {
-	L1BlockRefByNumberFetcher
-}
-
-func (*FakeHotShot) VerifyCommitments(firstHeight uint64, comms []espresso.Commitment) (bool, error) {
-	return true, nil
 }
 
 // BatchQueue contains a set of batches for every L1 block.
