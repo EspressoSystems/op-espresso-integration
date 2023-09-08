@@ -12,7 +12,7 @@
 <div align="center">
   <br />
   <br />
-  <a href="https://espressosys.com"><img alt="Espresso" src="espresso.svg" width=600></a>
+  <a href="https://espressosys.com"><img alt="Espresso" src="assets/espresso.svg" width=600></a>
   <br />
 </div>
 
@@ -126,9 +126,14 @@ The [Espresso Sequencer](https://github.com/EspressoSystems/espresso-sequencer) 
         | Chain ID | 901 | 902 | |
         | Currency Symbol | OP1 | OP2 | For display purposes only. It can be chosen freely, but note this will show in the metamask UI |
         | Block explorer | http://localhost:14000 | http://localhost:24000 | |
+      - Your settings should look something like this:
+
+        ![Example MetaMask network settings](assets/mm_network_settings.png)
       - Note that metamask won’t let one save this custom network if the demo is not running.
    6. Use metamask as usual to send ETH
    7. When a transaction is confirmed in your MetaMask Activity tab, you can click on it and click “View on block explorer” to see the transaction.
+
+      ![Using MetaMask to view a transaction in a block explorer](assets/mm_block_explorer.png)
 
 ## Documentation
 
