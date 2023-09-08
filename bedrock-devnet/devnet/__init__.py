@@ -149,6 +149,17 @@ def deploy_contracts(paths, deploy_config: str):
 
 def devnet_l1_genesis(paths, deploy_config: str):
     log.info('Generating L1 genesis state')
+
+    # Abort if there is an existing geth process listening on localhost:8545. It
+    # may cause the op-node to fail to start due to a bad genesis block.
+    geth_up = False
+    try:
+        geth_up = wait_up(8545, retries=1, wait_secs=0)
+    except:
+        pass
+    if geth_up:
+        raise Exception('Existing process is listening on localhost:8545, please kill it and try again. (e.g. `pkill geth`)')
+
     geth = subprocess.Popen([
         'geth', '--dev', '--http', '--http.api', 'eth,debug',
         '--verbosity', '4', '--gcmode', 'archive', '--dev.gaslimit', '30000000'
