@@ -19,8 +19,11 @@ parser = argparse.ArgumentParser(description='Bedrock devnet launcher')
 parser.add_argument('--monorepo-dir', help='Directory of the monorepo', default=os.getcwd())
 parser.add_argument('--allocs', help='Only create the allocs and exit', type=bool, action=argparse.BooleanOptionalAction)
 parser.add_argument('--test', help='Tests the deployment, must already be deployed', type=bool, action=argparse.BooleanOptionalAction)
+parser.add_argument('--l2', help='Which L2 to run', type=str, default='op1')
+parser.add_argument('--l2-provider-url', help='URL for the L2 RPC node', type=str, default='http://localhost:19545')
+parser.add_argument('--deploy-l2', help='Deploy the L2 onto a running L1 and sequencer network', type=bool, action=argparse.BooleanOptionalAction)
 parser.add_argument('--deploy-config', help='Deployment config, relative to packages/contracts-bedrock/deploy-config', default='devnetL1.json')
-parser.add_argument('--deployment', help='Path to deployment output files, relative to packages/contracts-bedrock/deployments', default='devnetL1.json')
+parser.add_argument('--deployment', help='Path to deployment output files, relative to packages/contracts-bedrock/deployments', default='devnetL1')
 parser.add_argument('--devnet-dir', help='Output path for devnet config, relative to --monorepo-dir', default='.devnet')
 parser.add_argument('--espresso', help='Run on Espresso Sequencer', type=bool, action=argparse.BooleanOptionalAction)
 parser.add_argument('--skip-build', help='Skip building docker images', type=bool, action=argparse.BooleanOptionalAction)
@@ -59,7 +62,7 @@ def main():
     monorepo_dir = os.path.abspath(args.monorepo_dir)
     devnet_dir = pjoin(monorepo_dir, args.devnet_dir)
     contracts_bedrock_dir = pjoin(monorepo_dir, 'packages', 'contracts-bedrock')
-    deployment_dir = pjoin(contracts_bedrock_dir, 'deployments', 'devnetL1')
+    deployment_dir = pjoin(contracts_bedrock_dir, 'deployments', args.deployment)
     op_node_dir = pjoin(args.monorepo_dir, 'op-node')
     ops_bedrock_dir = pjoin(monorepo_dir, 'ops-bedrock')
     deploy_config_dir = pjoin(contracts_bedrock_dir, 'deploy-config'),
@@ -89,13 +92,13 @@ def main():
 
     if args.test:
       log.info('Testing deployed devnet')
-      devnet_test(paths)
+      devnet_test(paths, args.l2_provider_url)
       return
 
     os.makedirs(devnet_dir, exist_ok=True)
 
     if args.allocs:
-        devnet_l1_genesis(paths)
+        devnet_l1_genesis(paths, args.deploy_config)
         return
 
     if args.skip_build:
@@ -112,10 +115,10 @@ def main():
         return
 
     log.info('Devnet starting')
-    devnet_deploy(paths, args.espresso)
+    devnet_deploy(paths, args)
 
 
-def deploy_contracts(paths):
+def deploy_contracts(paths, deploy_config: str):
     wait_up(8545)
     wait_for_rpc_server('127.0.0.1:8545')
     res = eth_accounts('127.0.0.1:8545')
@@ -128,7 +131,9 @@ def deploy_contracts(paths):
         'forge', 'script', fqn, '--sender', account,
         '--rpc-url', 'http://127.0.0.1:8545', '--broadcast',
         '--unlocked'
-    ], env={}, cwd=paths.contracts_bedrock_dir)
+    ], env={
+        'DEPLOYMENT_CONTEXT': deploy_config.removesuffix('.json')
+    }, cwd=paths.contracts_bedrock_dir)
 
     shutil.copy(paths.l1_deployments_path, paths.addresses_json_path)
 
@@ -136,18 +141,31 @@ def deploy_contracts(paths):
     run_command([
         'forge', 'script', fqn, '--sig', 'sync()',
         '--rpc-url', 'http://127.0.0.1:8545'
-    ], env={}, cwd=paths.contracts_bedrock_dir)
+    ], env={
+        'DEPLOYMENT_CONTEXT': deploy_config.removesuffix('.json')
+    }, cwd=paths.contracts_bedrock_dir)
 
 
 
-def devnet_l1_genesis(paths):
+def devnet_l1_genesis(paths, deploy_config: str):
     log.info('Generating L1 genesis state')
+
+    # Abort if there is an existing geth process listening on localhost:8545. It
+    # may cause the op-node to fail to start due to a bad genesis block.
+    geth_up = False
+    try:
+        geth_up = wait_up(8545, retries=1, wait_secs=0)
+    except:
+        pass
+    if geth_up:
+        raise Exception('Existing process is listening on localhost:8545, please kill it and try again. (e.g. `pkill geth`)')
+
     geth = subprocess.Popen([
         'geth', '--dev', '--http', '--http.api', 'eth,debug',
         '--verbosity', '4', '--gcmode', 'archive', '--dev.gaslimit', '30000000'
     ])
 
-    forge = ChildProcess(deploy_contracts, paths)
+    forge = ChildProcess(deploy_contracts, paths, deploy_config)
     forge.start()
     forge.join()
     err = forge.get_error()
@@ -163,13 +181,18 @@ def devnet_l1_genesis(paths):
 
 
 # Bring up the devnet where the contracts are deployed to L1
-def devnet_deploy(paths, espresso: bool):
+def devnet_deploy(paths, args):
+    espresso = args.espresso
+    l2 = args.l2
+    l2_provider_url = args.l2_provider_url
+
     if os.path.exists(paths.genesis_l1_path) and os.path.isfile(paths.genesis_l1_path):
         log.info('L1 genesis already generated.')
-    else:
+    elif not args.deploy_l2:
+        # Generate the L1 genesis, unless we are deploying an L2 onto an existing L1.
         log.info('Generating L1 genesis.')
         if os.path.exists(paths.allocs_path) == False:
-            devnet_l1_genesis(paths)
+            devnet_l1_genesis(paths, args.deploy_config)
 
         devnet_config_backup = pjoin(paths.devnet_dir, 'devnetL1.json.bak')
         shutil.copy(paths.devnet_config_path, devnet_config_backup)
@@ -186,29 +209,33 @@ def devnet_deploy(paths, espresso: bool):
             '--outfile.l1', outfile_l1,
         ], cwd=paths.op_node_dir)
 
-    log.info('Starting L1.')
-    run_command(['docker', 'compose', 'up', '-d', 'l1'], cwd=paths.ops_bedrock_dir, env={
-        'PWD': paths.ops_bedrock_dir,
-        'DEVNET_DIR': paths.devnet_dir
-    })
-    wait_up(8545)
-    wait_for_rpc_server('127.0.0.1:8545')
-
-    if espresso:
-        log.info('Starting Espresso sequencer.')
-        espresso_services = [
-            'op-geth-proxy',
-            'orchestrator',
-            'da-server',
-            'consensus-server',
-            'commitment-task',
-            'sequencer0',
-            'sequencer1',
-        ]
-        run_command(['docker-compose', 'up', '-d'] + espresso_services, cwd=paths.ops_bedrock_dir, env={
+    if args.deploy_l2:
+        # L1 and sequencer already exist, just deploy the L1 contracts for the new L2.
+        deploy_contracts(paths, args.deploy_config)
+    else:
+        # Deploy L1 and sequencer network.
+        log.info('Starting L1.')
+        run_command(['docker', 'compose', 'up', '-d', 'l1'], cwd=paths.ops_bedrock_dir, env={
             'PWD': paths.ops_bedrock_dir,
             'DEVNET_DIR': paths.devnet_dir
         })
+        wait_up(8545)
+        wait_for_rpc_server('127.0.0.1:8545')
+
+        if espresso:
+            log.info('Starting Espresso sequencer.')
+            espresso_services = [
+                'orchestrator',
+                'da-server',
+                'consensus-server',
+                'commitment-task',
+                'sequencer0',
+                'sequencer1',
+            ]
+            run_command(['docker-compose', 'up', '-d'] + espresso_services, cwd=paths.ops_bedrock_dir, env={
+                'PWD': paths.ops_bedrock_dir,
+                'DEVNET_DIR': paths.devnet_dir
+            })
 
     # Re-build the L2 genesis unconditionally in Espresso mode, since we require the timestamps to be recent.
     if not espresso and os.path.exists(paths.genesis_l2_path) and os.path.isfile(paths.genesis_l2_path):
@@ -228,12 +255,15 @@ def devnet_deploy(paths, espresso: bool):
     addresses = read_json(paths.addresses_json_path)
 
     log.info('Bringing up L2.')
-    run_command(['docker', 'compose', 'up', '-d', 'l2'], cwd=paths.ops_bedrock_dir, env={
+    run_command(['docker', 'compose', 'up', '-d', f'{l2}-l2', f'{l2}-geth-proxy'], cwd=paths.ops_bedrock_dir, env={
         'PWD': paths.ops_bedrock_dir,
         'DEVNET_DIR': paths.devnet_dir
     })
-    wait_up(9545)
-    wait_for_rpc_server('127.0.0.1:9545')
+
+    l2_provider_port = int(l2_provider_url.split(':')[-1])
+    l2_provider_http = l2_provider_url.removeprefix('http://')
+    wait_up(l2_provider_port)
+    wait_for_rpc_server(l2_provider_http)
 
     l2_output_oracle = addresses['L2OutputOracleProxy']
     log.info(f'Using L2OutputOracle {l2_output_oracle}')
@@ -241,8 +271,13 @@ def devnet_deploy(paths, espresso: bool):
     log.info(f'Using batch inbox {batch_inbox_address}')
 
     log.info('Bringing up everything else.')
-    services = ['op-node', 'op-proposer', 'op-batcher']
-    run_command(['docker', 'compose', 'up', '-d'] + services, cwd=paths.ops_bedrock_dir, env={
+    command = ['docker', 'compose', 'up', '-d']
+    if args.deploy_l2:
+        # If we are deploying onto an existing L1, don't restart the services that are already
+        # running.
+        command.append('--no-recreate')
+    services = [f'{l2}-node', f'{l2}-proposer', f'{l2}-batcher']
+    run_command(command + services, cwd=paths.ops_bedrock_dir, env={
         'PWD': paths.ops_bedrock_dir,
         'L2OO_ADDRESS': l2_output_oracle,
         'SEQUENCER_BATCH_INBOX_ADDRESS': batch_inbox_address,
@@ -250,7 +285,7 @@ def devnet_deploy(paths, espresso: bool):
     })
 
     log.info('Starting block explorer')
-    run_command(['docker-compose', 'up', '-d', 'blockscout-l2'], cwd=paths.ops_bedrock_dir)
+    run_command(['docker-compose', 'up', '-d', f'{l2}-blockscout'], cwd=paths.ops_bedrock_dir)
 
     log.info('Devnet ready.')
 
@@ -299,21 +334,21 @@ def wait_for_rpc_server(url):
             log.info(f'Waiting for RPC server at {url}')
             time.sleep(1)
 
-def devnet_test(paths):
+def devnet_test(paths, l2_provider_url):
     # Check the L2 config
     run_command(
-        ['go', 'run', 'cmd/check-l2/main.go', '--l2-rpc-url', 'http://localhost:9545', '--l1-rpc-url', 'http://localhost:8545'],
+        ['go', 'run', 'cmd/check-l2/main.go', '--l2-rpc-url', l2_provider_url, '--l1-rpc-url', 'http://localhost:8545'],
         cwd=paths.ops_chain_ops,
     )
 
     run_command(
-         ['npx', 'hardhat',  'deposit-erc20', '--network',  'devnetL1', '--l1-contracts-json-path', paths.addresses_json_path],
+         ['npx', 'hardhat',  'deposit-erc20', '--network',  'devnetL1', '--l1-contracts-json-path', paths.addresses_json_path, '--l2-provider-url', l2_provider_url],
          cwd=paths.sdk_dir,
          timeout=8*60,
     )
 
     run_command(
-         ['npx', 'hardhat',  'deposit-eth', '--network',  'devnetL1', '--l1-contracts-json-path', paths.addresses_json_path],
+         ['npx', 'hardhat',  'deposit-eth', '--network',  'devnetL1', '--l1-contracts-json-path', paths.addresses_json_path, '--l2-provider-url', l2_provider_url],
          cwd=paths.sdk_dir,
          timeout=8*60,
     )
