@@ -1,4 +1,34 @@
-# Espresso Sequencer OP Stack Integration
+# Optimism
+
+<div align="center">
+  <br />
+  <br />
+  <a href="https://optimism.io"><img alt="Optimism" src="https://raw.githubusercontent.com/ethereum-optimism/brand-kit/main/assets/svg/OPTIMISM-R.svg" width=600></a>
+  <br />
+  <h3><a href="https://optimism.io">Optimism</a> is Ethereum, scaled.</h3>
+  <br />
+</div>
+
+<div align="center">
+  <br />
+  <br />
+  <a href="https://espressosys.com"><img alt="Espresso" src="assets/espresso.svg" width=600></a>
+  <br />
+</div>
+
+This repo is a fork for [ethereum-optimism/optimism](https://github.com/ethereum-optimism/optimism), in which the Espresso Systems team has integrated the Espresso Sequencer as an option for decentralized sequencing of OP Stack rollups. To learn more about the integration, read [our documentation](https://docs.espressosys.com/sequencer/releases/cortado-testnet-release/op-stack-integration). To try it out for yourself, follow [the instructions below](#running-the-local-devnet).
+
+## What is Optimism?
+
+[Optimism](https://www.optimism.io/) is a project dedicated to scaling Ethereum's technology and expanding its ability to coordinate people from across the world to build effective decentralized economies and governance systems. The [Optimism Collective](https://app.optimism.io/announcement) builds open-source software for running L2 blockchains and aims to address key governance and economic challenges in the wider cryptocurrency ecosystem. Optimism operates on the principle of **impact=profit**, the idea that individuals who positively impact the Collective should be proportionally rewarded with profit. **Change the incentives and you change the world.**
+
+In this repository, you'll find numerous core components of the OP Stack, the decentralized software stack maintained by the Optimism Collective that powers Optimism and forms the backbone of blockchains like [OP Mainnet](https://explorer.optimism.io/) and [Base](https://base.org). Designed to be "aggressively open source," the OP Stack encourages you to explore, modify, extend, and test the code as needed. Although not all elements of the OP Stack are contained here, many of its essential components can be found within this repository. By collaborating on free, open software and shared standards, the Optimism Collective aims to prevent siloed software development and rapidly accelerate the development of the Ethereum ecosystem. Come contribute, build the future, and redefine power, together.
+
+## What is the Espresso Sequencer?
+
+[Espresso](https://espressosys.com) helps rollups scale, decentralize, and interoperate.
+
+The [Espresso Sequencer](https://github.com/EspressoSystems/espresso-sequencer) offers rollups credible neutrality and enhanced interoperability, without compromising on scale. Consisting of a data availability solution and a decentralized network of nodes that sequences transactions, layer-2 rollups can leverage the Espresso Sequencer to give developers and end users fast confirmations, low (and fair) fees, and robust infrastructure.
 
 ## Running the local devnet
 
@@ -96,26 +126,14 @@
         | Chain ID | 901 | 902 | |
         | Currency Symbol | OP1 | OP2 | For display purposes only. It can be chosen freely, but note this will show in the metamask UI |
         | Block explorer | http://localhost:14000 | http://localhost:24000 | |
+      - Your settings should look something like this:
+
+        ![Example MetaMask network settings](assets/mm_network_settings.png)
       - Note that metamask won’t let one save this custom network if the demo is not running.
    6. Use metamask as usual to send ETH
    7. When a transaction is confirmed in your MetaMask Activity tab, you can click on it and click “View on block explorer” to see the transaction.
 
-# Optimism
-
-<div align="center">
-  <br />
-  <br />
-  <a href="https://optimism.io"><img alt="Optimism" src="https://raw.githubusercontent.com/ethereum-optimism/brand-kit/main/assets/svg/OPTIMISM-R.svg" width=600></a>
-  <br />
-  <h3><a href="https://optimism.io">Optimism</a> is Ethereum, scaled.</h3>
-  <br />
-</div>
-
-## What is Optimism?
-
-[Optimism](https://www.optimism.io/) is a project dedicated to scaling Ethereum's technology and expanding its ability to coordinate people from across the world to build effective decentralized economies and governance systems. The [Optimism Collective](https://app.optimism.io/announcement) builds open-source software for running L2 blockchains and aims to address key governance and economic challenges in the wider cryptocurrency ecosystem. Optimism operates on the principle of **impact=profit**, the idea that individuals who positively impact the Collective should be proportionally rewarded with profit. **Change the incentives and you change the world.**
-
-In this repository, you'll find numerous core components of the OP Stack, the decentralized software stack maintained by the Optimism Collective that powers Optimism and forms the backbone of blockchains like [OP Mainnet](https://explorer.optimism.io/) and [Base](https://base.org). Designed to be "aggressively open source," the OP Stack encourages you to explore, modify, extend, and test the code as needed. Although not all elements of the OP Stack are contained here, many of its essential components can be found within this repository. By collaborating on free, open software and shared standards, the Optimism Collective aims to prevent siloed software development and rapidly accelerate the development of the Ethereum ecosystem. Come contribute, build the future, and redefine power, together.
+      ![Using MetaMask to view a transaction in a block explorer](assets/mm_block_explorer.png)
 
 ## Documentation
 
