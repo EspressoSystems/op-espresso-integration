@@ -273,12 +273,8 @@ def devnet_deploy(paths, args):
         'DEVNET_DIR': paths.devnet_dir
     })
 
-    # TODO the block explorer doesn't support running multiple instances simultaneously, so only
-    # start it with the first L2, not ones deployed after the fact. We should support each L2 having
-    # its own block explorer and then run this command unconditionally.
-    if not args.deploy_l2:
-        log.info('Starting block explorer')
-        run_command(['docker-compose', 'up', '-d', f'{l2}-blockscout'], cwd=paths.ops_bedrock_dir)
+    log.info('Starting block explorer')
+    run_command(['docker-compose', 'up', '-d', f'{l2}-blockscout'], cwd=paths.ops_bedrock_dir)
 
     log.info('Devnet ready.')
 
