@@ -1,3 +1,107 @@
+# Espresso Sequencer OP Stack Integration
+
+## Running the local devnet
+
+1. Install nix if it’s not installed yet: https://nixos.org/download
+   1. On OSX run `sh <(curl -L https://nixos.org/nix/install)`
+   2. On Linux run `sh <(curl -L https://nixos.org/nix/install) --daemon`
+2. If docker is not yet installed or running, install docker and start it
+
+   1. On OSX: If you already have [docker desktop](https://docs.docker.com/desktop/install/mac-install/) installed and running you can keep using docker desktop and skip this step. Otherwise the quickest way to get docker is:
+
+      ```bash
+      brew update
+      brew install colima docker docker-compose
+      # The number of CPUs and GBs of RAM will be reserved for running the demo
+      # If you have RAM to spare consider using 4 or 8 GB instead.
+      colima start --cpu 4 --memory 2 --vm-type=vz
+      ```
+
+   2. On Linux follow for example the instructions here: https://docs.docker.com/engine/install/
+
+3. Download the demo source code
+
+   ```bash
+   # Takes about 1 minute
+   git clone --recursive https://github.com/EspressoSystems/op-espresso-integration
+   ```
+
+4. Run the demo
+
+   ```bash
+   cd op-espresso-integration
+   git pull
+
+   # Activate the development env
+   # Takes about 1.5 minutes the first time (with fast network connection),
+   # Should only take a few seconds when activated again afterwards.
+   # All the `make` commands below need to be run in a terminal where the
+   # nix-shell is activated.
+   nix-shell
+
+   # Setup the repo
+   # Takes about 2 minutes the first time
+   make
+
+   # Takes about 1 minute, **only needs to be run once**
+   make cannon-prestate
+
+   # **Only export this env var if you're using an M1/M1{pro,max}/M2 mac**
+   export BLOCKSCOUT_IMAGE=ghcr.io/espressosystems/blockscout/blockscout-arm:main
+
+   # Build and launch the first rollup, L1, and sequencer
+   # Takes about 5 minutes the first time.
+   make devnet-up-espresso
+
+   # After that finishes to deploy the second rollup on the existing L1 and sequencer
+   make devnet-up-espresso2
+
+   # To run tests to check if it's working (these can be run in parallel)
+   make devnet-test-espresso
+   make devnet-test-espresso2
+
+   # To stop the demo
+   make devnet-clean
+   ```
+
+5. Navigate to [http://localhost:14000](http://localhost:4000) to see the block explorer. If you started the second rollup, its block explorer can be found at http://localhost:24000. If the bock explorers are successfully syncing, a new block appears every few seconds.
+6. Setup metamask
+
+   <aside>
+   💡 If the demo is restarted metamask nonces need to be reset: Settings → Advanced → Clear activity tab data
+
+   </aside>
+
+   1. Open chrome (other chrome based browsers such as chromium, brave; firefox should work too).
+   2. [optional, but suggested] create a new browser profile
+   3. Add the [metamask extension](https://chrome.google.com/webstore/detail/metamask/nkbihfbeogaeaoehlefnkodbefgpgknn)
+   4. One the “Let’s get started page” Click “Import an existing wallet”
+
+      1. Restore from mnemonic
+
+         ```bash
+         test test test test test test test test test test test junk
+         ```
+
+         The whole mnemonic can be copy pasted at once by pasting it into the field of the first word.
+
+      2. As the mnemonic is not secret, feel free to use a dummy password such as 12341234.
+
+   5. Connect metamask to the L2s. Custom networks needs to be added for each of the OP rollups.
+      - In metamask, go to `Settings -> Networks -> Add a network -> Add a network manually`
+        | Parameter | Value for OP node 1 | Value for OP node 2 | Notes |
+        | --------------- | ---------------------- | ---------------------- | ---------------------------------------------------------------------------------------------- |
+        | Network name | Espresso OP 1 | Espresso OP 2 | Set as desired |
+        | RPC URL | http://localhost:19090 | http://localhost:29090 | |
+        | Chain ID | 901 | 902 | |
+        | Currency Symbol | OP1 | OP2 | For display purposes only. It can be chosen freely, but note this will show in the metamask UI |
+        | Block explorer | http://localhost:14000 | http://localhost:24000 | |
+      - Note that metamask won’t let one save this custom network if the demo is not running.
+   6. Use metamask as usual to send ETH
+   7. When a transaction is confirmed in your MetaMask Activity tab, you can click on it and click “View on block explorer” to see the transaction.
+
+# Optimism
+
 <div align="center">
   <br />
   <br />
