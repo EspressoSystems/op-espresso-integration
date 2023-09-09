@@ -251,6 +251,7 @@ services:
         ECTO_USE_SSL: 'false'
         SECRET_KEY_BASE: '56NtB48ear7+wMSf0IQuWDAAazhpb31qyc7GiyspBP2vh7t5zlCsF5QDv76chXeN'
         MIX_ENV: 'prod'
+        INDEXER_CATCHUP_BLOCK_INTERVAL: '1s'
     ports:
       - "$OP1_BLOCKSCOUT_PORT:4000"
     volumes:
@@ -473,6 +474,7 @@ services:
         ECTO_USE_SSL: 'false'
         SECRET_KEY_BASE: '56NtB48ear7+wMSf0IQuWDAAazhpb31qyc7GiyspBP2vh7t5zlCsF5QDv76chXeN'
         MIX_ENV: 'prod'
+        INDEXER_CATCHUP_BLOCK_INTERVAL: '1s'
     ports:
       - "$OP2_BLOCKSCOUT_PORT:4000"
     volumes:
