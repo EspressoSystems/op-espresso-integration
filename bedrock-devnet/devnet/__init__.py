@@ -89,9 +89,9 @@ def main():
     )
 
     if args.test:
-      log.info('Testing deployed devnet')
-      devnet_test(paths, args.l2_provider_url)
-      return
+        log.info('Testing deployed devnet')
+        devnet_test(paths, args.l2_provider_url)
+        return
 
     os.makedirs(devnet_dir, exist_ok=True)
 
@@ -101,6 +101,9 @@ def main():
 
     log.info('Devnet starting')
     devnet_deploy(paths, args)
+
+    log.info('Deploying ERC20 contract')
+    deploy_erc20(paths, args.l2_provider_url)
 
 
 def deploy_contracts(paths, deploy_config: str):
@@ -318,6 +321,13 @@ def wait_for_rpc_server(url):
             log.info(f'Error connecting to RPC: {e}')
             log.info(f'Waiting for RPC server at {url}')
             time.sleep(1)
+
+def deploy_erc20(paths, l2_provider_url):
+    run_command(
+         ['npx', 'hardhat',  'deploy-erc20', '--network',  'devnetL1', '--l2-provider-url', l2_provider_url],
+         cwd=paths.sdk_dir,
+         timeout=60,
+    )
 
 def devnet_test(paths, l2_provider_url):
     # Check the L2 config
