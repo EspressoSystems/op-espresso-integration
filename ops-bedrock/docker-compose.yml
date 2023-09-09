@@ -23,6 +23,7 @@ services:
   #
 
   l1:
+    image: ghcr.io/espressosystems/op-espresso-integration/l1:integration
     build:
       context: .
       dockerfile: Dockerfile.l1
@@ -40,6 +41,7 @@ services:
   #
 
   op1-l2:
+    image: ghcr.io/espressosystems/op-espresso-integration/l2:integration
     build:
       context: .
       dockerfile: Dockerfile.l2
@@ -57,6 +59,7 @@ services:
       - "--authrpc.jwtsecret=/config/test-jwt-secret.txt"
 
   op1-node:
+    image: ghcr.io/espressosystems/op-espresso-integration/op-node:integration
     depends_on:
       - l1
       - op1-l2
@@ -102,6 +105,7 @@ services:
       - op1_log:/op_log
 
   op1-proposer:
+    image: ghcr.io/espressosystems/op-espresso-integration/op-proposer:integration
     depends_on:
       - l1
       - op1-l2
@@ -125,6 +129,7 @@ services:
       OP_PROPOSER_ALLOW_NON_FINALIZED: "true"
 
   op1-batcher:
+    image: ghcr.io/espressosystems/op-espresso-integration/op-batcher:integration
     depends_on:
       - l1
       - op1-l2
@@ -151,6 +156,7 @@ services:
       OP_BATCHER_RPC_ENABLE_ADMIN: "true"
 
   op1-geth-proxy:
+    image: ghcr.io/espressosystems/op-espresso-integration/op-geth-proxy:integration
     build:
       context: ../
       dockerfile: ./op-geth-proxy/Dockerfile
@@ -176,6 +182,7 @@ services:
       - "no-new-privileges:true"
 
   stateviz:
+    image: ghcr.io/espressosystems/op-espresso-integration/stateviz:integration
     build:
       context: ../
       dockerfile: ./ops-bedrock/Dockerfile.stateviz
@@ -281,6 +288,7 @@ services:
   #
 
   op2-l2:
+    image: ghcr.io/espressosystems/op-espresso-integration/l2:integration
     build:
       context: .
       dockerfile: Dockerfile.l2
@@ -298,6 +306,7 @@ services:
       - "--authrpc.jwtsecret=/config/test-jwt-secret.txt"
 
   op2-node:
+    image: ghcr.io/espressosystems/op-espresso-integration/op-node:integration
     depends_on:
       - l1
       - op2-l2
@@ -343,6 +352,7 @@ services:
       - op2_log:/op_log
 
   op2-proposer:
+    image: ghcr.io/espressosystems/op-espresso-integration/op-proposer:integration
     depends_on:
       - l1
       - op2-l2
@@ -366,6 +376,7 @@ services:
       OP_PROPOSER_ALLOW_NON_FINALIZED: "true"
 
   op2-batcher:
+    image: ghcr.io/espressosystems/op-espresso-integration/op-batcher:integration
     depends_on:
       - l1
       - op2-l2
@@ -392,6 +403,7 @@ services:
       OP_BATCHER_RPC_ENABLE_ADMIN: "true"
 
   op2-geth-proxy:
+    image: ghcr.io/espressosystems/op-espresso-integration/op-geth-proxy:integration
     build:
       context: ../
       dockerfile: ./op-geth-proxy/Dockerfile

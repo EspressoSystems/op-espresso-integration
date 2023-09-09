@@ -998,6 +998,9 @@ jobs:
           name: generate cannon prestate
           command: make cannon-prestate
       - run:
+          name: Build the stack
+          command: make devnet-build
+      - run:
           name: Bring up the stack
           command: make <<parameters.devnet-up>>
       - run:
