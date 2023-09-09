@@ -239,6 +239,7 @@ services:
     env_file:
       - ../blockscout/docker-compose/envs/common-blockscout.env
     environment:
+        SUBNETWORK: 'OP Rollup 901'
         ETHEREUM_JSONRPC_VARIANT: 'geth'
         ETHEREUM_JSONRPC_HTTP_URL: http://op1-l2:8545/
         ETHEREUM_JSONRPC_TRACE_URL: http://op1-l2:8545/
@@ -460,6 +461,7 @@ services:
     env_file:
       - ../blockscout/docker-compose/envs/common-blockscout.env
     environment:
+        SUBNETWORK: 'OP Rollup 902'
         ETHEREUM_JSONRPC_VARIANT: 'geth'
         ETHEREUM_JSONRPC_HTTP_URL: http://op2-l2:8545/
         ETHEREUM_JSONRPC_TRACE_URL: http://op2-l2:8545/
