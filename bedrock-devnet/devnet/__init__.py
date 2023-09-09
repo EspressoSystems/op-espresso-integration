@@ -26,8 +26,6 @@ parser.add_argument('--deploy-config', help='Deployment config, relative to pack
 parser.add_argument('--deployment', help='Path to deployment output files, relative to packages/contracts-bedrock/deployments', default='devnetL1')
 parser.add_argument('--devnet-dir', help='Output path for devnet config, relative to --monorepo-dir', default='.devnet')
 parser.add_argument('--espresso', help='Run on Espresso Sequencer', type=bool, action=argparse.BooleanOptionalAction)
-parser.add_argument('--skip-build', help='Skip building docker images', type=bool, action=argparse.BooleanOptionalAction)
-parser.add_argument('--build', help='Only build docker images', type=bool, action=argparse.BooleanOptionalAction)
 
 log = logging.getLogger()
 
@@ -99,19 +97,6 @@ def main():
 
     if args.allocs:
         devnet_l1_genesis(paths, args.deploy_config)
-        return
-
-    if args.skip_build:
-        log.warn('Skipping building docker images')
-    else:
-        log.info('Building docker images')
-        run_command(['docker', 'compose', 'build', '--progress', 'plain'], cwd=paths.ops_bedrock_dir, env={
-            'PWD': paths.ops_bedrock_dir,
-            'DEVNET_DIR': paths.devnet_dir
-        })
-
-    if args.build:
-        log.info("Finished building")
         return
 
     log.info('Devnet starting')

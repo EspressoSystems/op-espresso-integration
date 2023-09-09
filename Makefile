@@ -119,7 +119,7 @@ devnet-up-espresso:
 .PHONY: devnet-up-espresso
 
 devnet-up-espresso2:
-	PYTHONPATH=./bedrock-devnet python3 ./bedrock-devnet/main.py --monorepo-dir=. $(DEVNET_ESPRESSO_OP2_FLAGS) --deploy-l2 --skip-build
+	PYTHONPATH=./bedrock-devnet python3 ./bedrock-devnet/main.py --monorepo-dir=. $(DEVNET_ESPRESSO_OP2_FLAGS) --deploy-l2
 .PHONY: devnet-up-espresso2
 
 # alias for devnet-up

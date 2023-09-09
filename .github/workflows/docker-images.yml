@@ -1,0 +1,68 @@
+name: Docker Images
+
+on:
+  push:
+    branches:
+      - main
+      - release-*
+      - integration
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  docker-l1:
+    uses: ./.github/workflows/docker.yml
+    with:
+        images: ghcr.io/espressosystems/op-espresso-integration/l1
+        context: ./ops-bedrock
+        dockerfile: ./ops-bedrock/Dockerfile.l1
+    secrets: inherit
+
+  docker-l2:
+    uses: ./.github/workflows/docker.yml
+    with:
+        images: ghcr.io/espressosystems/op-espresso-integration/l2
+        context: ./ops-bedrock
+        dockerfile: ./ops-bedrock/Dockerfile.l2
+    secrets: inherit
+
+  docker-stateviz:
+    uses: ./.github/workflows/docker.yml
+    with:
+        images: ghcr.io/espressosystems/op-espresso-integration/stateviz
+        context: .
+        dockerfile: ./ops-bedrock/Dockerfile.stateviz
+    secrets: inherit
+
+  docker-op-node:
+    uses: ./.github/workflows/docker.yml
+    with:
+        images: ghcr.io/espressosystems/op-espresso-integration/op-node
+        context: .
+        dockerfile: ./op-node/Dockerfile
+    secrets: inherit
+
+  docker-op-proposer:
+    uses: ./.github/workflows/docker.yml
+    with:
+        images: ghcr.io/espressosystems/op-espresso-integration/op-proposer
+        context: .
+        dockerfile: ./op-proposer/Dockerfile
+    secrets: inherit
+
+  docker-op-batcher:
+    uses: ./.github/workflows/docker.yml
+    with:
+        images: ghcr.io/espressosystems/op-espresso-integration/op-batcher
+        context: .
+        dockerfile: ./op-batcher/Dockerfile
+    secrets: inherit
+
+  docker-op-geth-proxy:
+    uses: ./.github/workflows/docker.yml
+    with:
+        images: ghcr.io/espressosystems/op-espresso-integration/op-geth-proxy
+        context: .
+        dockerfile: ./op-geth-proxy/Dockerfile
+    secrets: inherit
+
