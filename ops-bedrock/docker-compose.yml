@@ -239,6 +239,7 @@ services:
     env_file:
       - ../blockscout/docker-compose/envs/common-blockscout.env
     environment:
+        SUBNETWORK: 'OP Rollup 901'
         ETHEREUM_JSONRPC_VARIANT: 'geth'
         ETHEREUM_JSONRPC_HTTP_URL: http://op1-l2:8545/
         ETHEREUM_JSONRPC_TRACE_URL: http://op1-l2:8545/
@@ -250,6 +251,7 @@ services:
         ECTO_USE_SSL: 'false'
         SECRET_KEY_BASE: '56NtB48ear7+wMSf0IQuWDAAazhpb31qyc7GiyspBP2vh7t5zlCsF5QDv76chXeN'
         MIX_ENV: 'prod'
+        INDEXER_CATCHUP_BLOCK_INTERVAL: '1s'
     ports:
       - "$OP1_BLOCKSCOUT_PORT:4000"
     volumes:
@@ -460,6 +462,7 @@ services:
     env_file:
       - ../blockscout/docker-compose/envs/common-blockscout.env
     environment:
+        SUBNETWORK: 'OP Rollup 902'
         ETHEREUM_JSONRPC_VARIANT: 'geth'
         ETHEREUM_JSONRPC_HTTP_URL: http://op2-l2:8545/
         ETHEREUM_JSONRPC_TRACE_URL: http://op2-l2:8545/
@@ -471,6 +474,7 @@ services:
         ECTO_USE_SSL: 'false'
         SECRET_KEY_BASE: '56NtB48ear7+wMSf0IQuWDAAazhpb31qyc7GiyspBP2vh7t5zlCsF5QDv76chXeN'
         MIX_ENV: 'prod'
+        INDEXER_CATCHUP_BLOCK_INTERVAL: '1s'
     ports:
       - "$OP2_BLOCKSCOUT_PORT:4000"
     volumes:
@@ -519,6 +523,7 @@ services:
       - ESPRESSO_ORCHESTRATOR_NEXT_VIEW_TIMEOUT=10s
       - ESPRESSO_ORCHESTRATOR_MAX_PROPOSE_TIME=1s
       - RUST_LOG
+    stop_grace_period: 1s
 
   da-server:
     image: ghcr.io/espressosystems/espresso-sequencer/web-server:main
@@ -530,6 +535,7 @@ services:
     depends_on:
       orchestrator:
         condition: service_healthy
+    stop_grace_period: 1s
 
   consensus-server:
     image: ghcr.io/espressosystems/espresso-sequencer/web-server:main
@@ -541,6 +547,7 @@ services:
     depends_on:
       orchestrator:
         condition: service_healthy
+    stop_grace_period: 1s
 
   commitment-task:
     image: ghcr.io/espressosystems/espresso-sequencer/commitment-task:main
@@ -557,6 +564,7 @@ services:
         condition: service_healthy
       l1:
         condition: service_started
+    stop_grace_period: 1s
 
   sequencer0:
     image: ghcr.io/espressosystems/espresso-sequencer/sequencer:main
@@ -578,6 +586,7 @@ services:
         condition: service_healthy
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    stop_grace_period: 1s
 
   sequencer1:
     image: ghcr.io/espressosystems/espresso-sequencer/sequencer:main
@@ -598,3 +607,4 @@ services:
         condition: service_healthy
     extra_hosts:
       - 'host.docker.internal:host-gateway'
+    stop_grace_period: 1s
