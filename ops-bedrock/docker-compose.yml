@@ -226,10 +226,7 @@ services:
       - op1-blockscout-db
       - op1-smart-contract-verifier
       - op1-redis-db
-    # On ARM (M1, M2 macs) set env var
-    # BLOCKSCOUT_IMAGE=ghcr.io/espressosystems/blockscout/blockscout-arm:main
-    # until we find a better solution
-    image: ${BLOCKSCOUT_IMAGE:-blockscout/blockscout:latest}
+    image: ghcr.io/espressosystems/espresso-sequencer/blockscout:main
     pull_policy: always
     restart: always
     stop_grace_period: 5m
@@ -449,10 +446,7 @@ services:
       - op2-blockscout-db
       - op2-smart-contract-verifier
       - op2-redis-db
-    # On ARM (M1, M2 macs) set env var
-    # BLOCKSCOUT_IMAGE=ghcr.io/espressosystems/blockscout/blockscout-arm:main
-    # until we find a better solution
-    image: ${BLOCKSCOUT_IMAGE:-blockscout/blockscout:latest}
+    image: ghcr.io/espressosystems/espresso-sequencer/blockscout:main
     pull_policy: always
     restart: always
     stop_grace_period: 5m

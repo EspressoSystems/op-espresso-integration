@@ -76,9 +76,6 @@ The [Espresso Sequencer](https://github.com/EspressoSystems/espresso-sequencer) 
    # Takes about 1 minute, **only needs to be run once**
    make cannon-prestate
 
-   # **Only export this env var if you're using an M1/M1{pro,max}/M2 mac**
-   export BLOCKSCOUT_IMAGE=ghcr.io/espressosystems/blockscout/blockscout-arm:main
-
    # Build and launch the first rollup, L1, and sequencer
    # Takes about 5 minutes the first time.
    make devnet-up-espresso
