@@ -154,6 +154,8 @@ services:
       OP_BATCHER_PPROF_ENABLED: "true"
       OP_BATCHER_METRICS_ENABLED: "true"
       OP_BATCHER_RPC_ENABLE_ADMIN: "true"
+    # The batcher does not respond to sigint
+    stop_grace_period: 1s
 
   op1-geth-proxy:
     image: ghcr.io/espressosystems/op-espresso-integration/op-geth-proxy:integration
@@ -400,6 +402,8 @@ services:
       OP_BATCHER_PPROF_ENABLED: "true"
       OP_BATCHER_METRICS_ENABLED: "true"
       OP_BATCHER_RPC_ENABLE_ADMIN: "true"
+    # The batcher does not respond to sigint
+    stop_grace_period: 1s
 
   op2-geth-proxy:
     image: ghcr.io/espressosystems/op-espresso-integration/op-geth-proxy:integration

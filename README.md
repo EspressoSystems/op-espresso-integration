@@ -132,6 +132,10 @@ The [Espresso Sequencer](https://github.com/EspressoSystems/espresso-sequencer) 
 
       ![Using MetaMask to view a transaction in a block explorer](assets/mm_block_explorer.png)
 
+   8. To add the ERC20 token click on "Tokens" -> "Import tokens" and paste the
+      address `0xfbfbfDdd6e35dA57b7B0F9a2C10E34Be70B3A4E9`. The address is the
+      same for both L2s. To mint tokens, send ether to this contract addresses.
+
 ## Documentation
 
 - If you want to build on top of OP Mainnet, refer to the [Optimism Community Hub](https://community.optimism.io)
