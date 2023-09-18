@@ -1,8 +1,8 @@
 COMPOSEFLAGS=-d
 ITESTS_L2_HOST=http://localhost:9545
 BEDROCK_TAGS_REMOTE?=origin
-DEVNET_ESPRESSO_FLAGS=--espresso --deploy-config="devnetL1-espresso.json" --deployment="devnetL1-espresso" --devnet-dir=".devnet-espresso" --l2-provider-url="http://localhost:19090"
-DEVNET_ESPRESSO_OP2_FLAGS=--espresso --deploy-config="devnetL1-espresso2.json" --deployment="devnetL1-espresso2" --devnet-dir=".devnet-espresso2" --l2-provider-url="http://localhost:29090" --l2="op2"
+DEVNET_ESPRESSO_FLAGS=--espresso --deploy-config="devnetL1-espresso.json" --deploy-config-template="devnetL1-espresso-template.json" --deployment="devnetL1-espresso" --devnet-dir=".devnet-espresso" --l2-provider-url="http://localhost:19090"
+DEVNET_ESPRESSO_OP2_FLAGS=--espresso --deploy-config="devnetL1-espresso2.json" --deploy-config-template="devnetL1-espresso2-template.json" --deployment="devnetL1-espresso2" --devnet-dir=".devnet-espresso2" --l2-provider-url="http://localhost:29090" --l2="op2"
 monorepo-base := $(realpath .)
 
 build: build-go build-ts
@@ -35,7 +35,7 @@ op-bindings:
 .PHONY: op-bindings
 
 make op-bindings-docker:
-	docker run -v $(monorepo-base):/work -it us-docker.pkg.dev/oplabs-tools-artifacts/images/ci-builder bash -c "env FORGE_BUILD_ARGS='--force' make -C /work op-bindings"
+	docker run -v $(monorepo-base):/work -it us-docker.pkg.dev/oplabs-tools-artifacts/images/ci-builder make -C /work op-bindings
 	echo "Asking for root permissions to set owner of files to ${USER} after docker run"
 	sudo chown -R ${USER} $(monorepo-base)
 
@@ -79,7 +79,7 @@ cannon:
 
 cannon-prestate: op-program cannon
 	./cannon/bin/cannon load-elf --path op-program/bin/op-program-client.elf --out op-program/bin/prestate.json --meta op-program/bin/meta.json
-	./cannon/bin/cannon run --proof-at '=0' --stop-at '=1' --input op-program/bin/prestate.json --meta op-program/bin/meta.json --proof-fmt 'op-program/bin/%d.json' --output /dev/null
+	./cannon/bin/cannon run --proof-at '=0' --stop-at '=1' --input op-program/bin/prestate.json --meta op-program/bin/meta.json --proof-fmt 'op-program/bin/%d.json' --output ""
 	mv op-program/bin/0.json op-program/bin/prestate-proof.json
 
 mod-tidy:
