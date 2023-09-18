@@ -3,6 +3,7 @@ ITESTS_L2_HOST=http://localhost:9545
 BEDROCK_TAGS_REMOTE?=origin
 DEVNET_ESPRESSO_FLAGS=--espresso --deploy-config="devnetL1-espresso.json" --deployment="devnetL1-espresso" --devnet-dir=".devnet-espresso" --l2-provider-url="http://localhost:19090"
 DEVNET_ESPRESSO_OP2_FLAGS=--espresso --deploy-config="devnetL1-espresso2.json" --deployment="devnetL1-espresso2" --devnet-dir=".devnet-espresso2" --l2-provider-url="http://localhost:29090" --l2="op2"
+DEVNET_ESPRESSO_DEMO_FLAGS=--espresso --deploy-config="espresso-demo.json" --deployment="espresso-demo" --devnet-dir=".devnet-espresso" --l2-provider-url="http://localhost:19090" --l2="op --compose-file demo-docker-compose.yml"
 monorepo-base := $(realpath .)
 
 build: build-go build-ts
@@ -121,6 +122,10 @@ devnet-up-espresso:
 devnet-up-espresso2:
 	PYTHONPATH=./bedrock-devnet python3 ./bedrock-devnet/main.py --monorepo-dir=. $(DEVNET_ESPRESSO_OP2_FLAGS) --deploy-l2
 .PHONY: devnet-up-espresso2
+
+devnet-up-espresso-demo:
+	PYTHONPATH=./bedrock-devnet python3 ./bedrock-devnet/main.py --monorepo-dir=. $(DEVNET_ESPRESSO_DEMO_FLAGS) --deploy-l2
+.PHONY: devnet-up-espresso-demo
 
 # alias for devnet-up
 devnet-up-deploy: devnet-up
