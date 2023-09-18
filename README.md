@@ -83,7 +83,8 @@ The [Espresso Sequencer](https://github.com/EspressoSystems/espresso-sequencer) 
    # After that finishes to deploy the second rollup on the existing L1 and sequencer
    make devnet-up-espresso2
 
-   # To run tests to check if it's working (these can be run in parallel)
+   # To run tests to check if it's working (these must be run in serial, since both tests make use
+   # of the same L1 account).
    make devnet-test-espresso
    make devnet-test-espresso2
 
