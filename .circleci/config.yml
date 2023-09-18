@@ -791,7 +791,7 @@ jobs:
     steps:
       - checkout
       - check-changed:
-          patterns: op-(.+),contracts-bedrock
+          patterns: op-(.+),cannon,contracts-bedrock
       - run:
           name: git submodules
           command: git submodule update --init --recursive
@@ -933,6 +933,14 @@ jobs:
           name: Build
           command: make indexer
           working_directory: indexer
+      - run:
+          name: Install tygo
+          command: go install github.com/gzuidhof/tygo@latest
+          working_directory: indexer/api-ts
+      - run:
+          name: Check generated code
+          command: npm run generate && git diff --exit-code
+          working_directory: indexer/api-ts
 
   devnet:
     machine:
@@ -1218,7 +1226,7 @@ workflows:
       - indexer-tests:
           requires: [ hold ]
       - go-lint-test-build:
-          name: op-heartbeat tests
+          name: op-heartbeat-tests
           binary_name: op-heartbeat
           working_directory: op-heartbeat
           requires: [ hold ]
@@ -1340,7 +1348,11 @@ workflows:
           requires: [ hold ]
       - bedrock-go-tests:
           requires:
+            - go-mod-tidy
+            - cannon-build-test-vectors
             - cannon-go-lint-and-test
+            - check-generated-mocks-op-node
+            - check-generated-mocks-op-service
             - op-batcher-lint
             - op-bootnode-lint
             - op-bindings-lint
@@ -1354,6 +1366,7 @@ workflows:
             - op-batcher-tests
             - op-bindings-tests
             - op-chain-ops-tests
+            - op-heartbeat-tests
             - op-node-tests
             - op-proposer-tests
             - op-challenger-tests
@@ -1363,6 +1376,7 @@ workflows:
             - op-e2e-legacy-HTTP-tests
             - op-e2e-espresso-WS-tests
             - op-e2e-espresso-HTTP-tests
+            - op-e2e-ext-geth-tests
       - docker-build:
           name: op-node-docker-build
           docker_file: op-node/Dockerfile

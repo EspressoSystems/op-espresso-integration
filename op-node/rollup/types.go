@@ -86,6 +86,9 @@ type Config struct {
 	L1SystemConfigAddress common.Address `json:"l1_system_config_address"`
 	// L1 HotShot Contract Address
 	HotShotContractAddress *common.Address `json:"hotshot_contract_address"`
+
+	// L1 address that declares the protocol versions, optional (Beta feature)
+	ProtocolVersionsAddress common.Address `json:"protocol_versions_address,omitempty"`
 }
 
 // ValidateL1Config checks L1 config variables for errors.
@@ -285,6 +288,8 @@ func (c *Config) Description(l2Chains map[string]string) string {
 	// Report the upgrade configuration
 	banner += "Post-Bedrock Network Upgrades (timestamp based):\n"
 	banner += fmt.Sprintf("  - Regolith: %s\n", fmtForkTimeOrUnset(c.RegolithTime))
+	// Report the protocol version
+	banner += fmt.Sprintf("Node supports up to OP-Stack Protocol Version: %s\n", OPStackSupport)
 	return banner
 }
 
