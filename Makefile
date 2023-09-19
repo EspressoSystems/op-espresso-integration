@@ -3,7 +3,7 @@ ITESTS_L2_HOST=http://localhost:9545
 BEDROCK_TAGS_REMOTE?=origin
 DEVNET_ESPRESSO_FLAGS=--espresso --deploy-config="devnetL1-espresso.json" --deployment="devnetL1-espresso" --devnet-dir=".devnet-espresso" --l2-provider-url="http://localhost:19090"
 DEVNET_ESPRESSO_OP2_FLAGS=--espresso --deploy-config="devnetL1-espresso2.json" --deployment="devnetL1-espresso2" --devnet-dir=".devnet-espresso2" --l2-provider-url="http://localhost:29090" --l2="op2"
-DEVNET_ESPRESSO_DEMO_FLAGS=--espresso --deploy-config="espresso-demo.json" --deployment="espresso-demo" --devnet-dir=".devnet-espresso" --l2-provider-url="http://localhost:19090" --l2="op --compose-file demo-docker-compose.yml"
+DEVNET_ESPRESSO_DEMO_FLAGS=--espresso --deploy-config="espresso-demo.json" --deployment="espresso-demo" --devnet-dir=".devnet-espresso" --l2-provider-url="http://localhost:19090" --l2="op" --compose-file "demo-docker-compose.yml"
 monorepo-base := $(realpath .)
 
 build: build-go build-ts
@@ -142,6 +142,11 @@ devnet-test-espresso2:
 	PYTHONPATH=./bedrock-devnet python3 ./bedrock-devnet/main.py --monorepo-dir=. $(DEVNET_ESPRESSO_OP2_FLAGS) --test
 .PHONY: devnet-test-espresso2
 
+devnet-test-espresso-demo:
+	PYTHONPATH=./bedrock-devnet python3 ./bedrock-devnet/main.py --monorepo-dir=. $(DEVNET_ESPRESSO_DEMO_FLAGS) --test
+.PHONY: devnet-test-espresso-demo
+
+
 devnet-down:
 	@(cd ./ops-bedrock && GENESIS_TIMESTAMP=$(shell date +%s) docker compose down -v)
 .PHONY: devnet-down
@@ -150,9 +155,11 @@ devnet-clean:
 	rm -rf ./packages/contracts-bedrock/deployments/devnetL1
 	rm -rf ./packages/contracts-bedrock/deployments/devnetL1-espresso
 	rm -rf ./packages/contracts-bedrock/deployments/devnetL1-espresso2
+	rm -rf ./packages/contracts-bedrock/deployments/espresso-demo
 	rm -rf ./.devnet
 	rm -rf ./.devnet-espresso
 	rm -rf ./.devnet-espresso2
+	rm -rf ./.espresso-demo
 	cd ./ops-bedrock && docker compose down -v
 	docker image ls 'ops-bedrock*' --format='{{.Repository}}' | xargs -r docker rmi
 	docker volume ls --filter name=ops-bedrock --format='{{.Name}}' | xargs -r docker volume rm

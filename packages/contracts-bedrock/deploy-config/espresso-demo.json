@@ -1,5 +1,5 @@
 {
-  "l1ChainID": 1337,
+  "l1ChainID": 900,
   "l2ChainID": 902,
   "l2BlockTime": 2,
   "maxSequencerDrift": 300,
@@ -47,6 +47,6 @@
   "faultGameMaxDepth": 30,
   "faultGameMaxDuration": 1200,
   "systemConfigStartBlock": 0,
-  "hotshotContractAddress": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+  "hotshotContractAddress": "0x057ef64e23666f000b34ae31332854acbd1c8544",
   "espresso": true
 }
