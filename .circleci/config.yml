@@ -956,6 +956,14 @@ jobs:
         description: The make target to use to test the devnet
         type: string
         default: devnet-test
+      devnet-up-2:
+        description: A make target to start an optional second devnet
+        type: string
+        default: ""
+      devnet-test-2:
+        description: A make target to test the optional second devnet
+        type: string
+        default: ""
     steps:
       - checkout
       - check-changed:
@@ -1011,9 +1019,21 @@ jobs:
       - run:
           name: Bring up the stack
           command: make <<parameters.devnet-up>>
+      - when:
+          condition: <<parameters.devnet-up-2>>
+          steps:
+            - run:
+                name: Bring up the second stack
+                command: make <<parameters.devnet-up-2>>
       - run:
           name: Test the stack
           command: make <<parameters.devnet-test>>
+      - when:
+          condition: <<parameters.devnet-test-2>>
+          steps:
+            - run:
+                name: Test the second stack
+                command: make <<parameters.devnet-test-2>>
       - run:
           name: Dump op-node logs
           command: |
@@ -1216,6 +1236,8 @@ workflows:
           name: devnet-espresso
           devnet-up: devnet-up-espresso
           devnet-test: devnet-test-espresso
+          devnet-up-2: devnet-up-espresso2
+          devnet-test-2: devnet-test-espresso2
           requires:
             - pnpm-monorepo
       - go-lint-test-build:
