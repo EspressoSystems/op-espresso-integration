@@ -501,6 +501,9 @@ importers:
       mocha:
         specifier: ^10.2.0
         version: 10.2.0
+      node-fetch:
+        specifier: ^2.6.7
+        version: 2.6.12
       nyc:
         specifier: ^15.1.0
         version: 15.1.0
@@ -2773,7 +2776,7 @@ packages:
       hardhat: ^2.0.0
     dependencies:
       ethers: 5.7.2
-      hardhat: 2.17.2(ts-node@10.9.1)(typescript@5.2.2)
+      hardhat: 2.17.2(ts-node@10.9.1)(typescript@5.1.6)
     dev: true
 
   /@nomiclabs/hardhat-waffle@2.0.1(@nomiclabs/hardhat-ethers@2.2.3)(ethereum-waffle@4.0.10)(ethers@5.7.2)(hardhat@2.17.2):
