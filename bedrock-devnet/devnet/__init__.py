@@ -297,7 +297,7 @@ def devnet_deploy(paths, args):
         # If we are deploying onto an existing L1, don't restart the services that are already
         # running.
         command.append('--no-recreate')
-    services = [f'{l2}-node', f'{l2}-proposer', f'{l2}-batcher']
+    services = [f'{l2}-node', f'{l2}-proposer', f'{l2}-batcher', f'{l2}-faucet']
     run_command(command + services, cwd=paths.ops_bedrock_dir, env={
         'PWD': paths.ops_bedrock_dir,
         'L2OO_ADDRESS': l2_output_oracle,
