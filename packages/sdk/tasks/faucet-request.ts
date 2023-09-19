@@ -50,6 +50,6 @@ task('faucet-request', 'Deposits WETH9 onto L2.')
       if (balance >= initialBalance + GRANT_AMOUNT) {
         break
       }
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      await new Promise((resolve) => setTimeout(resolve, 1000))
     }
   })
