@@ -246,6 +246,12 @@ func (d *Sequencer) sealEspressoBatch(ctx context.Context) (*eth.ExecutionPayloa
 	return payload, nil
 }
 
+func (d *Sequencer) cancelBuildingEspressoBatch() {
+	// If we're in the process of building an Espresso batch, we haven't sent anything to the engine
+	// yet. All we have to do is forget the batch.
+	d.espressoBatch = nil
+}
+
 // startBuildingLegacyBlock initiates a legacy block building job on top of the given L2 head, safe and finalized blocks, and using the provided l1Origin.
 func (d *Sequencer) startBuildingLegacyBlock(ctx context.Context) error {
 	l2Head := d.engine.UnsafeL2Head()
@@ -422,6 +428,17 @@ func (d *Sequencer) CompleteBuildingBlock(ctx context.Context) (*eth.ExecutionPa
 		return d.completeBuildingLegacyBlock(ctx)
 	default:
 		return nil, fmt.Errorf("not building a block")
+	}
+}
+
+func (d *Sequencer) CancelBuildingBlock(ctx context.Context) {
+	switch d.mode {
+	case Espresso:
+		d.cancelBuildingEspressoBatch()
+	case Legacy:
+		d.cancelBuildingLegacyBlock(ctx)
+	default:
+		// Nothing to do, we're not building a block.
 	}
 }
 

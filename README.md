@@ -83,7 +83,8 @@ The [Espresso Sequencer](https://github.com/EspressoSystems/espresso-sequencer) 
    # After that finishes to deploy the second rollup on the existing L1 and sequencer
    make devnet-up-espresso2
 
-   # To run tests to check if it's working (these can be run in parallel)
+   # To run tests to check if it's working (these must be run in serial, since both tests make use
+   # of the same L1 account).
    make devnet-test-espresso
    make devnet-test-espresso2
 
@@ -180,6 +181,7 @@ Refer to the Directory Structure section below to understand which packages are 
 ├── <a href="./op-exporter">op-exporter</a>: Prometheus exporter client
 ├── <a href="./op-heartbeat">op-heartbeat</a>: Heartbeat monitor service
 ├── <a href="./op-node">op-node</a>: rollup consensus-layer client
+├── <a href="./op-preimage">op-preimage</a>: Go bindings for Preimage Oracle
 ├── <a href="./op-program">op-program</a>: Fault proof program
 ├── <a href="./op-proposer">op-proposer</a>: L2-Output Submitter, submits proposals to L1
 ├── <a href="./op-service">op-service</a>: Common codebase utilities
