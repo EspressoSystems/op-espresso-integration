@@ -211,10 +211,6 @@ func (d *Sequencer) sealEspressoBatch(ctx context.Context) (*eth.ExecutionPayloa
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch L1 origin %d: %w", l1OriginNumber, err)
 		}
-		if l1Origin.Time > batch.onto.Time+d.config.BlockTime {
-			d.log.Warn("Suggested origin is newer than the L2 batch. L1 timestamp: %s, window start: %s",
-				l1Origin.Time, batch.onto.Time+d.config.BlockTime)
-		}
 		d.log.Info("using adjusted L1 origin",
 			"suggested", suggestedL1Origin, "adjusted", l1Origin, "parent", batch.onto, "parentOrigin", batch.onto.L1Origin)
 	}
