@@ -69,10 +69,10 @@ services:
       --pprof.enabled
       --rpc.enable-admin
     ports:
-      - "$OP2_NODE_RPC_PORT:8545"
-      - "$OP2_NODE_P2P_PORT:9003"
-      - "$OP2_NODE_METRICS_PORT:7300"
-      - "$OP2_NODE_DEBUG_PORT:6060"
+      - "$OP1_NODE_RPC_PORT:8545"
+      - "$OP1_NODE_P2P_PORT:9003"
+      - "$OP1_NODE_METRICS_PORT:7300"
+      - "$OP1_NODE_DEBUG_PORT:6060"
     environment:
       - OP_NODE_ESPRESSO_URL=http://sequencer0:50000
     volumes:
@@ -93,8 +93,8 @@ services:
       context: ../
       dockerfile: ./op-proposer/Dockerfile
     ports:
-      - "$OP2_PROPOSER_DEBUG_PORT:6060"
-      - "$OP2_PROPOSER_METRICS_PORT:7300"
+      - "$OP1_PROPOSER_DEBUG_PORT:6060"
+      - "$OP1_PROPOSER_METRICS_PORT:7300"
     environment:
       OP_PROPOSER_L1_ETH_RPC: http://demo-l1-network:8545
       OP_PROPOSER_ROLLUP_RPC: http://op-node:8545
@@ -118,9 +118,9 @@ services:
       context: ../
       dockerfile: ./op-batcher/Dockerfile
     ports:
-      - "$OP2_BATCHER_DEBUG_PORT:6060"
-      - "$OP2_BATCHER_METRICS_PORT:7300"
-      - "$OP2_BATCHER_RPC_PORT:8545"
+      - "$OP1_BATCHER_DEBUG_PORT:6060"
+      - "$OP1_BATCHER_METRICS_PORT:7300"
+      - "$OP1_BATCHER_RPC_PORT:8545"
     environment:
       OP_BATCHER_L1_ETH_RPC: http://demo-l1-network:8545
       OP_BATCHER_L2_ETH_RPC: http://op-l2:8545
@@ -150,7 +150,7 @@ services:
       - OP_GETH_PROXY_GETH_ADDR=http://op-l2:8545
       - OP_GETH_PROXY_LISTEN_ADDR=0.0.0.0:9090
       - OP_GETH_PROXY_SEQ_ADDR=http://sequencer0:50000
-      - OP_GETH_PROXY_VM_ID=$OP2_CHAIN_ID
+      - OP_GETH_PROXY_VM_ID=$OP1_CHAIN_ID
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:

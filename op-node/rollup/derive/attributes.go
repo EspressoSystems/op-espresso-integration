@@ -119,10 +119,10 @@ func (ba *FetchingAttributesBuilder) PreparePayloadAttributes(ctx context.Contex
 
 	// Sanity check the L1 origin was correctly selected to maintain the time invariant between L1 and L2
 	nextL2Time := l2Parent.Time + ba.cfg.BlockTime
-	// if nextL2Time < l1Info.Time() {
-	// 	return nil, NewResetError(fmt.Errorf("cannot build L2 block on top %s for time %d before L1 origin %s at time %d",
-	// 		l2Parent, nextL2Time, eth.ToBlockID(l1Info), l1Info.Time()))
-	// }
+	if nextL2Time < l1Info.Time() {
+		return nil, NewResetError(fmt.Errorf("cannot build L2 block on top %s for time %d before L1 origin %s at time %d",
+			l2Parent, nextL2Time, eth.ToBlockID(l1Info), l1Info.Time()))
+	}
 
 	l1InfoTx, err := L1InfoDepositBytes(seqNumber, l1Info, sysConfig, justification, ba.cfg.IsRegolith(nextL2Time))
 	if err != nil {
