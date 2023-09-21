@@ -1,4 +1,5 @@
 import './deploy-erc20'
 import './deposit-eth'
 import './deposit-erc20'
+import './faucet-request'
 import './finalize-withdrawal'

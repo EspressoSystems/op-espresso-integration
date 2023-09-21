@@ -172,6 +172,21 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
+  op1-faucet:
+    image: ghcr.io/espressosystems/discord-faucet:main
+    ports:
+      - "$OP1_FAUCET_PORT:8111"
+    environment:
+      - ESPRESSO_DISCORD_FAUCET_NUM_CLIENTS=1
+      - ESPRESSO_DISCORD_FAUCET_MNEMONIC=test test test test test test test test test test test junk
+      - ESPRESSO_DISCORD_FAUCET_FIRST_ACCOUNT_INDEX=5
+      - ESPRESSO_DISCORD_FAUCET_GRANT_AMOUNT_ETHERS=0.1
+      - ESPRESSO_DISCORD_FAUCET_WEB3_PROVIDER_URL_HTTP=http://op1-geth-proxy:9090
+      - ESPRESSO_DISCORD_FAUCET_POLL_INTERVAL=2s
+      - RUST_LOG
+    depends_on:
+      - op1-geth-proxy
+
   artifact-server:
     depends_on:
       - l1
@@ -419,6 +434,21 @@ services:
       - OP_GETH_PROXY_VM_ID=$OP2_CHAIN_ID
     extra_hosts:
       - "host.docker.internal:host-gateway"
+
+  op2-faucet:
+    image: ghcr.io/espressosystems/discord-faucet:main
+    ports:
+      - "$OP2_FAUCET_PORT:8111"
+    environment:
+      - ESPRESSO_DISCORD_FAUCET_NUM_CLIENTS=1
+      - ESPRESSO_DISCORD_FAUCET_MNEMONIC=test test test test test test test test test test test junk
+      - ESPRESSO_DISCORD_FAUCET_FIRST_ACCOUNT_INDEX=5
+      - ESPRESSO_DISCORD_FAUCET_GRANT_AMOUNT_ETHERS=0.1
+      - ESPRESSO_DISCORD_FAUCET_WEB3_PROVIDER_URL_HTTP=http://op2-geth-proxy:9090
+      - ESPRESSO_DISCORD_FAUCET_POLL_INTERVAL=2s
+      - RUST_LOG
+    depends_on:
+      - op2-geth-proxy
 
   ##################################################################################################
   # OP stack 902 block explorer

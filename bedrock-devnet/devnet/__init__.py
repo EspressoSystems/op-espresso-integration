@@ -21,6 +21,7 @@ parser.add_argument('--allocs', help='Only create the allocs and exit', type=boo
 parser.add_argument('--test', help='Tests the deployment, must already be deployed', type=bool, action=argparse.BooleanOptionalAction)
 parser.add_argument('--l2', help='Which L2 to run', type=str, default='op1')
 parser.add_argument('--l2-provider-url', help='URL for the L2 RPC node', type=str, default='http://localhost:19545')
+parser.add_argument('--faucet-url', help='URL for the L2 faucet', type=str, default='http://localhost:18111')
 parser.add_argument('--deploy-l2', help='Deploy the L2 onto a running L1 and sequencer network', type=bool, action=argparse.BooleanOptionalAction)
 parser.add_argument('--deploy-config', help='Deployment config, relative to packages/contracts-bedrock/deploy-config', default='devnetL1.json')
 parser.add_argument('--deploy-config-template', help='Deployment config template, relative to packages/contracts-bedrock/deploy-config', default='devnetL1-template.json')
@@ -94,7 +95,7 @@ def main():
 
     if args.test:
         log.info('Testing deployed devnet')
-        devnet_test(paths, args.l2_provider_url)
+        devnet_test(paths, args.l2_provider_url, args.faucet_url)
         return
 
     os.makedirs(devnet_dir, exist_ok=True)
@@ -304,7 +305,7 @@ def devnet_deploy(paths, args):
         # If we are deploying onto an existing L1, don't restart the services that are already
         # running.
         command.append('--no-recreate')
-    services = [f'{l2}-node', f'{l2}-proposer', f'{l2}-batcher']
+    services = [f'{l2}-node', f'{l2}-proposer', f'{l2}-batcher', f'{l2}-faucet']
     run_command(command + services, cwd=paths.ops_bedrock_dir, env={
         'PWD': paths.ops_bedrock_dir,
         'L2OO_ADDRESS': l2_output_oracle,
@@ -369,7 +370,7 @@ def deploy_erc20(paths, l2_provider_url):
          timeout=60,
     )
 
-def devnet_test(paths, l2_provider_url):
+def devnet_test(paths, l2_provider_url, faucet_url):
     # Check the L2 config
     run_command(
         ['go', 'run', 'cmd/check-l2/main.go', '--l2-rpc-url', l2_provider_url, '--l1-rpc-url', 'http://localhost:8545'],
@@ -384,6 +385,12 @@ def devnet_test(paths, l2_provider_url):
 
     run_command(
          ['npx', 'hardhat',  'deposit-eth', '--network',  'devnetL1', '--l1-contracts-json-path', paths.addresses_json_path, '--l2-provider-url', l2_provider_url],
+         cwd=paths.sdk_dir,
+         timeout=8*60,
+    )
+
+    run_command(
+         ['npx', 'hardhat',  'faucet-request', '--network',  'devnetL1', '--l2-provider-url', l2_provider_url, '--faucet-url', faucet_url],
          cwd=paths.sdk_dir,
          timeout=8*60,
     )
