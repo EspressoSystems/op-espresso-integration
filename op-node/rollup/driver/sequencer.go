@@ -203,8 +203,7 @@ func (d *Sequencer) sealEspressoBatch(ctx context.Context) (*eth.ExecutionPayloa
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch next possible L1 origin %d: %w", nextL1Block, err)
 	}
-	nextL1BlockEligible := nextL1Block.Time <= d.config.BlockTime+batch.onto.Time
-	l1OriginNumber := derive.EspressoL1Origin(d.config, batch.onto, suggestedL1Origin, d.log, nextL1BlockEligible)
+	l1OriginNumber := derive.EspressoL1Origin(d.config, batch.onto, suggestedL1Origin, nextL1Block, d.log)
 	l1Origin := suggestedL1Origin
 	if l1Origin.Number != l1OriginNumber {
 		l1Origin, err = d.l1OriginSelector.FindL1OriginByNumber(ctx, l1OriginNumber)

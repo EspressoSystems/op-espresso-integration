@@ -31,3 +31,4 @@ deployments/1337
 deploy-config/devnetL1.json
 deploy-config/devnetL1-espresso.json
 deploy-config/devnetL1-espresso2.json
+deploy-config/espresso-demo.json

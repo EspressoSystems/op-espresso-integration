@@ -37,9 +37,10 @@ const (
 // conform with the constraints of the derivation pipeline. The resulting L1 origin will always be
 // the same as parent's or one block after parent's, will always conform to the derivation
 // constraints, and is deterministic given `parent` and `suggested.`
-func EspressoL1Origin(cfg *rollup.Config, parent eth.L2BlockRef, suggested eth.L1BlockRef, l log.Logger, nextL1BlockEligible bool) uint64 {
+func EspressoL1Origin(cfg *rollup.Config, parent eth.L2BlockRef, suggested eth.L1BlockRef, nextL1Block eth.L1BlockRef, l log.Logger) uint64 {
 	prev := parent.L1Origin
 	windowStart := parent.Time + cfg.BlockTime
+	nextL1BlockEligible := nextL1Block.Time <= windowStart
 
 	// Constraint 1: the L1 origin must not skip an L1 block.
 	if suggested.Number > prev.Number+1 {
@@ -154,8 +155,7 @@ func CheckBatchEspresso(cfg *rollup.Config, log log.Logger, l2SafeHead eth.L2Blo
 		log.Warn("error reading next possible L1 origin", "err", err, "origin", nextL1Number)
 		return BatchUndecided
 	}
-	nextL1BlockEligible := nextL1Block.Time <= cfg.BlockTime+l2SafeHead.Time
-	expectedL1Origin := EspressoL1Origin(cfg, l2SafeHead, suggestedL1Origin, log, nextL1BlockEligible)
+	expectedL1Origin := EspressoL1Origin(cfg, l2SafeHead, suggestedL1Origin, nextL1Block, log)
 	actualL1Origin := uint64(batch.Batch.EpochNum)
 	if expectedL1Origin != actualL1Origin {
 		log.Warn("dropping batch because L1 origin was not set correctly",

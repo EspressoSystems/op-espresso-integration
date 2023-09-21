@@ -20,6 +20,7 @@ cache
 packages/contracts-bedrock/deployments/devnetL1
 packages/contracts-bedrock/deployments/devnetL1-espresso
 packages/contracts-bedrock/deployments/devnetL1-espresso2
+packages/contracts-bedrock/deployments/espresso-demo
 packages/contracts-bedrock/deployments/anvil
 
 # vim
@@ -38,6 +39,7 @@ packages/contracts-bedrock/deployments/anvil
 .devnet
 .devnet-espresso
 .devnet-espresso2
+.espresso-demo
 
 # Ignore local fuzzing results
 **/testdata/fuzz/
