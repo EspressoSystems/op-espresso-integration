@@ -79,13 +79,12 @@ func (c *ClaimBuilder) claim(idx uint64, correct bool) common.Hash {
 
 func (c *ClaimBuilder) CreateRootClaim(correct bool) types.Claim {
 	value := c.claim((1<<c.maxDepth)-1, correct)
-	claim := types.Claim{
+	return types.Claim{
 		ClaimData: types.ClaimData{
 			Value:    value,
 			Position: types.NewPosition(0, 0),
 		},
 	}
-	return claim
 }
 
 func (c *ClaimBuilder) CreateLeafClaim(traceIndex uint64, correct bool) types.Claim {

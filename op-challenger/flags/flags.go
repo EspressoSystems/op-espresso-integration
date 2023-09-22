@@ -76,22 +76,14 @@ var (
 		EnvVars: prefixEnvVars("HTTP_POLL_INTERVAL"),
 		Value:   config.DefaultPollInterval,
 	}
-	RollupRpcFlag = &cli.StringFlag{
-		Name:    "rollup-rpc",
-		Usage:   "HTTP provider URL for the rollup node",
-		EnvVars: prefixEnvVars("ROLLUP_RPC"),
-	}
 	AlphabetFlag = &cli.StringFlag{
 		Name:    "alphabet",
 		Usage:   "Correct Alphabet Trace (alphabet trace type only)",
 		EnvVars: prefixEnvVars("ALPHABET"),
 	}
 	CannonNetworkFlag = &cli.StringFlag{
-		Name: "cannon-network",
-		Usage: fmt.Sprintf(
-			"Predefined network selection. Available networks: %s (cannon trace type only)",
-			strings.Join(chaincfg.AvailableNetworks(), ", "),
-		),
+		Name:    "cannon-network",
+		Usage:   fmt.Sprintf("Predefined network selection. Available networks: %s (cannon trace type only)", strings.Join(chaincfg.AvailableNetworks(), ", ")),
 		EnvVars: prefixEnvVars("CANNON_NETWORK"),
 	}
 	CannonRollupConfigFlag = &cli.StringFlag{
@@ -157,7 +149,6 @@ var requiredFlags = []cli.Flag{
 var optionalFlags = []cli.Flag{
 	MaxConcurrencyFlag,
 	HTTPPollInterval,
-	RollupRpcFlag,
 	AlphabetFlag,
 	GameAllowlistFlag,
 	CannonNetworkFlag,
@@ -184,32 +175,6 @@ func init() {
 // Flags contains the list of configuration options available to the binary.
 var Flags []cli.Flag
 
-func CheckCannonFlags(ctx *cli.Context) error {
-	if !ctx.IsSet(CannonNetworkFlag.Name) &&
-		!(ctx.IsSet(CannonRollupConfigFlag.Name) && ctx.IsSet(CannonL2GenesisFlag.Name)) {
-		return fmt.Errorf("flag %v or %v and %v is required",
-			CannonNetworkFlag.Name, CannonRollupConfigFlag.Name, CannonL2GenesisFlag.Name)
-	}
-	if ctx.IsSet(CannonNetworkFlag.Name) &&
-		(ctx.IsSet(CannonRollupConfigFlag.Name) || ctx.IsSet(CannonL2GenesisFlag.Name)) {
-		return fmt.Errorf("flag %v can not be used with %v and %v",
-			CannonNetworkFlag.Name, CannonRollupConfigFlag.Name, CannonL2GenesisFlag.Name)
-	}
-	if !ctx.IsSet(CannonBinFlag.Name) {
-		return fmt.Errorf("flag %s is required", CannonBinFlag.Name)
-	}
-	if !ctx.IsSet(CannonServerFlag.Name) {
-		return fmt.Errorf("flag %s is required", CannonServerFlag.Name)
-	}
-	if !ctx.IsSet(CannonPreStateFlag.Name) {
-		return fmt.Errorf("flag %s is required", CannonPreStateFlag.Name)
-	}
-	if !ctx.IsSet(CannonL2Flag.Name) {
-		return fmt.Errorf("flag %s is required", CannonL2Flag.Name)
-	}
-	return nil
-}
-
 func CheckRequired(ctx *cli.Context) error {
 	for _, f := range requiredFlags {
 		if !ctx.IsSet(f.Names()[0]) {
@@ -219,19 +184,31 @@ func CheckRequired(ctx *cli.Context) error {
 	gameType := config.TraceType(strings.ToLower(ctx.String(TraceTypeFlag.Name)))
 	switch gameType {
 	case config.TraceTypeCannon:
-		if err := CheckCannonFlags(ctx); err != nil {
-			return err
+		if !ctx.IsSet(CannonNetworkFlag.Name) &&
+			!(ctx.IsSet(CannonRollupConfigFlag.Name) && ctx.IsSet(CannonL2GenesisFlag.Name)) {
+			return fmt.Errorf("flag %v or %v and %v is required",
+				CannonNetworkFlag.Name, CannonRollupConfigFlag.Name, CannonL2GenesisFlag.Name)
+		}
+		if ctx.IsSet(CannonNetworkFlag.Name) &&
+			(ctx.IsSet(CannonRollupConfigFlag.Name) || ctx.IsSet(CannonL2GenesisFlag.Name)) {
+			return fmt.Errorf("flag %v can not be used with %v and %v",
+				CannonNetworkFlag.Name, CannonRollupConfigFlag.Name, CannonL2GenesisFlag.Name)
+		}
+		if !ctx.IsSet(CannonBinFlag.Name) {
+			return fmt.Errorf("flag %s is required", CannonBinFlag.Name)
+		}
+		if !ctx.IsSet(CannonServerFlag.Name) {
+			return fmt.Errorf("flag %s is required", CannonServerFlag.Name)
+		}
+		if !ctx.IsSet(CannonPreStateFlag.Name) {
+			return fmt.Errorf("flag %s is required", CannonPreStateFlag.Name)
+		}
+		if !ctx.IsSet(CannonL2Flag.Name) {
+			return fmt.Errorf("flag %s is required", CannonL2Flag.Name)
 		}
 	case config.TraceTypeAlphabet:
 		if !ctx.IsSet(AlphabetFlag.Name) {
 			return fmt.Errorf("flag %s is required", "alphabet")
-		}
-	case config.TraceTypeOutputCannon:
-		if err := CheckCannonFlags(ctx); err != nil {
-			return err
-		}
-		if !ctx.IsSet(RollupRpcFlag.Name) {
-			return fmt.Errorf("flag %s is required", RollupRpcFlag.Name)
 		}
 	default:
 		return fmt.Errorf("invalid trace type. must be one of %v", config.TraceTypes)
@@ -278,7 +255,6 @@ func NewConfigFromCLI(ctx *cli.Context) (*config.Config, error) {
 		GameWindow:              ctx.Duration(GameWindowFlag.Name),
 		MaxConcurrency:          maxConcurrency,
 		PollInterval:            ctx.Duration(HTTPPollInterval.Name),
-		RollupRpc:               ctx.String(RollupRpcFlag.Name),
 		AlphabetTrace:           ctx.String(AlphabetFlag.Name),
 		CannonNetwork:           ctx.String(CannonNetworkFlag.Name),
 		CannonRollupConfigPath:  ctx.String(CannonRollupConfigFlag.Name),

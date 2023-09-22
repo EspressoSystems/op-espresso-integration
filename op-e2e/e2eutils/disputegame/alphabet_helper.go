@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/ethereum-optimism/optimism/op-challenger/config"
-	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/trace/alphabet"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/challenger"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -33,13 +32,4 @@ func (g *AlphabetGameHelper) StartChallenger(ctx context.Context, l1Endpoint str
 		_ = c.Close()
 	})
 	return c
-}
-
-func (g *AlphabetGameHelper) CreateHonestActor(ctx context.Context, alphabetTrace string, depth uint64) *HonestHelper {
-	return &HonestHelper{
-		t:            g.t,
-		require:      g.require,
-		game:         &g.FaultGameHelper,
-		correctTrace: alphabet.NewTraceProvider(alphabetTrace, depth),
-	}
 }

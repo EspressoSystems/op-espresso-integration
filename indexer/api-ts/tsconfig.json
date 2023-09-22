@@ -4,7 +4,7 @@
     "strict": true,
     "skipLibCheck": true,
     "module": "ESNext",
-    "moduleResolution": "NodeNext",
+    "moduleResolution": "bundler",
     "jsx": "react",
     "target": "ESNext",
     "noEmit": true

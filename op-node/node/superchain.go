@@ -2,21 +2,18 @@ package node
 
 import (
 	"context"
-	"errors"
 
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum/go-ethereum/eth/catalyst"
 	"github.com/ethereum/go-ethereum/params"
 )
 
-var errNodeHalt = errors.New("opted to halt, unprepared for protocol change")
-
-func (n *OpNode) handleProtocolVersionsUpdate(ctx context.Context) error {
+func (n *OpNode) handleProtocolVersionsUpdate(ctx context.Context) {
 	recommended := n.runCfg.RecommendedProtocolVersion()
 	required := n.runCfg.RequiredProtocolVersion()
 	// if the protocol version sources are disabled we do not process them
 	if recommended == (params.ProtocolVersion{}) && required == (params.ProtocolVersion{}) {
-		return nil
+		return
 	}
 	local := rollup.OPStackSupport
 	// forward to execution engine, and get back the protocol version that op-geth supports
@@ -33,20 +30,20 @@ func (n *OpNode) handleProtocolVersionsUpdate(ctx context.Context) error {
 	catalyst.LogProtocolVersionSupport(n.log.New("node", "engine"), local, required, "required")
 
 	// We may need to halt the node, if the user opted in to handling incompatible protocol-version signals
-	return n.haltMaybe()
+	n.HaltMaybe()
 }
 
-// haltMaybe returns errNodeHalt if the runtime config indicates an incompatible required protocol change
+// HaltMaybe halts the rollup node if the runtime config indicates an incompatible required protocol change
 // and the node is configured to opt-in to halting at this protocol-change level.
-func (n *OpNode) haltMaybe() error {
+func (n *OpNode) HaltMaybe() {
 	local := rollup.OPStackSupport
 	required := n.runCfg.RequiredProtocolVersion()
 	if haltMaybe(n.rollupHalt, local.Compare(required)) { // halt if we opted in to do so at this granularity
 		n.log.Error("Opted to halt, unprepared for protocol change", "required", required, "local", local)
-		// Avoid deadlocking the runtime config reloader by closing the OpNode elsewhere
-		return errNodeHalt
+		if err := n.Close(); err != nil {
+			n.log.Error("Failed to halt rollup", "err", err)
+		}
 	}
-	return nil
 }
 
 // haltMaybe returns true when we should halt, given the halt-option and required-version comparison

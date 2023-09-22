@@ -14,12 +14,12 @@ type DepositItem struct {
 	From           string `json:"from"`
 	To             string `json:"to"`
 	Timestamp      uint64 `json:"timestamp"`
-	L1BlockHash    string `json:"l1BlockHash"`
-	L1TxHash       string `json:"l1TxHash"`
-	L2TxHash       string `json:"l2TxHash"`
+	L1TxHash       string `json:"L1TxHash"`
+	L2TxHash       string `json:"L2TxHash"`
+	L1BlockHash    string `json:"Block"`
 	Amount         string `json:"amount"`
-	L1TokenAddress string `json:"l1TokenAddress"`
-	L2TokenAddress string `json:"l2TokenAddress"`
+	L1TokenAddress string `json:"l1Token"`
+	L2TokenAddress string `json:"l2Token"`
 }
 
 type DepositResponse struct {

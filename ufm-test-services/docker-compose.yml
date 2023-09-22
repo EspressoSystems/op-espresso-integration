@@ -35,8 +35,7 @@ services:
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PWD}
     volumes:
-      - ./grafana/provisioning:/etc/grafana/provisioning
-      - ./grafana/dashboards:/var/lib/grafana/dashboards
+      - ./datasources.yml:/etc/grafana/provisioning/datasources/datasources.yaml
     security_opt:
       - "no-new-privileges:true"
 

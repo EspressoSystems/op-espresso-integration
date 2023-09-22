@@ -150,10 +150,7 @@ func TestDeleteDataForResolvedGames(t *testing.T) {
 	gameAddrs := []common.Address{gameAddr1, gameAddr2, gameAddr3}
 	require.NoError(t, c.schedule(ctx, gameAddrs))
 
-	// The work queue should only contain jobs for games 1 and 2
-	// A resolved game should not be scheduled for an update.
-	// This makes the inflight game metric more robust.
-	require.Len(t, workQueue, 2, "should schedule all games")
+	require.Len(t, workQueue, len(gameAddrs), "should schedule all games")
 
 	// Game 1 progresses and is still in progress
 	// Game 2 progresses and is now resolved
@@ -249,10 +246,6 @@ type stubGame struct {
 
 func (g *stubGame) ProgressGame(_ context.Context) types.GameStatus {
 	g.progressCount++
-	return g.status
-}
-
-func (g *stubGame) Status() types.GameStatus {
 	return g.status
 }
 

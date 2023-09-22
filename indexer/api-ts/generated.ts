@@ -8,12 +8,12 @@ export interface DepositItem {
   from: string;
   to: string;
   timestamp: number /* uint64 */;
-  l1BlockHash: string;
-  l1TxHash: string;
-  l2TxHash: string;
+  L1TxHash: string;
+  L2TxHash: string;
+  Block: string;
   amount: string;
-  l1TokenAddress: string;
-  l2TokenAddress: string;
+  l1Token: string;
+  l2Token: string;
 }
 export interface DepositResponse {
   cursor: string;
@@ -41,10 +41,10 @@ export interface WithdrawalItem {
   timestamp: number /* uint64 */;
   l2BlockHash: string;
   amount: string;
-  proofTransactionHash: string;
-  claimTransactionHash: string;
-  l1TokenAddress: string;
-  l2TokenAddress: string;
+  proof: string;
+  claim: string;
+  l1Token: string;
+  l2Token: string;
 }
 export interface WithdrawalResponse {
   cursor: string;

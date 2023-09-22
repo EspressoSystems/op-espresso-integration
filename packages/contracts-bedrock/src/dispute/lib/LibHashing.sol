@@ -9,20 +9,11 @@ library LibHashing {
     /// @notice Hashes a claim and a position together.
     /// @param _claim A Claim type.
     /// @param _position The position of `claim`.
-    /// @param _challengeIndex The index of the claim being moved against.
-    /// @return claimHash_ A hash of abi.encodePacked(claim, position|challengeIndex);
-    function hashClaimPos(
-        Claim _claim,
-        Position _position,
-        uint256 _challengeIndex
-    )
-        internal
-        pure
-        returns (ClaimHash claimHash_)
-    {
+    /// @return claimHash_ A hash of abi.encodePacked(claim, position);
+    function hashClaimPos(Claim _claim, Position _position) internal pure returns (ClaimHash claimHash_) {
         assembly {
             mstore(0x00, _claim)
-            mstore(0x20, or(shl(128, _position), and(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF, _challengeIndex)))
+            mstore(0x20, _position)
             claimHash_ := keccak256(0x00, 0x40)
         }
     }

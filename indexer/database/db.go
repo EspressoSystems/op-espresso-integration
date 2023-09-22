@@ -2,13 +2,10 @@
 package database
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/ethereum-optimism/optimism/indexer/config"
 	_ "github.com/ethereum-optimism/optimism/indexer/database/serializers"
-	"github.com/ethereum-optimism/optimism/op-service/retry"
-	"github.com/pkg/errors"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -34,8 +31,6 @@ type DB struct {
 }
 
 func NewDB(dbConfig config.DBConfig) (*DB, error) {
-	retryStrategy := &retry.ExponentialStrategy{Min: 1000, Max: 20_000, MaxJitter: 250}
-
 	dsn := fmt.Sprintf("host=%s port=%d dbname=%s sslmode=disable", dbConfig.Host, dbConfig.Port, dbConfig.Name)
 	if dbConfig.User != "" {
 		dsn += fmt.Sprintf(" user=%s", dbConfig.User)
@@ -43,24 +38,17 @@ func NewDB(dbConfig config.DBConfig) (*DB, error) {
 	if dbConfig.Password != "" {
 		dsn += fmt.Sprintf(" password=%s", dbConfig.Password)
 	}
-
-	gormConfig := gorm.Config{
+	gorm, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
 		// The indexer will explicitly manage the transactions
 		SkipDefaultTransaction: true,
-		Logger:                 logger.Default.LogMode(logger.Silent),
-	}
 
-	gorm, err := retry.Do[*gorm.DB](context.Background(), 10, retryStrategy, func() (*gorm.DB, error) {
-		gorm, err := gorm.Open(postgres.Open(dsn), &gormConfig)
-
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to connect to database")
-		}
-		return gorm, nil
+		// We may choose to create an adapter such that the
+		// logger emits to the geth logger when on DEBUG mode
+		Logger: logger.Default.LogMode(logger.Silent),
 	})
 
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to connect to database after multiple retries")
+		return nil, err
 	}
 
 	db := &DB{
