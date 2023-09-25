@@ -1,0 +1,280 @@
+version: '1'
+
+# This Docker compose file is intended to be used with the multi-rollup Espresso Sequencer demo
+# It assumes that a sequencer network and a geth node is running on the external network "espresso-sequencer".
+
+networks:
+  espresso-sequencer:
+    name: espresso-sequencer
+    external: true
+
+volumes:
+  op_l2_data:
+  op_log:
+  op_blockscout_db:
+  op_blockscout_logs:
+  op_blockscout_redis:
+
+services:
+  op-l2:
+    image: ghcr.io/espressosystems/op-espresso-integration/l2:integration
+    build:
+      context: .
+      dockerfile: Dockerfile.l2
+    ports:
+      - "$OP1_L2_RPC_PORT:8545"
+      - "$OP1_L2_DEBUG_PORT:6060"
+    volumes:
+      - "op_l2_data:/db"
+      - "${DEVNET_DIR}/genesis-l2.json:/genesis.json"
+      - "${PWD}/test-jwt-secret.txt:/config/test-jwt-secret.txt"
+    entrypoint:
+      # pass the L2 specific flags by overriding the entry-point and adding extra arguments
+      - "/bin/sh"
+      - "/entrypoint.sh"
+      - "--authrpc.jwtsecret=/config/test-jwt-secret.txt"
+    networks:
+      - espresso-sequencer
+
+
+  op-node:
+    image: ghcr.io/espressosystems/op-espresso-integration/op-node:integration
+    depends_on:
+      - op-l2
+    build:
+      context: ../
+      dockerfile: ./op-node/Dockerfile
+    command: >
+      op-node
+      --l1=ws://demo-l1-network:8546
+      --l2=http://op-l2:8551
+      --l2.jwt-secret=/config/test-jwt-secret.txt
+      --sequencer.enabled
+      --sequencer.l1-confs=0
+      --verifier.l1-confs=0
+      --p2p.sequencer.key=8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba
+      --rollup.config=/rollup.json
+      --rpc.addr=0.0.0.0
+      --rpc.port=8545
+      --p2p.listen.ip=0.0.0.0
+      --p2p.listen.tcp=9003
+      --p2p.listen.udp=9003
+      --p2p.scoring.peers=light
+      --p2p.ban.peers=true
+      --snapshotlog.file=/op_log/snapshot.log
+      --p2p.priv.path=/config/p2p-node-key.txt
+      --metrics.enabled
+      --metrics.addr=0.0.0.0
+      --metrics.port=7300
+      --pprof.enabled
+      --rpc.enable-admin
+    ports:
+      - "$OP1_NODE_RPC_PORT:8545"
+      - "$OP1_NODE_P2P_PORT:9003"
+      - "$OP1_NODE_METRICS_PORT:7300"
+      - "$OP1_NODE_DEBUG_PORT:6060"
+    environment:
+      - OP_NODE_ESPRESSO_URL=http://sequencer0:50000
+    volumes:
+      - "${PWD}/p2p-sequencer-key.txt:/config/p2p-sequencer-key.txt"
+      - "${PWD}/p2p-node-key.txt:/config/p2p-node-key.txt"
+      - "${PWD}/test-jwt-secret.txt:/config/test-jwt-secret.txt"
+      - "${DEVNET_DIR}/rollup.json:/rollup.json"
+      - op_log:/op_log
+    networks:
+      - espresso-sequencer
+
+  op-proposer:
+    image: ghcr.io/espressosystems/op-espresso-integration/op-proposer:integration
+    depends_on:
+      - op-l2
+      - op-node
+    build:
+      context: ../
+      dockerfile: ./op-proposer/Dockerfile
+    ports:
+      - "$OP1_PROPOSER_DEBUG_PORT:6060"
+      - "$OP1_PROPOSER_METRICS_PORT:7300"
+    environment:
+      OP_PROPOSER_L1_ETH_RPC: http://demo-l1-network:8545
+      OP_PROPOSER_ROLLUP_RPC: http://op-node:8545
+      OP_PROPOSER_POLL_INTERVAL: 1s
+      OP_PROPOSER_NUM_CONFIRMATIONS: 1
+      OP_PROPOSER_MNEMONIC: test test test test test test test test test test test junk
+      OP_PROPOSER_L2_OUTPUT_HD_PATH: "m/44'/60'/0'/0/1"
+      OP_PROPOSER_L2OO_ADDRESS: "${L2OO_ADDRESS}"
+      OP_PROPOSER_PPROF_ENABLED: "true"
+      OP_PROPOSER_METRICS_ENABLED: "true"
+      OP_PROPOSER_ALLOW_NON_FINALIZED: "true"
+    networks:
+      - espresso-sequencer
+
+  op-batcher:
+    image: ghcr.io/espressosystems/op-espresso-integration/op-batcher:integration
+    depends_on:
+      - op-l2
+      - op-node
+    build:
+      context: ../
+      dockerfile: ./op-batcher/Dockerfile
+    ports:
+      - "$OP1_BATCHER_DEBUG_PORT:6060"
+      - "$OP1_BATCHER_METRICS_PORT:7300"
+      - "$OP1_BATCHER_RPC_PORT:8545"
+    environment:
+      OP_BATCHER_L1_ETH_RPC: http://demo-l1-network:8545
+      OP_BATCHER_L2_ETH_RPC: http://op-l2:8545
+      OP_BATCHER_ROLLUP_RPC: http://op-node:8545
+      OP_BATCHER_MAX_CHANNEL_DURATION: 1
+      OP_BATCHER_SUB_SAFETY_MARGIN: 4 # SWS is 15, ChannelTimeout is 40
+      OP_BATCHER_POLL_INTERVAL: 1s
+      OP_BATCHER_NUM_CONFIRMATIONS: 1
+      OP_BATCHER_MNEMONIC: test test test test test test test test test test test junk
+      OP_BATCHER_SEQUENCER_HD_PATH: "m/44'/60'/0'/0/2"
+      OP_BATCHER_PPROF_ENABLED: "true"
+      OP_BATCHER_METRICS_ENABLED: "true"
+      OP_BATCHER_RPC_ENABLE_ADMIN: "true"
+    # The batcher does not respond to sigint
+    stop_grace_period: 1s
+    networks:
+      - espresso-sequencer
+
+  op-geth-proxy:
+    image: ghcr.io/espressosystems/op-espresso-integration/op-geth-proxy:integration
+    build:
+      context: ../
+      dockerfile: ./op-geth-proxy/Dockerfile
+    ports:
+      - "$OP1_GETH_PROXY_PORT:9090"
+    environment:
+      - OP_GETH_PROXY_GETH_ADDR=http://op-l2:8545
+      - OP_GETH_PROXY_LISTEN_ADDR=0.0.0.0:9090
+      - OP_GETH_PROXY_SEQ_ADDR=http://sequencer0:50000
+      - OP_GETH_PROXY_VM_ID=$OP1_CHAIN_ID
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - espresso-sequencer
+
+  op-faucet:
+    image: ghcr.io/espressosystems/discord-faucet:main
+    ports:
+      - "$OP1_FAUCET_PORT:8111"
+    environment:
+      - ESPRESSO_DISCORD_FAUCET_NUM_CLIENTS=1
+      - ESPRESSO_DISCORD_FAUCET_MNEMONIC=test test test test test test test test test test test junk
+      - ESPRESSO_DISCORD_FAUCET_FIRST_ACCOUNT_INDEX=5
+      - ESPRESSO_DISCORD_FAUCET_GRANT_AMOUNT_ETHERS=0.1
+      - ESPRESSO_DISCORD_FAUCET_WEB3_PROVIDER_URL_HTTP=http://op-geth-proxy:9090
+      - ESPRESSO_DISCORD_FAUCET_POLL_INTERVAL=2s
+      - RUST_LOG
+    depends_on:
+      - op-geth-proxy
+    networks:
+      - espresso-sequencer
+
+  artifact-server:
+    image: nginx:1.25-alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - "${DEVNET_DIR}/:/usr/share/nginx/html/:ro"
+    security_opt:
+      - "no-new-privileges:true"
+
+  stateviz:
+    image: ghcr.io/espressosystems/op-espresso-integration/stateviz:integration
+    build:
+      context: ../
+      dockerfile: ./ops-bedrock/Dockerfile.stateviz
+    command:
+      - stateviz
+      - -addr=0.0.0.0:8080
+      - -snapshot=/op_log/snapshot.log
+      - -refresh=10s
+    ports:
+      - "9090:8080"
+    volumes:
+      - op_log:/op_log:ro
+
+  op-blockscout-db:
+    image: postgres:14
+    restart: always
+    command: postgres -c 'max_connections=200'
+    environment:
+        POSTGRES_PASSWORD: ''
+        POSTGRES_USER: 'postgres'
+        POSTGRES_HOST_AUTH_METHOD: 'trust'
+    ports:
+      - "5432"
+    volumes:
+      - op_blockscout_db:/var/lib/postgresql/data
+
+  op-redis-db:
+    image: 'redis:alpine'
+    ports:
+      - "6379"
+    command: redis-server
+    volumes:
+      - op_blockscout_redis:/data
+
+  op-blockscout:
+    depends_on:
+      - op-blockscout-db
+      - op-smart-contract-verifier
+      - op-redis-db
+    image: ghcr.io/espressosystems/espresso-sequencer/blockscout:main
+    pull_policy: always
+    restart: always
+    stop_grace_period: 5m
+    links:
+      - op-blockscout-db:database
+    command: sh -c "bin/blockscout eval \"Elixir.Explorer.ReleaseTasks.create_and_migrate()\" && bin/blockscout start"
+    env_file:
+      - ../blockscout/docker-compose/envs/common-blockscout.env
+    environment:
+        SUBNETWORK: 'OP Rollup 901'
+        ETHEREUM_JSONRPC_VARIANT: 'geth'
+        ETHEREUM_JSONRPC_HTTP_URL: http://op-l2:8545/
+        ETHEREUM_JSONRPC_TRACE_URL: http://op-l2:8545/
+        DATABASE_URL: postgresql://postgres:@op-blockscout-db:5432/blockscout?ssl=false
+        ACCOUNT_REDIS_URL: redis://op-redis-db:6379
+        MICROSERVICE_SC_VERIFIER_URL: http://op-smart-contract-verifier:8050/
+        MICROSERVICE_VISUALIZE_SOL2UML_URL: http://op-visualizer:8050/
+        MICROSERVICE_SIG_PROVIDER_URL: http://op-sig-provider:8050/
+        ECTO_USE_SSL: 'false'
+        SECRET_KEY_BASE: '56NtB48ear7+wMSf0IQuWDAAazhpb31qyc7GiyspBP2vh7t5zlCsF5QDv76chXeN'
+        MIX_ENV: 'prod'
+        INDEXER_CATCHUP_BLOCK_INTERVAL: '1s'
+    ports:
+      - "$OP1_BLOCKSCOUT_PORT:4000"
+    volumes:
+      - op_blockscout_logs:/app/logs/
+
+  op-smart-contract-verifier:
+    image: ghcr.io/blockscout/smart-contract-verifier:${SMART_CONTRACT_VERIFIER_DOCKER_TAG:-latest}
+    pull_policy: always
+    platform: linux/amd64
+    restart: always
+    env_file:
+      - ../blockscout/docker-compose/envs/common-smart-contract-verifier.env
+    ports:
+      - "$OP1_SMART_CONTRACT_VERIFIER_PORT:8050"
+
+  op-visualizer:
+    image: ghcr.io/blockscout/visualizer:${VISUALIZER_DOCKER_TAG:-latest}
+    pull_policy: always
+    platform: linux/amd64
+    restart: always
+    env_file:
+      -  ../blockscout/docker-compose/envs/common-visualizer.env
+    ports:
+      - "$OP1_VISUALIZER_PORT:8050"
+
+  op-sig-provider:
+    image: ghcr.io/blockscout/sig-provider:${SIG_PROVIDER_DOCKER_TAG:-latest}
+    pull_policy: always
+    platform: linux/amd64
+    restart: always
+    ports:
+      - "$OP1_SIG_PROVIDER_PORT:8050"

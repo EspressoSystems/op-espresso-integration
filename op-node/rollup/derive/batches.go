@@ -37,16 +37,23 @@ const (
 // conform with the constraints of the derivation pipeline. The resulting L1 origin will always be
 // the same as parent's or one block after parent's, will always conform to the derivation
 // constraints, and is deterministic given `parent` and `suggested.`
-func EspressoL1Origin(cfg *rollup.Config, parent eth.L2BlockRef, suggested eth.L1BlockRef) uint64 {
+func EspressoL1Origin(cfg *rollup.Config, parent eth.L2BlockRef, suggested eth.L1BlockRef, nextL1Block eth.L1BlockRef, l log.Logger) uint64 {
 	prev := parent.L1Origin
 	windowStart := parent.Time + cfg.BlockTime
+	nextL1BlockEligible := nextL1Block.Time <= windowStart
 
 	// Constraint 1: the L1 origin must not skip an L1 block.
 	if suggested.Number > prev.Number+1 {
 		// If we did skip an L1 block, that is Espresso telling us that multiple new L1 blocks have
 		// already been produced. In this case, we will not block when fetching the next L1 origin,
 		// so advance as far as the derivation pipeline allows: one block.
-		return prev.Number + 1
+		if nextL1BlockEligible {
+			l.Info("We skipped an L1 block and the next L1 block is eligible as an origin, advancing by one")
+			return prev.Number + 1
+		} else {
+			l.Info("We skipped an L1 block and the next L1 block is not eligible as an origin, using the old origin")
+			return prev.Number
+		}
 	}
 	// Constraint 2: the L1 origin number decreased.
 	//
@@ -57,6 +64,7 @@ func EspressoL1Origin(cfg *rollup.Config, parent eth.L2BlockRef, suggested eth.L
 		// In this case, we have no indication that new L1 blocks are ready. We don't want to
 		// advance the L1 origin number and force the derivation pipeline to block waiting for a new
 		// L1 block to be produced, so just reuse the previous L1 origin.
+		l.Info("L1 origin decreased, using the old origin")
 		return prev.Number
 	}
 	// Constraint 3: the L1 origin is too old.
@@ -65,6 +73,7 @@ func EspressoL1Origin(cfg *rollup.Config, parent eth.L2BlockRef, suggested eth.L
 		// forced to advance the L1 origin. At worst, the derivation pipeline may block until the
 		// next L1 origin is available, but if the chosen L1 origin is this old, it is likely that a
 		// new L1 block is available and Espresso just hasn't seen it yet for some reason.
+		l.Info("L1 origin is too old, advancing by one")
 		return prev.Number + 1
 	}
 	// Constraint 4: the L1 origin must not be newer than the L2 batch.
@@ -73,6 +82,7 @@ func EspressoL1Origin(cfg *rollup.Config, parent eth.L2BlockRef, suggested eth.L
 		// timestamp earlier than `prev`, and thus earlier than the current batch. Espresso must be
 		// running ahead of the L2, which is fine, we'll just wait to advance the L1 origin until
 		// the L2 chain catches up.
+		l.Info("L1 origin is newer than the L2 batch, use the previous origin")
 		return prev.Number
 	}
 
@@ -139,7 +149,13 @@ func CheckBatchEspresso(cfg *rollup.Config, log log.Logger, l2SafeHead eth.L2Blo
 		log.Warn("error reading suggested L1 origin", "err", err, "l1 head", jst.Next.L1Head)
 		return BatchUndecided
 	}
-	expectedL1Origin := EspressoL1Origin(cfg, l2SafeHead, suggestedL1Origin)
+	nextL1Number := l2SafeHead.L1Origin.Number + 1
+	nextL1Block, err := l1.L1BlockRefByNumber(context.Background(), nextL1Number)
+	if err != nil {
+		log.Warn("error reading next possible L1 origin", "err", err, "origin", nextL1Number)
+		return BatchUndecided
+	}
+	expectedL1Origin := EspressoL1Origin(cfg, l2SafeHead, suggestedL1Origin, nextL1Block, log)
 	actualL1Origin := uint64(batch.Batch.EpochNum)
 	if expectedL1Origin != actualL1Origin {
 		log.Warn("dropping batch because L1 origin was not set correctly",

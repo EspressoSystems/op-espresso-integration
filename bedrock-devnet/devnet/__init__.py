@@ -28,6 +28,7 @@ parser.add_argument('--deploy-config-template', help='Deployment config template
 parser.add_argument('--deployment', help='Path to deployment output files, relative to packages/contracts-bedrock/deployments', default='devnetL1')
 parser.add_argument('--devnet-dir', help='Output path for devnet config, relative to --monorepo-dir', default='.devnet')
 parser.add_argument('--espresso', help='Run on Espresso Sequencer', type=bool, action=argparse.BooleanOptionalAction)
+parser.add_argument("--compose-file", help="Compose file to use for demo images", type=str, default="docker-compose.yml")
 
 log = logging.getLogger()
 
@@ -119,9 +120,14 @@ def deploy_contracts(paths, deploy_config: str, deploy_l2: bool):
     account = response['result'][0]
     log.info(f'Deploying with {account}')
 
-    # The create2 account is shared by both L2s, so don't redeploy it if we are deploying onto an
-    # existing L1.
-    if not deploy_l2:
+    # The create2 account is shared by both L2s, so don't redeploy it unless necessary
+    # We check to see if the create2 deployer exists by querying its balance
+    res = run_command(
+        ["cast", "balance", "0x3fAB184622Dc19b6109349B94811493BF2a45362"],
+        capture_output=True,
+    )
+    deployer_balance = int(res.stdout.strip())
+    if deployer_balance == 0:
         # send some ether to the create2 deployer account
         run_command([
             'cast', 'send', '--from', account,
@@ -205,6 +211,7 @@ def devnet_deploy(paths, args):
     espresso = args.espresso
     l2 = args.l2
     l2_provider_url = args.l2_provider_url
+    compose_file = args.compose_file
 
     if os.path.exists(paths.genesis_l1_path) and os.path.isfile(paths.genesis_l1_path):
         log.info('L1 genesis already generated.')
@@ -237,7 +244,7 @@ def devnet_deploy(paths, args):
     else:
         # Deploy L1 and sequencer network.
         log.info('Starting L1.')
-        run_command(['docker', 'compose', 'up', '-d', 'l1'], cwd=paths.ops_bedrock_dir, env={
+        run_command(['docker', 'compose', '-f', compose_file, 'up', '-d', 'l1'], cwd=paths.ops_bedrock_dir, env={
             'PWD': paths.ops_bedrock_dir,
             'DEVNET_DIR': paths.devnet_dir
         })
@@ -254,7 +261,7 @@ def devnet_deploy(paths, args):
                 'sequencer0',
                 'sequencer1',
             ]
-            run_command(['docker-compose', 'up', '-d'] + espresso_services, cwd=paths.ops_bedrock_dir, env={
+            run_command(['docker-compose', '-f', compose_file, 'up', '-d'] + espresso_services, cwd=paths.ops_bedrock_dir, env={
                 'PWD': paths.ops_bedrock_dir,
                 'DEVNET_DIR': paths.devnet_dir
             })
@@ -277,7 +284,7 @@ def devnet_deploy(paths, args):
     addresses = read_json(paths.addresses_json_path)
 
     log.info('Bringing up L2.')
-    run_command(['docker', 'compose', 'up', '-d', f'{l2}-l2', f'{l2}-geth-proxy'], cwd=paths.ops_bedrock_dir, env={
+    run_command(['docker', 'compose', '-f', compose_file, 'up', '-d', f'{l2}-l2', f'{l2}-geth-proxy'], cwd=paths.ops_bedrock_dir, env={
         'PWD': paths.ops_bedrock_dir,
         'DEVNET_DIR': paths.devnet_dir
     })
@@ -293,7 +300,7 @@ def devnet_deploy(paths, args):
     log.info(f'Using batch inbox {batch_inbox_address}')
 
     log.info('Bringing up everything else.')
-    command = ['docker', 'compose', 'up', '-d']
+    command = ['docker', 'compose', '-f', compose_file, 'up', '-d']
     if args.deploy_l2:
         # If we are deploying onto an existing L1, don't restart the services that are already
         # running.
@@ -307,7 +314,7 @@ def devnet_deploy(paths, args):
     })
 
     log.info('Starting block explorer')
-    run_command(['docker-compose', 'up', '-d', f'{l2}-blockscout'], cwd=paths.ops_bedrock_dir)
+    run_command(['docker-compose', '-f', compose_file, 'up', '-d', f'{l2}-blockscout'], cwd=paths.ops_bedrock_dir)
 
     log.info('Devnet ready.')
 
@@ -388,12 +395,13 @@ def devnet_test(paths, l2_provider_url, faucet_url):
          timeout=8*60,
     )
 
-def run_command(args, check=True, shell=False, cwd=None, env=None, timeout=None):
+def run_command(args, check=True, shell=False, cwd=None, env=None, timeout=None, capture_output=False):
     env = env if env else {}
     return subprocess.run(
         args,
         check=check,
         shell=shell,
+        capture_output=capture_output,
         env={
             **os.environ,
             **env
