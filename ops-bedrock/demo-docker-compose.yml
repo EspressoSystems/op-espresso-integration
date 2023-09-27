@@ -4,7 +4,7 @@ version: '1'
 # It assumes that a sequencer network and a geth node is running on the external network "espresso-sequencer".
 
 networks:
-  espresso-sequencer:
+  default:
     name: espresso-sequencer
     external: true
 
@@ -33,9 +33,6 @@ services:
       - "/bin/sh"
       - "/entrypoint.sh"
       - "--authrpc.jwtsecret=/config/test-jwt-secret.txt"
-    networks:
-      - espresso-sequencer
-
 
   op-node:
     image: ghcr.io/espressosystems/op-espresso-integration/op-node:integration
@@ -81,8 +78,6 @@ services:
       - "${PWD}/test-jwt-secret.txt:/config/test-jwt-secret.txt"
       - "${DEVNET_DIR}/rollup.json:/rollup.json"
       - op_log:/op_log
-    networks:
-      - espresso-sequencer
 
   op-proposer:
     image: ghcr.io/espressosystems/op-espresso-integration/op-proposer:integration
@@ -106,8 +101,6 @@ services:
       OP_PROPOSER_PPROF_ENABLED: "true"
       OP_PROPOSER_METRICS_ENABLED: "true"
       OP_PROPOSER_ALLOW_NON_FINALIZED: "true"
-    networks:
-      - espresso-sequencer
 
   op-batcher:
     image: ghcr.io/espressosystems/op-espresso-integration/op-batcher:integration
@@ -136,8 +129,6 @@ services:
       OP_BATCHER_RPC_ENABLE_ADMIN: "true"
     # The batcher does not respond to sigint
     stop_grace_period: 1s
-    networks:
-      - espresso-sequencer
 
   op-geth-proxy:
     image: ghcr.io/espressosystems/op-espresso-integration/op-geth-proxy:integration
@@ -153,8 +144,6 @@ services:
       - OP_GETH_PROXY_VM_ID=$OP1_CHAIN_ID
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    networks:
-      - espresso-sequencer
 
   op-faucet:
     image: ghcr.io/espressosystems/discord-faucet:main
@@ -170,8 +159,6 @@ services:
       - RUST_LOG
     depends_on:
       - op-geth-proxy
-    networks:
-      - espresso-sequencer
 
   artifact-server:
     image: nginx:1.25-alpine
