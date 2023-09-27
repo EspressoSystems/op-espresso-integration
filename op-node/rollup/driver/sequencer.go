@@ -199,11 +199,13 @@ func (d *Sequencer) sealEspressoBatch(ctx context.Context) (*eth.ExecutionPayloa
 		return nil, fmt.Errorf("failed to fetch suggested L1 origin %d: %w", batch.jst.Next.L1Head, err)
 	}
 	nextL1Number := batch.onto.L1Origin.Number + 1
-	nextL1Block, err := d.l1OriginSelector.FindL1OriginByNumber(ctx, nextL1Number)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch next possible L1 origin %d: %w", nextL1Block, err)
+	fetchNextL1Block := func() (eth.L1BlockRef, error) {
+		return d.l1OriginSelector.FindL1OriginByNumber(ctx, nextL1Number)
 	}
-	l1OriginNumber := derive.EspressoL1Origin(d.config, batch.onto, suggestedL1Origin, nextL1Block, d.log)
+	l1OriginNumber, err := derive.EspressoL1Origin(d.config, batch.onto, suggestedL1Origin, fetchNextL1Block, d.log)
+	if err != nil {
+		return nil, err
+	}
 	l1Origin := suggestedL1Origin
 	if l1Origin.Number != l1OriginNumber {
 		l1Origin, err = d.l1OriginSelector.FindL1OriginByNumber(ctx, l1OriginNumber)
