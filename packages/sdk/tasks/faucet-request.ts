@@ -14,7 +14,7 @@ task('faucet-request', 'Deposits WETH9 onto L2.')
   .addParam(
     'faucetUrl',
     'L2 faucet URL',
-    'http://localhost:18112',
+    'http://localhost:17111',
     types.string
   )
   .setAction(async (args, hre) => {
