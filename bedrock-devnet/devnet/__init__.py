@@ -21,7 +21,7 @@ parser.add_argument('--allocs', help='Only create the allocs and exit', type=boo
 parser.add_argument('--test', help='Tests the deployment, must already be deployed', type=bool, action=argparse.BooleanOptionalAction)
 parser.add_argument('--l2', help='Which L2 to run', type=str, default='op1')
 parser.add_argument('--l2-provider-url', help='URL for the L2 RPC node', type=str, default='http://localhost:19545')
-parser.add_argument('--faucet-url', help='URL for the L2 faucet', type=str, default='http://localhost:18111')
+parser.add_argument('--faucet-url', help='URL for the L2 faucet', type=str, default='http://localhost:17111')
 parser.add_argument('--deploy-l2', help='Deploy the L2 onto a running L1 and sequencer network', type=bool, action=argparse.BooleanOptionalAction)
 parser.add_argument('--deploy-config', help='Deployment config, relative to packages/contracts-bedrock/deploy-config', default='devnetL1.json')
 parser.add_argument('--deploy-config-template', help='Deployment config template, relative to packages/contracts-bedrock/deploy-config', default='devnetL1-template.json')
