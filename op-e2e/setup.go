@@ -573,6 +573,7 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 		cmd.Stdout = &stderr
 		// Point the sequencer at the L1 Geth node.
 		cmd.Env = append(cmd.Env, fmt.Sprintf("ESPRESSO_SEQUENCER_L1_PROVIDER=%s", httpEndpointForDocker(sys.EthInstances["l1"])))
+		cmd.Env = append(cmd.Env, fmt.Sprintf("ESPRESSO_SEQUENCER_L1_WS_PROVIDER=%s", wsEndpointForDocker(sys.EthInstances["l1"])))
 		// Make the Espresso block time faster than the OP block time, or else tests will time out.
 		cmd.Env = append(cmd.Env, fmt.Sprintf("ESPRESSO_ORCHESTRATOR_MAX_PROPOSE_TIME=%dms", cfg.DeployConfig.L2BlockTime*1000/2))
 		cmd.Env = append(cmd.Env, "RUST_LOG=info")
@@ -995,6 +996,17 @@ func httpEndpointForDocker(node EthInstance) string {
 
 	// This is how Docker containers address services running on the host.
 	return fmt.Sprintf("http://host.docker.internal:%s", port)
+}
+
+func wsEndpointForDocker(node EthInstance) string {
+	url, err := url.Parse(node.WSEndpoint())
+	if err != nil {
+		panic(fmt.Sprintf("geth WSEndpoint returned malformed URL (%v)", err))
+	}
+	port := url.Port()
+
+	// This is how Docker containers address services running on the host.
+	return fmt.Sprintf("ws://host.docker.internal:%s", port)
 }
 
 func configureL1(rollupNodeCfg *rollupNode.Config, l1Node EthInstance) {
