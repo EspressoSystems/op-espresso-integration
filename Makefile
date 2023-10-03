@@ -96,6 +96,10 @@ clean:
 	rm -rf ./bin
 .PHONY: clean
 
+clean-demo:
+	docker compose -f ops-bedrock/demo-docker-compose.yml down --volumes
+.PHONY: clean-demo
+
 nuke: clean devnet-clean
 	git clean -Xdf
 .PHONY: nuke
