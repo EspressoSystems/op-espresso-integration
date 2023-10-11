@@ -69,7 +69,16 @@ func (res *NamespaceResponse) Validate(header *Header, namespace uint64) (Transa
 
 	// Check that these transactions are only and all of the transactions from `namespace` in the
 	// block with `header`.
-	proof := NmtProof(*res.Proof)
+	// TODO this is a hack. We should use the proof from the response (`proof := NmtProof{}`).
+	// However, due to a simplification in the Espresso NMT implementation, where left and right
+	// boundary transactions not belonging to this namespace are included in the proof in their
+	// entirety, this proof can be quite large, even if this rollup has no large transactions in its
+	// own namespace. In production, we have run into issues where huge transactions from other
+	// rollups cause this proof to be so large, that the resulting PayloadAttributes exceeds the
+	// maximum size allowed for an HTTP request by OP geth. Since NMT proof validation is currently
+	// mocked anyways, we can subvert this issue in the short term without making the rollup any
+	// less secure than it already is simply by using an empty proof.
+	proof := NmtProof{}
 	if err := proof.Validate(header.TransactionsRoot, *res.Transactions); err != nil {
 		return TransactionsInBlock{}, err
 	}
