@@ -1459,6 +1459,7 @@ workflows:
           name: op-geth-proxy-docker-build
           docker_file: op-geth-proxy/Dockerfile
           docker_name: op-geth-proxy
+          docker_tags: <<pipeline.git.revision>>,<<pipeline.git.branch>>
           docker_context: .
           requires: [ hold ]
       - docker-build:
@@ -1467,6 +1468,14 @@ workflows:
           docker_name: ufm-metamask
           docker_tags: <<pipeline.git.revision>>,<<pipeline.git.branch>>
           docker_context: ufm-test-services/metamask
+          requires: [ hold ]
+      - check-generated-mocks-op-node:
+          requires: [ hold ]
+      - check-generated-mocks-op-service:
+          requires: [ hold ]
+      - cannon-go-lint-and-test:
+          requires: [ hold ]
+      - cannon-build-test-vectors:
           requires: [ hold ]
 
   release:
