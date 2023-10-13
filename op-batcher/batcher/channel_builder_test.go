@@ -560,7 +560,7 @@ func TestChannelBuilder_AddBlock(t *testing.T) {
 	require.NoError(t, cb.co.Flush())
 
 	// Check the fields reset in the AddBlock function
-	require.Equal(t, 74, cb.co.InputBytes())
+	require.Equal(t, 75, cb.co.InputBytes())
 	require.Equal(t, 1, len(cb.blocks))
 	require.Equal(t, 0, len(cb.frames))
 	require.True(t, cb.IsFull())
