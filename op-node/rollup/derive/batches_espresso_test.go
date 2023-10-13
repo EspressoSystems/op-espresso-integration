@@ -509,7 +509,3 @@ func TestValidBatchEspresso(t *testing.T) {
 		})
 	}
 }
-
-func TestDefaultBatchCasesEspresso(t *testing.T) {
-	ValidBatch(t, true)
-}

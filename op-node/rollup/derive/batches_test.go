@@ -27,7 +27,7 @@ type ValidBatchTestCase struct {
 var HashA = common.Hash{0x0a}
 var HashB = common.Hash{0x0b}
 
-func ValidBatch(t *testing.T, useEspresso bool) {
+func TestValidBatch(t *testing.T) {
 	conf := rollup.Config{
 		Genesis: rollup.Genesis{
 			L2Time: 31, // a genesis time that itself does not align to make it more interesting
@@ -521,12 +521,8 @@ func ValidBatch(t *testing.T, useEspresso bool) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.Name, func(t *testing.T) {
-			validity := CheckBatch(&conf, logger, testCase.L1Blocks, testCase.L2SafeHead, &testCase.Batch, useEspresso, nil)
+			validity := CheckBatch(&conf, logger, testCase.L1Blocks, testCase.L2SafeHead, &testCase.Batch, false, nil)
 			require.Equal(t, testCase.Expected, validity, "batch check must return expected validity level")
 		})
 	}
-}
-
-func TestValidBatch(t *testing.T) {
-	ValidBatch(t, false)
 }

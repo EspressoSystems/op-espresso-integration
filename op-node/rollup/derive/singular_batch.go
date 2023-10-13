@@ -20,7 +20,7 @@ type SingularBatch struct {
 	EpochHash     common.Hash  // l1 block hash
 	Timestamp     uint64
 	Transactions  []hexutil.Bytes
-	Justification *eth.L2BatchJustification
+	Justification *eth.L2BatchJustification `rlp:"nil"`
 }
 
 // GetBatchType returns its batch type (batch_version)
