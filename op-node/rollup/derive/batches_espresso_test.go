@@ -208,13 +208,11 @@ func TestValidBatchEspresso(t *testing.T) {
 			Headers:    hotshotHeaders,
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1A,
-				Batch: &BatchData{BatchV2{
-					BatchV1: BatchV1{
-						ParentHash: l2A1.ParentHash,
-						EpochNum:   rollup.Epoch(l2A1.L1Origin.Number),
-						EpochHash:  l2A1.L1Origin.Hash,
-						Timestamp:  l2A1.Time,
-					},
+				Batch: NewSingularBatchData(SingularBatch{
+					ParentHash: l2A1.ParentHash,
+					EpochNum:   rollup.Epoch(l2A1.L1Origin.Number),
+					EpochHash:  l2A1.L1Origin.Hash,
+					Timestamp:  l2A1.Time,
 					Justification: &eth.L2BatchJustification{
 						Prev: &hotshotHeaders[0],
 						From: 1,
@@ -226,7 +224,7 @@ func TestValidBatchEspresso(t *testing.T) {
 						},
 						Next: &hotshotHeaders[2],
 					},
-				}},
+				}),
 			},
 			Expected: BatchAccept,
 		},
@@ -237,13 +235,11 @@ func TestValidBatchEspresso(t *testing.T) {
 			Headers:    hotshotHeaders,
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1A,
-				Batch: &BatchData{BatchV2{
-					BatchV1: BatchV1{
-						ParentHash: l2A2.ParentHash,
-						EpochNum:   rollup.Epoch(l2A2.L1Origin.Number),
-						EpochHash:  l2A2.L1Origin.Hash,
-						Timestamp:  l2A2.Time,
-					},
+				Batch: NewSingularBatchData(SingularBatch{
+					ParentHash: l2A2.ParentHash,
+					EpochNum:   rollup.Epoch(l2A2.L1Origin.Number),
+					EpochHash:  l2A2.L1Origin.Hash,
+					Timestamp:  l2A2.Time,
 					Justification: &eth.L2BatchJustification{
 						Prev: &hotshotHeaders[1],
 						From: 2,
@@ -259,7 +255,7 @@ func TestValidBatchEspresso(t *testing.T) {
 						},
 						Next: &hotshotHeaders[4],
 					},
-				}},
+				}),
 			},
 			Expected: BatchAccept,
 		},
@@ -270,13 +266,11 @@ func TestValidBatchEspresso(t *testing.T) {
 			Headers:    hotshotHeaders,
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1A,
-				Batch: &BatchData{BatchV2{
-					BatchV1: BatchV1{
-						ParentHash: l2A3.ParentHash,
-						EpochNum:   rollup.Epoch(l2A3.L1Origin.Number),
-						EpochHash:  l2A3.L1Origin.Hash,
-						Timestamp:  l2A3.Time,
-					},
+				Batch: NewSingularBatchData(SingularBatch{
+					ParentHash: l2A3.ParentHash,
+					EpochNum:   rollup.Epoch(l2A3.L1Origin.Number),
+					EpochHash:  l2A3.L1Origin.Hash,
+					Timestamp:  l2A3.Time,
 					Justification: &eth.L2BatchJustification{
 						Prev: &hotshotHeaders[3],
 						From: 4,
@@ -296,7 +290,7 @@ func TestValidBatchEspresso(t *testing.T) {
 						},
 						Next: &hotshotHeaders[7],
 					},
-				}},
+				}),
 			},
 			Expected: BatchAccept,
 		},
@@ -307,19 +301,17 @@ func TestValidBatchEspresso(t *testing.T) {
 			Headers:    emptyHotshotWindowHeaders,
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1A,
-				Batch: &BatchData{BatchV2{
-					BatchV1: BatchV1{
-						ParentHash: l2A1.ParentHash,
-						EpochNum:   rollup.Epoch(l2A1.L1Origin.Number),
-						EpochHash:  l2A1.L1Origin.Hash,
-						Timestamp:  l2A1.Time,
-					},
+				Batch: NewSingularBatchData(SingularBatch{
+					ParentHash: l2A1.ParentHash,
+					EpochNum:   rollup.Epoch(l2A1.L1Origin.Number),
+					EpochHash:  l2A1.L1Origin.Hash,
+					Timestamp:  l2A1.Time,
 					Justification: &eth.L2BatchJustification{
 						Prev: &emptyHotshotWindowHeaders[0],
 						Next: &emptyHotshotWindowHeaders[1],
 						From: 1,
 					},
-				}},
+				}),
 			},
 			Expected: BatchAccept,
 		},
@@ -330,14 +322,12 @@ func TestValidBatchEspresso(t *testing.T) {
 			Headers:    hotshotSkippedHeaders,
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1B,
-				Batch: &BatchData{BatchV2{
-					BatchV1: BatchV1{
-						ParentHash:   l2B0.ParentHash,
-						EpochNum:     rollup.Epoch(l2B0.L1Origin.Number),
-						EpochHash:    l2B0.L1Origin.Hash,
-						Timestamp:    l2B0.Time,
-						Transactions: []hexutil.Bytes{},
-					},
+				Batch: NewSingularBatchData(SingularBatch{
+					ParentHash:   l2B0.ParentHash,
+					EpochNum:     rollup.Epoch(l2B0.L1Origin.Number),
+					EpochHash:    l2B0.L1Origin.Hash,
+					Timestamp:    l2B0.Time,
+					Transactions: []hexutil.Bytes{},
 					Justification: &eth.L2BatchJustification{
 						Prev: &hotshotSkippedHeaders[0],
 						Blocks: []eth.EspressoBlockJustification{
@@ -349,7 +339,7 @@ func TestValidBatchEspresso(t *testing.T) {
 						Next: &hotshotSkippedHeaders[2],
 						From: 1,
 					},
-				}},
+				}),
 			},
 			Expected: BatchAccept,
 		},
@@ -360,21 +350,19 @@ func TestValidBatchEspresso(t *testing.T) {
 			Headers:    hotshotSkippedHeaders,
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1B,
-				Batch: &BatchData{BatchV2{
-					BatchV1: BatchV1{
-						ParentHash:   l2B0.ParentHash,
-						EpochNum:     rollup.Epoch(l2B0.L1Origin.Number),
-						EpochHash:    l2B0.L1Origin.Hash,
-						Timestamp:    l2B0.Time,
-						Transactions: []hexutil.Bytes{},
-					},
+				Batch: NewSingularBatchData(SingularBatch{
+					ParentHash:   l2B0.ParentHash,
+					EpochNum:     rollup.Epoch(l2B0.L1Origin.Number),
+					EpochHash:    l2B0.L1Origin.Hash,
+					Timestamp:    l2B0.Time,
+					Transactions: []hexutil.Bytes{},
 					Justification: &eth.L2BatchJustification{
 						// Switch the blocks
 						Prev: &hotshotSkippedHeaders[1],
 						Next: &hotshotSkippedHeaders[0],
 						From: 1,
 					},
-				}},
+				}),
 			},
 			Expected: BatchDrop,
 		},
@@ -385,14 +373,12 @@ func TestValidBatchEspresso(t *testing.T) {
 			Headers:    hotshotDishonestHeaders,
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1B,
-				Batch: &BatchData{BatchV2{
-					BatchV1: BatchV1{
-						ParentHash:   l2B0.ParentHash,
-						EpochNum:     rollup.Epoch(l2B0.L1Origin.Number),
-						EpochHash:    l2B0.L1Origin.Hash,
-						Timestamp:    l2B0.Time,
-						Transactions: []hexutil.Bytes{},
-					},
+				Batch: NewSingularBatchData(SingularBatch{
+					ParentHash:   l2B0.ParentHash,
+					EpochNum:     rollup.Epoch(l2B0.L1Origin.Number),
+					EpochHash:    l2B0.L1Origin.Hash,
+					Timestamp:    l2B0.Time,
+					Transactions: []hexutil.Bytes{},
 					Justification: &eth.L2BatchJustification{
 						Prev: &hotshotDishonestHeaders[0],
 						Blocks: []eth.EspressoBlockJustification{
@@ -404,7 +390,7 @@ func TestValidBatchEspresso(t *testing.T) {
 						Next: &hotshotDishonestHeaders[2],
 						From: 1,
 					},
-				}},
+				}),
 			},
 			Expected: BatchDrop,
 		},
@@ -416,14 +402,12 @@ func TestValidBatchEspresso(t *testing.T) {
 			Headers:    hotshotSkippedHeaders,
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1B,
-				Batch: &BatchData{BatchV2{
-					BatchV1: BatchV1{
-						ParentHash:   l2B0.ParentHash,
-						EpochNum:     rollup.Epoch(l2A3.L1Origin.Number),
-						EpochHash:    l2A3.L1Origin.Hash,
-						Timestamp:    l2B0.Time,
-						Transactions: []hexutil.Bytes{},
-					},
+				Batch: NewSingularBatchData(SingularBatch{
+					ParentHash:   l2B0.ParentHash,
+					EpochNum:     rollup.Epoch(l2A3.L1Origin.Number),
+					EpochHash:    l2A3.L1Origin.Hash,
+					Timestamp:    l2B0.Time,
+					Transactions: []hexutil.Bytes{},
 					Justification: &eth.L2BatchJustification{
 						Prev: &hotshotSkippedHeaders[0],
 						Blocks: []eth.EspressoBlockJustification{
@@ -435,7 +419,7 @@ func TestValidBatchEspresso(t *testing.T) {
 						Next: &hotshotSkippedHeaders[2],
 						From: 1,
 					},
-				}},
+				}),
 			},
 			Expected: BatchDrop,
 		},
@@ -446,13 +430,11 @@ func TestValidBatchEspresso(t *testing.T) {
 			Headers:    hotshotHeaders,
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1A,
-				Batch: &BatchData{BatchV2{
-					BatchV1: BatchV1{
-						ParentHash: l2A1.ParentHash,
-						EpochNum:   rollup.Epoch(l2A1.L1Origin.Number),
-						EpochHash:  l2A1.L1Origin.Hash,
-						Timestamp:  l2A1.Time,
-					},
+				Batch: NewSingularBatchData(SingularBatch{
+					ParentHash: l2A1.ParentHash,
+					EpochNum:   rollup.Epoch(l2A1.L1Origin.Number),
+					EpochHash:  l2A1.L1Origin.Hash,
+					Timestamp:  l2A1.Time,
 					Justification: &eth.L2BatchJustification{
 						Prev: &hotshotHeaders[0],
 						Blocks: []eth.EspressoBlockJustification{
@@ -470,7 +452,7 @@ func TestValidBatchEspresso(t *testing.T) {
 						// Increment Next from the valid test case by one
 						Next: &hotshotHeaders[3],
 					},
-				}},
+				}),
 			},
 			Expected: BatchDrop,
 		},
@@ -481,15 +463,13 @@ func TestValidBatchEspresso(t *testing.T) {
 			L2SafeHead: l2B0,
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1B,
-				Batch: &BatchData{BatchV2{
-					BatchV1: BatchV1{
-						ParentHash:   l2B0.ParentHash,
-						EpochNum:     rollup.Epoch(l2B0.L1Origin.Number),
-						EpochHash:    l2B0.L1Origin.Hash,
-						Timestamp:    l2B0.Time,
-						Transactions: []hexutil.Bytes{},
-					},
-				}},
+				Batch: NewSingularBatchData(SingularBatch{
+					ParentHash:   l2B0.ParentHash,
+					EpochNum:     rollup.Epoch(l2B0.L1Origin.Number),
+					EpochHash:    l2B0.L1Origin.Hash,
+					Timestamp:    l2B0.Time,
+					Transactions: []hexutil.Bytes{},
+				}),
 			},
 			Expected: BatchDrop,
 		},
@@ -499,19 +479,17 @@ func TestValidBatchEspresso(t *testing.T) {
 			L2SafeHead: l2A3,
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1A,
-				Batch: &BatchData{BatchV2{
-					BatchV1: BatchV1{
-						ParentHash: l2B0.ParentHash,
-						EpochNum:   rollup.Epoch(l2A0.L1Origin.Number),
-						EpochHash:  l2A0.L1Origin.Hash,
-						Timestamp:  l2B0.Time,
-					},
+				Batch: NewSingularBatchData(SingularBatch{
+					ParentHash: l2B0.ParentHash,
+					EpochNum:   rollup.Epoch(l2A0.L1Origin.Number),
+					EpochHash:  l2A0.L1Origin.Hash,
+					Timestamp:  l2B0.Time,
 					Justification: &eth.L2BatchJustification{
 						Prev: &emptyHotshotWindowHeaders[0],
 						Next: &emptyHotshotWindowHeaders[1],
 						From: 1,
 					},
-				}},
+				}),
 			},
 			Expected: BatchUndecided,
 		},

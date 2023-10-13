@@ -39,6 +39,11 @@ func (m *MockRPC) EthSubscribe(ctx context.Context, channel any, args ...any) (e
 	return nil, nil
 }
 
+func (m *MockRPC) RawClient() *rpc.Client {
+	m.t.Fatal("RawClient should not be called")
+	return nil
+}
+
 func asyncCallContext(ctx context.Context, lc client.RPC) chan error {
 	errC := make(chan error)
 	go func() {

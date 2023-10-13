@@ -259,7 +259,7 @@ func blockToBatch(block *types.Block) (*derive.BatchData, error) {
 			EpochHash:     l1Info.BlockHash,
 			Timestamp:     block.Time(),
 			Transactions:  opaqueTxs,
-			Justification: l1Info.Justification
+			Justification: l1Info.Justification,
 		},
 	}, nil
 }

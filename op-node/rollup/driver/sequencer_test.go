@@ -757,21 +757,17 @@ func TestSequencerChaosMonkeyEspresso(t *testing.T) {
 		jst := l1Info.Justification
 
 		// Reconstruct the batch from the execution payload.
-		batch := derive.BatchData{
-			BatchV2: derive.BatchV2{
-				Justification: jst,
-				BatchV1: derive.BatchV1{
-					ParentHash:   payload.ParentHash,
-					Timestamp:    uint64(payload.Timestamp),
-					EpochNum:     rollup.Epoch(l1Info.Number),
-					EpochHash:    l1Info.BlockHash,
-					Transactions: payload.Transactions[numDepositTxs:],
-				},
-			},
-		}
+		batch := derive.NewSingularBatchData(derive.SingularBatch{
+			Justification: jst,
+			ParentHash:    payload.ParentHash,
+			Timestamp:     uint64(payload.Timestamp),
+			EpochNum:      rollup.Epoch(l1Info.Number),
+			EpochHash:     l1Info.BlockHash,
+			Transactions:  payload.Transactions[numDepositTxs:],
+		})
 		batchWithL1 := derive.BatchWithL1InclusionBlock{
 			L1InclusionBlock: eth.L1BlockRef{},
-			Batch:            &batch,
+			Batch:            batch,
 		}
 
 		// Check that the derivation pipeline would accept this batch.

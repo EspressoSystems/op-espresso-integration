@@ -160,6 +160,13 @@ func ValidBatch(t *testing.T, useEspresso bool) {
 		SequenceNumber: 4,
 	}
 
+	l1BLate := eth.L1BlockRef{
+		Hash:       testutils.RandomHash(rng),
+		Number:     l1A.Number + 1,
+		ParentHash: l1A.Hash,
+		Time:       l2A4.Time + 1, // too late for l2A4 to adopt yet
+	}
+
 	testCases := []ValidBatchTestCase{
 		{
 			Name:       "missing L1 info",
