@@ -29,6 +29,7 @@ packages/contracts-bedrock/deployments/anvil
 # jetbrains
 .idea/
 
+.secrets
 .env
 .env*
 !.env.example

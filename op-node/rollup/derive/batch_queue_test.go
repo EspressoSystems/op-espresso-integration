@@ -13,9 +13,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
-	"github.com/ethereum-optimism/optimism/op-node/testlog"
-	"github.com/ethereum-optimism/optimism/op-node/testutils"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum-optimism/optimism/op-service/testlog"
+	"github.com/ethereum-optimism/optimism/op-service/testutils"
 )
 
 type fakeBatchQueueInput struct {
@@ -48,16 +48,13 @@ func mockHash(time uint64, layer uint8) common.Hash {
 func b(timestamp uint64, epoch eth.L1BlockRef) *BatchData {
 	rng := rand.New(rand.NewSource(int64(timestamp)))
 	data := testutils.RandomData(rng, 20)
-	return &BatchData{BatchV2{
-		BatchV1: BatchV1{
-			ParentHash:   mockHash(timestamp-2, 2),
-			Timestamp:    timestamp,
-			EpochNum:     rollup.Epoch(epoch.Number),
-			EpochHash:    epoch.Hash,
-			Transactions: []hexutil.Bytes{data},
-		},
-		Justification: nil,
-	}}
+	return NewSingularBatchData(SingularBatch{
+		ParentHash:   mockHash(timestamp-2, 2),
+		Timestamp:    timestamp,
+		EpochNum:     rollup.Epoch(epoch.Number),
+		EpochHash:    epoch.Hash,
+		Transactions: []hexutil.Bytes{data},
+	})
 }
 
 func L1Chain(l1Times []uint64) []eth.L1BlockRef {
@@ -334,7 +331,7 @@ func TestBatchQueueMissing(t *testing.T) {
 	b, e = bq.NextBatch(context.Background(), safeHead, false)
 	require.Nil(t, e)
 	require.Equal(t, b.Timestamp, uint64(12))
-	require.Empty(t, b.BatchV1.Transactions)
+	require.Empty(t, b.SingularBatch.Transactions)
 	require.Equal(t, rollup.Epoch(0), b.EpochNum)
 	safeHead.Number += 1
 	safeHead.Time += 2
@@ -344,7 +341,7 @@ func TestBatchQueueMissing(t *testing.T) {
 	b, e = bq.NextBatch(context.Background(), safeHead, false)
 	require.Nil(t, e)
 	require.Equal(t, b.Timestamp, uint64(14))
-	require.Empty(t, b.BatchV1.Transactions)
+	require.Empty(t, b.SingularBatch.Transactions)
 	require.Equal(t, rollup.Epoch(0), b.EpochNum)
 	safeHead.Number += 1
 	safeHead.Time += 2
@@ -370,6 +367,6 @@ func TestBatchQueueMissing(t *testing.T) {
 	b, e = bq.NextBatch(context.Background(), safeHead, false)
 	require.Nil(t, e)
 	require.Equal(t, b.Timestamp, uint64(18))
-	require.Empty(t, b.BatchV1.Transactions)
+	require.Empty(t, b.SingularBatch.Transactions)
 	require.Equal(t, rollup.Epoch(1), b.EpochNum)
 }

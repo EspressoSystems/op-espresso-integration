@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/ethereum-optimism/optimism/op-service/httputil"
 	opmetrics "github.com/ethereum-optimism/optimism/op-service/metrics"
 	txmetrics "github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
 )
@@ -29,6 +30,11 @@ type Metricer interface {
 
 	RecordGameUpdateScheduled()
 	RecordGameUpdateCompleted()
+
+	IncActiveExecutors()
+	DecActiveExecutors()
+	IncIdleExecutors()
+	DecIdleExecutors()
 }
 
 type Metrics struct {
@@ -40,6 +46,8 @@ type Metrics struct {
 
 	info prometheus.GaugeVec
 	up   prometheus.Gauge
+
+	executors prometheus.GaugeVec
 
 	moves prometheus.Counter
 	steps prometheus.Counter
@@ -75,6 +83,13 @@ func NewMetrics() *Metrics {
 			Name:      "up",
 			Help:      "1 if the op-challenger has finished starting up",
 		}),
+		executors: *factory.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: Namespace,
+			Name:      "executors",
+			Help:      "Number of active and idle executors",
+		}, []string{
+			"status",
+		}),
 		moves: factory.NewCounter(prometheus.CounterOpts{
 			Namespace: Namespace,
 			Name:      "moves",
@@ -108,8 +123,8 @@ func NewMetrics() *Metrics {
 	}
 }
 
-func (m *Metrics) Serve(ctx context.Context, host string, port int) error {
-	return opmetrics.ListenAndServe(ctx, m.registry, host, port)
+func (m *Metrics) Start(host string, port int) (*httputil.HTTPServer, error) {
+	return opmetrics.StartServer(m.registry, host, port)
 }
 
 func (m *Metrics) StartBalanceMetrics(
@@ -147,6 +162,22 @@ func (m *Metrics) RecordGameStep() {
 
 func (m *Metrics) RecordCannonExecutionTime(t float64) {
 	m.cannonExecutionTime.Observe(t)
+}
+
+func (m *Metrics) IncActiveExecutors() {
+	m.executors.WithLabelValues("active").Inc()
+}
+
+func (m *Metrics) DecActiveExecutors() {
+	m.executors.WithLabelValues("active").Dec()
+}
+
+func (m *Metrics) IncIdleExecutors() {
+	m.executors.WithLabelValues("idle").Inc()
+}
+
+func (m *Metrics) DecIdleExecutors() {
+	m.executors.WithLabelValues("idle").Dec()
 }
 
 func (m *Metrics) RecordGamesStatus(inProgress, defenderWon, challengerWon int) {

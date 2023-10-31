@@ -260,18 +260,16 @@ func BlockToBatch(block *types.Block) (*BatchData, L1BlockInfo, error) {
 		return nil, l1Info, fmt.Errorf("could not parse the L1 Info deposit: %w", err)
 	}
 
-	return &BatchData{
-		BatchV2{
-			BatchV1: BatchV1{
-				ParentHash:   block.ParentHash(),
-				EpochNum:     rollup.Epoch(l1Info.Number),
-				EpochHash:    l1Info.BlockHash,
-				Timestamp:    block.Time(),
-				Transactions: opaqueTxs,
-			},
+	return NewSingularBatchData(
+		SingularBatch{
+			ParentHash:    block.ParentHash(),
+			EpochNum:      rollup.Epoch(l1Info.Number),
+			EpochHash:     l1Info.BlockHash,
+			Timestamp:     block.Time(),
+			Transactions:  opaqueTxs,
 			Justification: l1Info.Justification,
 		},
-	}, l1Info, nil
+	), l1Info, nil
 }
 
 // ForceCloseTxData generates the transaction data for a transaction which will force close

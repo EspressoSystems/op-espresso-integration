@@ -19,3 +19,7 @@
 [submodule "espresso-sequencer"]
 	path = espresso-sequencer
 	url = https://github.com/EspressoSystems/espresso-sequencer.git
+[submodule "packages/contracts-bedrock/lib/safe-contracts"]
+	path = packages/contracts-bedrock/lib/safe-contracts
+	url = https://github.com/safe-global/safe-contracts
+	branch = v1.4.0
