@@ -119,6 +119,19 @@ target "op-program" {
   tags = [for tag in split(",", IMAGE_TAGS) : "${REGISTRY}/${REPOSITORY}/op-program:${tag}"]
 }
 
+target "op-geth-proxy" {
+  dockerfile = "Dockerfile"
+  context = "./op-geth-proxy"
+  args = {
+    OP_STACK_GO_BUILDER = "op-stack-go"
+  }
+  contexts = {
+    op-stack-go: "target:op-stack-go"
+  }
+  platforms = split(",", PLATFORMS)
+  tags = [for tag in split(",", IMAGE_TAGS) : "${REGISTRY}/${REPOSITORY}/op-geth-proxy:${tag}"]
+}
+
 target "proxyd" {
   dockerfile = "Dockerfile"
   context = "./proxyd"
