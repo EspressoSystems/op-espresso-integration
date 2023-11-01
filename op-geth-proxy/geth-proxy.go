@@ -76,6 +76,7 @@ func ForwardToSequencer(message rpcMessage) {
 		log.Println("Failed to connect to the sequencer: ", err)
 		return
 	}
+	defer response.Body.Close()
 	if response.StatusCode != 200 {
 		log.Println("Request failed. Here is the response: ", err)
 	}
