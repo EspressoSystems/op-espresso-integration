@@ -1567,6 +1567,8 @@ workflows:
           docker_tags: <<pipeline.git.revision>>,<<pipeline.git.branch>>
           requires: ['op-stack-go-docker-build']
           save_image_tag: <<pipeline.git.revision>> # for devnet later
+      - cannon-prestate:
+          requires: ["op-stack-go-lint"]
       - devnet:
           name: devnet-legacy
           requires:
