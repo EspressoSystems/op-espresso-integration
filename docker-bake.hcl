@@ -120,8 +120,8 @@ target "op-program" {
 }
 
 target "op-geth-proxy" {
-  dockerfile = "Dockerfile"
-  context = "./op-geth-proxy"
+  dockerfile = "op-geth-proxy/Dockerfile"
+  context = "."
   args = {
     OP_STACK_GO_BUILDER = "op-stack-go"
   }
