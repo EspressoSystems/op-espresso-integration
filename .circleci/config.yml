@@ -1031,7 +1031,6 @@ jobs:
         description: A make target to test the optional second devnet
         type: string
         default: ""
-      DEVNET_NO_BUILD: 'true'
     steps:
       - checkout
       - check-changed:
@@ -1539,6 +1538,7 @@ workflows:
           docker_name: op-stack-go
           docker_tags: <<pipeline.git.revision>>,<<pipeline.git.branch>>
           save_image_tag: <<pipeline.git.revision>> # for devnet later
+          requires: [hold]
       - docker-build:
           name: op-node-docker-build
           docker_name: op-node
@@ -1594,7 +1594,6 @@ workflows:
           requires: [ 'op-stack-go-docker-build' ]
       - docker-build:
           name: op-geth-proxy-docker-build
-          docker_file: op-geth-proxy/Dockerfile
           docker_name: op-geth-proxy
           docker_tags: <<pipeline.git.revision>>,<<pipeline.git.branch>>
           requires: [ 'op-stack-go-docker-build' ]
@@ -1602,6 +1601,7 @@ workflows:
           name: ufm-metamask-docker-build
           docker_name: ufm-metamask
           docker_tags: <<pipeline.git.revision>>,<<pipeline.git.branch>>
+          requires: [ hold ]
       - check-generated-mocks-op-node:
           requires: [ hold ]
       - check-generated-mocks-op-service:
