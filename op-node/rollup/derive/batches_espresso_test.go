@@ -208,7 +208,7 @@ func TestValidBatchEspresso(t *testing.T) {
 			Headers:    hotshotHeaders,
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1A,
-				Batch: NewSingularBatchData(SingularBatch{
+				Batch: &SingularBatch{
 					ParentHash: l2A1.ParentHash,
 					EpochNum:   rollup.Epoch(l2A1.L1Origin.Number),
 					EpochHash:  l2A1.L1Origin.Hash,
@@ -224,7 +224,7 @@ func TestValidBatchEspresso(t *testing.T) {
 						},
 						Next: &hotshotHeaders[2],
 					},
-				}),
+				},
 			},
 			Expected: BatchAccept,
 		},
@@ -235,7 +235,7 @@ func TestValidBatchEspresso(t *testing.T) {
 			Headers:    hotshotHeaders,
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1A,
-				Batch: NewSingularBatchData(SingularBatch{
+				Batch: &SingularBatch{
 					ParentHash: l2A2.ParentHash,
 					EpochNum:   rollup.Epoch(l2A2.L1Origin.Number),
 					EpochHash:  l2A2.L1Origin.Hash,
@@ -255,7 +255,7 @@ func TestValidBatchEspresso(t *testing.T) {
 						},
 						Next: &hotshotHeaders[4],
 					},
-				}),
+				},
 			},
 			Expected: BatchAccept,
 		},
@@ -266,7 +266,7 @@ func TestValidBatchEspresso(t *testing.T) {
 			Headers:    hotshotHeaders,
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1A,
-				Batch: NewSingularBatchData(SingularBatch{
+				Batch: &SingularBatch{
 					ParentHash: l2A3.ParentHash,
 					EpochNum:   rollup.Epoch(l2A3.L1Origin.Number),
 					EpochHash:  l2A3.L1Origin.Hash,
@@ -290,7 +290,7 @@ func TestValidBatchEspresso(t *testing.T) {
 						},
 						Next: &hotshotHeaders[7],
 					},
-				}),
+				},
 			},
 			Expected: BatchAccept,
 		},
@@ -301,7 +301,7 @@ func TestValidBatchEspresso(t *testing.T) {
 			Headers:    emptyHotshotWindowHeaders,
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1A,
-				Batch: NewSingularBatchData(SingularBatch{
+				Batch: &SingularBatch{
 					ParentHash: l2A1.ParentHash,
 					EpochNum:   rollup.Epoch(l2A1.L1Origin.Number),
 					EpochHash:  l2A1.L1Origin.Hash,
@@ -311,7 +311,7 @@ func TestValidBatchEspresso(t *testing.T) {
 						Next: &emptyHotshotWindowHeaders[1],
 						From: 1,
 					},
-				}),
+				},
 			},
 			Expected: BatchAccept,
 		},
@@ -322,7 +322,7 @@ func TestValidBatchEspresso(t *testing.T) {
 			Headers:    hotshotSkippedHeaders,
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1B,
-				Batch: NewSingularBatchData(SingularBatch{
+				Batch: &SingularBatch{
 					ParentHash:   l2B0.ParentHash,
 					EpochNum:     rollup.Epoch(l2B0.L1Origin.Number),
 					EpochHash:    l2B0.L1Origin.Hash,
@@ -339,7 +339,7 @@ func TestValidBatchEspresso(t *testing.T) {
 						Next: &hotshotSkippedHeaders[2],
 						From: 1,
 					},
-				}),
+				},
 			},
 			Expected: BatchAccept,
 		},
@@ -350,7 +350,7 @@ func TestValidBatchEspresso(t *testing.T) {
 			Headers:    hotshotSkippedHeaders,
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1B,
-				Batch: NewSingularBatchData(SingularBatch{
+				Batch: &SingularBatch{
 					ParentHash:   l2B0.ParentHash,
 					EpochNum:     rollup.Epoch(l2B0.L1Origin.Number),
 					EpochHash:    l2B0.L1Origin.Hash,
@@ -362,7 +362,7 @@ func TestValidBatchEspresso(t *testing.T) {
 						Next: &hotshotSkippedHeaders[0],
 						From: 1,
 					},
-				}),
+				},
 			},
 			Expected: BatchDrop,
 		},
@@ -373,7 +373,7 @@ func TestValidBatchEspresso(t *testing.T) {
 			Headers:    hotshotDishonestHeaders,
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1B,
-				Batch: NewSingularBatchData(SingularBatch{
+				Batch: &SingularBatch{
 					ParentHash:   l2B0.ParentHash,
 					EpochNum:     rollup.Epoch(l2B0.L1Origin.Number),
 					EpochHash:    l2B0.L1Origin.Hash,
@@ -390,7 +390,7 @@ func TestValidBatchEspresso(t *testing.T) {
 						Next: &hotshotDishonestHeaders[2],
 						From: 1,
 					},
-				}),
+				},
 			},
 			Expected: BatchDrop,
 		},
@@ -402,7 +402,7 @@ func TestValidBatchEspresso(t *testing.T) {
 			Headers:    hotshotSkippedHeaders,
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1B,
-				Batch: NewSingularBatchData(SingularBatch{
+				Batch: &SingularBatch{
 					ParentHash:   l2B0.ParentHash,
 					EpochNum:     rollup.Epoch(l2A3.L1Origin.Number),
 					EpochHash:    l2A3.L1Origin.Hash,
@@ -419,7 +419,7 @@ func TestValidBatchEspresso(t *testing.T) {
 						Next: &hotshotSkippedHeaders[2],
 						From: 1,
 					},
-				}),
+				},
 			},
 			Expected: BatchDrop,
 		},
@@ -430,7 +430,7 @@ func TestValidBatchEspresso(t *testing.T) {
 			Headers:    hotshotHeaders,
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1A,
-				Batch: NewSingularBatchData(SingularBatch{
+				Batch: &SingularBatch{
 					ParentHash: l2A1.ParentHash,
 					EpochNum:   rollup.Epoch(l2A1.L1Origin.Number),
 					EpochHash:  l2A1.L1Origin.Hash,
@@ -452,7 +452,7 @@ func TestValidBatchEspresso(t *testing.T) {
 						// Increment Next from the valid test case by one
 						Next: &hotshotHeaders[3],
 					},
-				}),
+				},
 			},
 			Expected: BatchDrop,
 		},
@@ -463,13 +463,13 @@ func TestValidBatchEspresso(t *testing.T) {
 			L2SafeHead: l2B0,
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1B,
-				Batch: NewSingularBatchData(SingularBatch{
+				Batch: &SingularBatch{
 					ParentHash:   l2B0.ParentHash,
 					EpochNum:     rollup.Epoch(l2B0.L1Origin.Number),
 					EpochHash:    l2B0.L1Origin.Hash,
 					Timestamp:    l2B0.Time,
 					Transactions: []hexutil.Bytes{},
-				}),
+				},
 			},
 			Expected: BatchDrop,
 		},
@@ -479,7 +479,7 @@ func TestValidBatchEspresso(t *testing.T) {
 			L2SafeHead: l2A3,
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1A,
-				Batch: NewSingularBatchData(SingularBatch{
+				Batch: &SingularBatch{
 					ParentHash: l2B0.ParentHash,
 					EpochNum:   rollup.Epoch(l2A0.L1Origin.Number),
 					EpochHash:  l2A0.L1Origin.Hash,
@@ -489,7 +489,7 @@ func TestValidBatchEspresso(t *testing.T) {
 						Next: &emptyHotshotWindowHeaders[1],
 						From: 1,
 					},
-				}),
+				},
 			},
 			Expected: BatchUndecided,
 		},
@@ -504,7 +504,8 @@ func TestValidBatchEspresso(t *testing.T) {
 		t.Run(testCase.Name, func(t *testing.T) {
 			l1.setBlocks(testCase.L1Blocks)
 			l1.setHeaders(testCase.Headers)
-			validity := CheckBatch(&conf, logger, testCase.L1Blocks, testCase.L2SafeHead, &testCase.Batch, true, l1)
+			ctx := context.Background()
+			validity := CheckBatch(ctx, &conf, logger, testCase.L1Blocks, testCase.L2SafeHead, &testCase.Batch, true, l1, nil)
 			require.Equal(t, testCase.Expected, validity, "batch check must return expected validity level")
 		})
 	}

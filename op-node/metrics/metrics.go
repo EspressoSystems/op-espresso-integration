@@ -82,8 +82,8 @@ type Metrics struct {
 
 	metrics.RPCMetrics
 
-	L1SourceCache *CacheMetrics
-	L2SourceCache *CacheMetrics
+	L1SourceCache *metrics.CacheMetrics
+	L2SourceCache *metrics.CacheMetrics
 
 	DerivationIdle prometheus.Gauge
 
@@ -177,8 +177,8 @@ func NewMetrics(procName string) *Metrics {
 
 		RPCMetrics: metrics.MakeRPCMetrics(ns, factory),
 
-		L1SourceCache: NewCacheMetrics(factory, ns, "l1_source_cache", "L1 Source cache"),
-		L2SourceCache: NewCacheMetrics(factory, ns, "l2_source_cache", "L2 Source cache"),
+		L1SourceCache: metrics.NewCacheMetrics(factory, ns, "l1_source_cache", "L1 Source cache"),
+		L2SourceCache: metrics.NewCacheMetrics(factory, ns, "l2_source_cache", "L2 Source cache"),
 
 		DerivationIdle: factory.NewGauge(prometheus.GaugeOpts{
 			Namespace: ns,
@@ -604,7 +604,9 @@ func (m *Metrics) ReportProtocolVersions(local, engine, recommended, required pa
 	m.ProtocolVersions.WithLabelValues(local.String(), engine.String(), recommended.String(), required.String()).Set(1)
 }
 
-type noopMetricer struct{}
+type noopMetricer struct {
+	metrics.NoopRPCMetrics
+}
 
 var NoopMetrics Metricer = new(noopMetricer)
 
@@ -612,17 +614,6 @@ func (n *noopMetricer) RecordInfo(version string) {
 }
 
 func (n *noopMetricer) RecordUp() {
-}
-
-func (n *noopMetricer) RecordRPCServerRequest(method string) func() {
-	return func() {}
-}
-
-func (n *noopMetricer) RecordRPCClientRequest(method string) func(err error) {
-	return func(err error) {}
-}
-
-func (n *noopMetricer) RecordRPCClientResponse(method string, err error) {
 }
 
 func (n *noopMetricer) SetDerivationIdle(status bool) {

@@ -10,8 +10,8 @@ import { Safe } from "safe-contracts/Safe.sol";
 import { SafeProxyFactory } from "safe-contracts/proxies/SafeProxyFactory.sol";
 import { Enum as SafeOps } from "safe-contracts/common/Enum.sol";
 
-import { Deployer } from "./Deployer.sol";
-import { DeployConfig } from "./DeployConfig.s.sol";
+import { Deployer } from "scripts/Deployer.sol";
+import { DeployConfig } from "scripts/DeployConfig.s.sol";
 
 import { Safe } from "safe-contracts/Safe.sol";
 import { SafeProxyFactory } from "safe-contracts/proxies/SafeProxyFactory.sol";
@@ -37,7 +37,7 @@ import { L1ERC721Bridge } from "src/L1/L1ERC721Bridge.sol";
 import { ProtocolVersions, ProtocolVersion } from "src/L1/ProtocolVersions.sol";
 import { StorageSetter } from "src/universal/StorageSetter.sol";
 import { Predeploys } from "src/libraries/Predeploys.sol";
-import { Chains } from "./Chains.sol";
+import { Chains } from "scripts/Chains.sol";
 
 import { IBigStepper } from "src/dispute/interfaces/IBigStepper.sol";
 import { IPreimageOracle } from "src/cannon/interfaces/IPreimageOracle.sol";
@@ -353,7 +353,7 @@ contract Deploy is Deployer {
     }
 
     /// @notice Deploy the ProtocolVersionsProxy
-    function deployProtocolVersionsProxy() public onlyTestnetOrDevnet broadcast returns (address addr_) {
+    function deployProtocolVersionsProxy() public broadcast returns (address addr_) {
         address proxyAdmin = mustGetAddress("ProxyAdmin");
         Proxy proxy = new Proxy({
             _admin: proxyAdmin
@@ -458,7 +458,7 @@ contract Deploy is Deployer {
     }
 
     /// @notice Deploy the ProtocolVersions
-    function deployProtocolVersions() public onlyTestnetOrDevnet broadcast returns (address addr_) {
+    function deployProtocolVersions() public broadcast returns (address addr_) {
         ProtocolVersions versions = new ProtocolVersions{ salt: implSalt() }();
         save("ProtocolVersions", address(versions));
         console.log("ProtocolVersions deployed at %s", address(versions));
@@ -862,7 +862,7 @@ contract Deploy is Deployer {
         require(portal.paused() == false);
     }
 
-    function initializeProtocolVersions() public onlyTestnetOrDevnet broadcast {
+    function initializeProtocolVersions() public broadcast {
         address protocolVersionsProxy = mustGetAddress("ProtocolVersionsProxy");
         address protocolVersions = mustGetAddress("ProtocolVersions");
 

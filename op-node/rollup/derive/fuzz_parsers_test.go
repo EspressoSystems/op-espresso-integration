@@ -98,7 +98,7 @@ func FuzzL1InfoAgainstContract(f *testing.F) {
 			BytesToBigInt(baseFee),
 			common.BytesToHash(hash),
 			seqNumber,
-			common.BytesToAddress(batcherHash).Hash(),
+			eth.AddressAsLeftPaddedHash(common.BytesToAddress(batcherHash)),
 			common.BytesToHash(l1FeeOverhead).Big(),
 			common.BytesToHash(l1FeeScalar).Big(),
 			// Since we set `Justification: nil`, the RLP encoded bytes will encode an empty list.

@@ -757,21 +757,17 @@ func TestSequencerChaosMonkeyEspresso(t *testing.T) {
 		jst := l1Info.Justification
 
 		// Reconstruct the batch from the execution payload.
-		batch := derive.NewSingularBatchData(derive.SingularBatch{
+		batch := &derive.SingularBatch{
 			Justification: jst,
 			ParentHash:    payload.ParentHash,
 			Timestamp:     uint64(payload.Timestamp),
 			EpochNum:      rollup.Epoch(l1Info.Number),
 			EpochHash:     l1Info.BlockHash,
 			Transactions:  payload.Transactions[numDepositTxs:],
-		})
-		batchWithL1 := derive.BatchWithL1InclusionBlock{
-			L1InclusionBlock: eth.L1BlockRef{},
-			Batch:            batch,
 		}
 
 		// Check that the derivation pipeline would accept this batch.
-		status := derive.CheckBatchEspresso(&s.cfg, testlog.Logger(t, log.LvlInfo), l2Head, &batchWithL1, s)
+		status := derive.CheckBatchEspresso(&s.cfg, testlog.Logger(t, log.LvlInfo), l2Head, batch, s)
 		require.Equal(t, status, derive.BatchValidity(derive.BatchAccept), "sequencer built a block that the derivation pipeline will not accept")
 
 		// Figure out which interesting cases we hit.

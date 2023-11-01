@@ -97,7 +97,7 @@ func NewDerivationPipeline(log log.Logger, cfg *rollup.Config, l1Fetcher L1Fetch
 	frameQueue := NewFrameQueue(log, l1Src)
 	bank := NewChannelBank(log, cfg, frameQueue, l1Fetcher, metrics)
 	chInReader := NewChannelInReader(cfg, log, bank, metrics)
-	batchQueue := NewBatchQueue(log, cfg, chInReader, espressoProvider)
+	batchQueue := NewBatchQueue(log, cfg, chInReader, espressoProvider, engine)
 	attrBuilder := NewFetchingAttributesBuilder(cfg, l1Fetcher, engine)
 	attributesQueue := NewAttributesQueue(log, cfg, attrBuilder, batchQueue)
 

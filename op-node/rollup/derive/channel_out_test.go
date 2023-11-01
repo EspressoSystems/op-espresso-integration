@@ -34,7 +34,7 @@ func (s *nonCompressor) FullErr() error {
 }
 
 func TestChannelOutAddBlock(t *testing.T) {
-	cout, err := NewChannelOut(&nonCompressor{})
+	cout, err := NewChannelOut(SingularBatchType, &nonCompressor{}, nil)
 	require.NoError(t, err)
 
 	t.Run("returns err if first tx is not an l1info tx", func(t *testing.T) {
@@ -55,7 +55,7 @@ func TestChannelOutAddBlock(t *testing.T) {
 // max size that is below the fixed frame size overhead of 23, will return
 // an error.
 func TestOutputFrameSmallMaxSize(t *testing.T) {
-	cout, err := NewChannelOut(&nonCompressor{})
+	cout, err := NewChannelOut(SingularBatchType, &nonCompressor{}, nil)
 	require.NoError(t, err)
 
 	// Call OutputFrame with the range of small max size values that err
@@ -102,42 +102,42 @@ func TestForceCloseTxData(t *testing.T) {
 			output: "",
 		},
 		{
-			frames: []Frame{Frame{FrameNumber: 0, IsLast: false}, Frame{ID: id, FrameNumber: 1, IsLast: true}},
+			frames: []Frame{{FrameNumber: 0, IsLast: false}, {ID: id, FrameNumber: 1, IsLast: true}},
 			errors: true,
 			output: "",
 		},
 		{
-			frames: []Frame{Frame{ID: id, FrameNumber: 0, IsLast: false}},
+			frames: []Frame{{ID: id, FrameNumber: 0, IsLast: false}},
 			errors: false,
 			output: "00deadbeefdeadbeefdeadbeefdeadbeef00000000000001",
 		},
 		{
-			frames: []Frame{Frame{ID: id, FrameNumber: 0, IsLast: true}},
+			frames: []Frame{{ID: id, FrameNumber: 0, IsLast: true}},
 			errors: false,
 			output: "00",
 		},
 		{
-			frames: []Frame{Frame{ID: id, FrameNumber: 1, IsLast: false}},
+			frames: []Frame{{ID: id, FrameNumber: 1, IsLast: false}},
 			errors: false,
 			output: "00deadbeefdeadbeefdeadbeefdeadbeef00000000000001",
 		},
 		{
-			frames: []Frame{Frame{ID: id, FrameNumber: 1, IsLast: true}},
+			frames: []Frame{{ID: id, FrameNumber: 1, IsLast: true}},
 			errors: false,
 			output: "00deadbeefdeadbeefdeadbeefdeadbeef00000000000000",
 		},
 		{
-			frames: []Frame{Frame{ID: id, FrameNumber: 2, IsLast: true}},
+			frames: []Frame{{ID: id, FrameNumber: 2, IsLast: true}},
 			errors: false,
 			output: "00deadbeefdeadbeefdeadbeefdeadbeef00000000000000deadbeefdeadbeefdeadbeefdeadbeef00010000000000",
 		},
 		{
-			frames: []Frame{Frame{ID: id, FrameNumber: 1, IsLast: false}, Frame{ID: id, FrameNumber: 3, IsLast: true}},
+			frames: []Frame{{ID: id, FrameNumber: 1, IsLast: false}, {ID: id, FrameNumber: 3, IsLast: true}},
 			errors: false,
 			output: "00deadbeefdeadbeefdeadbeefdeadbeef00000000000000deadbeefdeadbeefdeadbeefdeadbeef00020000000000",
 		},
 		{
-			frames: []Frame{Frame{ID: id, FrameNumber: 1, IsLast: false}, Frame{ID: id, FrameNumber: 3, IsLast: true}, Frame{ID: id, FrameNumber: 5, IsLast: true}},
+			frames: []Frame{{ID: id, FrameNumber: 1, IsLast: false}, {ID: id, FrameNumber: 3, IsLast: true}, {ID: id, FrameNumber: 5, IsLast: true}},
 			errors: false,
 			output: "00deadbeefdeadbeefdeadbeefdeadbeef00000000000000deadbeefdeadbeefdeadbeefdeadbeef00020000000000",
 		},
@@ -157,7 +157,7 @@ func TestForceCloseTxData(t *testing.T) {
 
 func TestBlockToBatchValidity(t *testing.T) {
 	block := new(types.Block)
-	_, _, err := BlockToBatch(block)
+	_, _, err := BlockToSingularBatch(block)
 	require.ErrorContains(t, err, "has no transactions")
 }
 
@@ -193,8 +193,8 @@ func TestBlockToBatchAllTransactionTypes(t *testing.T) {
 		WithBody([]*types.Transaction{types.NewTx(l1Info), deposit, accepted1, accepted2}, nil).
 		WithRejected([]types.RejectedTransaction{rejected1, rejected2})
 
-	batch, _, err := BlockToBatch(block)
-	require.Nil(t, err, "BlockToBatch failed")
+	batch, _, err := BlockToSingularBatch(block)
+	require.Nil(t, err, "BlockToSingularBatch failed")
 
 	accepted1Bytes, err := accepted1.MarshalBinary()
 	require.Nil(t, err, "MarshalBinary failed")
