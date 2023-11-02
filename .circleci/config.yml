@@ -1101,9 +1101,6 @@ jobs:
             docker tag "$IMAGE_BASE_PREFIX/op-proposer:<<pipeline.git.revision>>" "$IMAGE_BASE_PREFIX/op-proposer:devnet"
             docker tag "$IMAGE_BASE_PREFIX/op-batcher:<<pipeline.git.revision>>" "$IMAGE_BASE_PREFIX/op-batcher:devnet"
       - run:
-          name: Build the stack
-          command: make devnet-build
-      - run:
           name: Bring up the stack
           command: make <<parameters.devnet-up>>
       - when:
