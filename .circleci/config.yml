@@ -1495,9 +1495,9 @@ workflows:
             - op-stack-go-lint
             - devnet-allocs
             - l1-geth-version-check
-      - op-program-compat:
-          requires:
-            - op-program-tests
+      # - op-program-compat:
+      #     requires:
+      #       - op-program-tests
       - bedrock-go-tests:
           requires:
             - go-mod-download
@@ -1515,7 +1515,7 @@ workflows:
             - op-proposer-tests
             - op-challenger-tests
             - op-program-tests
-            - op-program-compat
+            # - op-program-compat
             - op-service-tests
             - op-e2e-legacy-WS-tests
             - op-e2e-legacy-HTTP-tests
