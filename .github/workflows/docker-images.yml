@@ -33,36 +33,3 @@ jobs:
         context: .
         dockerfile: ./ops-bedrock/Dockerfile.stateviz
     secrets: inherit
-
-  docker-op-node:
-    uses: ./.github/workflows/docker.yml
-    with:
-        images: ghcr.io/espressosystems/op-espresso-integration/op-node
-        context: .
-        dockerfile: ./op-node/Dockerfile
-    secrets: inherit
-
-  docker-op-proposer:
-    uses: ./.github/workflows/docker.yml
-    with:
-        images: ghcr.io/espressosystems/op-espresso-integration/op-proposer
-        context: .
-        dockerfile: ./op-proposer/Dockerfile
-    secrets: inherit
-
-  docker-op-batcher:
-    uses: ./.github/workflows/docker.yml
-    with:
-        images: ghcr.io/espressosystems/op-espresso-integration/op-batcher
-        context: .
-        dockerfile: ./op-batcher/Dockerfile
-    secrets: inherit
-
-  docker-op-geth-proxy:
-    uses: ./.github/workflows/docker.yml
-    with:
-        images: ghcr.io/espressosystems/op-espresso-integration/op-geth-proxy
-        context: .
-        dockerfile: ./op-geth-proxy/Dockerfile
-    secrets: inherit
-

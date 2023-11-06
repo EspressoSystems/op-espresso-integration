@@ -41,18 +41,6 @@ jobs:
         with:
           images: ${{ inputs.images }}
 
-      - name: Build OP stack builder
-        run: |
-          GIT_COMMIT=$(git rev-parse HEAD) \
-          GIT_DATE=$(git show -s --format='%ct') \
-          IMAGE_TAGS=$GIT_COMMIT,latest \
-          PLATFORMS=linux/amd64,arm64 \
-          docker buildx bake \
-              --progress plain \
-              --load \
-              -f docker-bake.hcl \
-              op-stack-go
-
       - name: Build and push docker
         uses: docker/build-push-action@v4
         with:
