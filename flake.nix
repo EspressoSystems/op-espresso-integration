@@ -6,9 +6,7 @@
   inputs.flake-compat.url = "github:edolstra/flake-compat";
   inputs.flake-compat.flake = false;
 
-  # Closes commit in foundry.nix to forge 94ae897 used in CI.
-  inputs.foundry.url = "github:shazow/foundry.nix/e541c43c012d16c6a6f2a8a7a7145dc0f76f004f";
-
+  inputs.foundry.url = "github:shazow/foundry.nix/monthly";
 
   outputs = { self, flake-utils, nixpkgs, foundry, ... }:
     let
