@@ -17,15 +17,19 @@ task('faucet-request', 'Deposits WETH9 onto L2.')
     'http://localhost:17111',
     types.string
   )
+  .addOptionalParam('signerIndex', 'Index of signer to use', 0, types.int)
   .setAction(async (args, hre) => {
     const signers = await hre.ethers.getSigners()
     if (signers.length === 0) {
       throw new Error('No configured signers')
     }
+    if (args.signerIndex < 0 || signers.length <= args.signerIndex) {
+      throw new Error('Invalid signer index')
+    }
     // Use the last configured signer so we don't conflict with some other task
     const provider = new providers.StaticJsonRpcProvider(args.l2ProviderUrl)
     const signer = new hre.ethers.Wallet(
-      hre.network.config.accounts[0],
+      hre.network.config.accounts[args.signerIndex],
       provider
     )
     const address = await signer.getAddress()

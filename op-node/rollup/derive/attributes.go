@@ -133,6 +133,11 @@ func (ba *FetchingAttributesBuilder) PreparePayloadAttributes(ctx context.Contex
 	txs = append(txs, l1InfoTx)
 	txs = append(txs, depositTxs...)
 
+	var withdrawals *types.Withdrawals
+	if ba.cfg.IsCanyon(nextL2Time) {
+		withdrawals = &types.Withdrawals{}
+	}
+
 	return &eth.PayloadAttributes{
 		Timestamp:             hexutil.Uint64(nextL2Time),
 		PrevRandao:            eth.Bytes32(l1Info.MixDigest()),
@@ -141,5 +146,6 @@ func (ba *FetchingAttributesBuilder) PreparePayloadAttributes(ctx context.Contex
 		NoTxPool:              true,
 		Espresso:              justification != nil,
 		GasLimit:              (*eth.Uint64Quantity)(&sysConfig.GasLimit),
+		Withdrawals:           withdrawals,
 	}, nil
 }

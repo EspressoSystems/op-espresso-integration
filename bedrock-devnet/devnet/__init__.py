@@ -10,6 +10,9 @@ import time
 import shutil
 import http.client
 from multiprocessing import Process, Queue
+import concurrent.futures
+from collections import namedtuple
+
 
 import devnet.log_setup
 
@@ -253,6 +256,12 @@ def devnet_deploy(paths, args):
         wait_up(8545)
         wait_for_rpc_server('127.0.0.1:8545')
 
+        log.info('Bringing up `artifact-server`')
+        run_command(['docker', 'compose', 'up', '-d', 'artifact-server'], cwd=paths.ops_bedrock_dir, env={
+            'PWD': paths.ops_bedrock_dir,
+            'DEVNET_DIR': paths.devnet_dir
+        })
+
         if espresso:
             log.info('Starting Espresso sequencer.')
             espresso_services = [
@@ -301,7 +310,7 @@ def devnet_deploy(paths, args):
     batch_inbox_address = rollup_config['batch_inbox_address']
     log.info(f'Using batch inbox {batch_inbox_address}')
 
-    log.info('Bringing up everything else.')
+    log.info('Bringing up `op-node`, `op-proposer` and `op-batcher`.')
     command = ['docker', 'compose', '-f', compose_file, 'up', '-d']
     if args.deploy_l2:
         # If we are deploying onto an existing L1, don't restart the services that are already
@@ -372,6 +381,8 @@ def deploy_erc20(paths, l2_provider_url):
          timeout=60,
     )
 
+CommandPreset = namedtuple('Command', ['name', 'args', 'cwd', 'timeout'])
+
 def devnet_test(paths, l2_provider_url, faucet_url):
     # Check the L2 config
     run_command(
@@ -379,23 +390,60 @@ def devnet_test(paths, l2_provider_url, faucet_url):
         cwd=paths.ops_chain_ops,
     )
 
-    run_command(
-         ['npx', 'hardhat',  'deposit-erc20', '--network',  'devnetL1', '--l1-contracts-json-path', paths.addresses_json_path, '--l2-provider-url', l2_provider_url],
-         cwd=paths.sdk_dir,
-         timeout=8*60,
-    )
+    # Run the commands with different signers, so the ethereum nonce management does not conflict
+    # And do not use devnet system addresses, to avoid breaking fee-estimation or nonce values.
+    run_commands([
+        CommandPreset('erc20-test',
+          ['npx', 'hardhat',  'deposit-erc20', '--network',  'devnetL1',
+           '--l1-contracts-json-path', paths.addresses_json_path, '--l2-provider-url', l2_provider_url, '--signer-index', '14'],
+          cwd=paths.sdk_dir, timeout=8*60),
+        CommandPreset('eth-test',
+          ['npx', 'hardhat',  'deposit-eth', '--network',  'devnetL1',
+           '--l1-contracts-json-path', paths.addresses_json_path, '--l2-provider-url', l2_provider_url, '--signer-index', '15'],
+          cwd=paths.sdk_dir, timeout=8*60),
+        CommandPreset('faucet-test',
+          ['npx', 'hardhat',  'faucet-request', '--network',  'devnetL1', '--l2-provider-url', l2_provider_url,
+           '--faucet-url', faucet_url, '--signer-index', '16'],
+          cwd=paths.sdk_dir, timeout=8*60)
+    ], max_workers=2)
 
-    run_command(
-         ['npx', 'hardhat',  'deposit-eth', '--network',  'devnetL1', '--l1-contracts-json-path', paths.addresses_json_path, '--l2-provider-url', l2_provider_url],
-         cwd=paths.sdk_dir,
-         timeout=8*60,
-    )
 
-    run_command(
-         ['npx', 'hardhat',  'faucet-request', '--network',  'devnetL1', '--l2-provider-url', l2_provider_url, '--faucet-url', faucet_url],
-         cwd=paths.sdk_dir,
-         timeout=8*60,
-    )
+def run_commands(commands: list[CommandPreset], max_workers=2):
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [executor.submit(run_command_preset, cmd) for cmd in commands]
+
+        for future in concurrent.futures.as_completed(futures):
+            result = future.result()
+            if result:
+                print(result.stdout)
+
+
+def run_command_preset(command: CommandPreset):
+    with subprocess.Popen(command.args, cwd=command.cwd,
+                          stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) as proc:
+        try:
+            # Live output processing
+            for line in proc.stdout:
+                # Annotate and print the line with timestamp and command name
+                timestamp = datetime.datetime.utcnow().strftime('%H:%M:%S.%f')
+                # Annotate and print the line with the timestamp
+                print(f"[{timestamp}][{command.name}] {line}", end='')
+
+            stdout, stderr = proc.communicate(timeout=command.timeout)
+
+            if proc.returncode != 0:
+                raise RuntimeError(f"Command '{' '.join(command.args)}' failed with return code {proc.returncode}: {stderr}")
+
+        except subprocess.TimeoutExpired:
+            raise RuntimeError(f"Command '{' '.join(command.args)}' timed out!")
+
+        except Exception as e:
+            raise RuntimeError(f"Error executing '{' '.join(command.args)}': {e}")
+
+        finally:
+            # Ensure process is terminated
+            proc.kill()
+    return proc.returncode
 
 def run_command(args, check=True, shell=False, cwd=None, env=None, timeout=None, capture_output=False):
     env = env if env else {}

@@ -18,6 +18,16 @@ volumes:
   op2_blockscout_redis:
 
 services:
+  op_stack_go_builder:  # Not an actual service, but builds the prerequisite go images
+    build:
+      context: ../
+      dockerfile: ops/docker/op-stack-go/Dockerfile
+      args:
+        GIT_COMMIT: "dev"
+        GIT_DATE: "0"
+    image: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-stack-go:devnet
+    entrypoint: ["echo", "build complete"]
+
   ##################################################################################################
   # L1
   #
@@ -35,6 +45,19 @@ services:
       - "l1_data:/db"
       - "${DEVNET_DIR}/genesis-l1.json:/genesis.json"
       - "${PWD}/test-jwt-secret.txt:/config/test-jwt-secret.txt"
+    environment:
+      GETH_MINER_RECOMMIT: 100ms
+
+  artifact-server:
+    depends_on:
+      - l1
+    image: nginx:1.25-alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - "${DEVNET_DIR}/:/usr/share/nginx/html/:ro"
+    security_opt:
+      - "no-new-privileges:true"
 
   ##################################################################################################
   # OP stack 901
@@ -57,15 +80,20 @@ services:
       - "/bin/sh"
       - "/entrypoint.sh"
       - "--authrpc.jwtsecret=/config/test-jwt-secret.txt"
+    environment:
+      GETH_MINER_RECOMMIT: 100ms
 
   op1-node:
     image: ghcr.io/espressosystems/op-espresso-integration/op-node:integration
     depends_on:
+      - op_stack_go_builder
       - l1
       - op1-l2
     build:
       context: ../
       dockerfile: ./op-node/Dockerfile
+      args:
+        OP_STACK_GO_BUILDER: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-stack-go:devnet
     command: >
       op-node
       --l1=ws://l1:8546
@@ -107,15 +135,19 @@ services:
   op1-proposer:
     image: ghcr.io/espressosystems/op-espresso-integration/op-proposer:integration
     depends_on:
+      - op_stack_go_builder
       - l1
       - op1-l2
       - op1-node
     build:
       context: ../
       dockerfile: ./op-proposer/Dockerfile
+      args:
+        OP_STACK_GO_BUILDER: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-stack-go:devnet
     ports:
       - "$OP1_PROPOSER_DEBUG_PORT:6060"
       - "$OP1_PROPOSER_METRICS_PORT:7300"
+      - "$OP1_PROPOSER_RPC_PORT:8545"
     environment:
       OP_PROPOSER_L1_ETH_RPC: http://l1:8545
       OP_PROPOSER_ROLLUP_RPC: http://op1-node:8545
@@ -127,16 +159,20 @@ services:
       OP_PROPOSER_PPROF_ENABLED: "true"
       OP_PROPOSER_METRICS_ENABLED: "true"
       OP_PROPOSER_ALLOW_NON_FINALIZED: "true"
+      OP_PROPOSER_RPC_ENABLE_ADMIN: "true"
 
   op1-batcher:
     image: ghcr.io/espressosystems/op-espresso-integration/op-batcher:integration
     depends_on:
+      - op_stack_go_builder
       - l1
       - op1-l2
       - op1-node
     build:
       context: ../
       dockerfile: ./op-batcher/Dockerfile
+      args:
+        OP_STACK_GO_BUILDER: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-stack-go:devnet
     ports:
       - "$OP1_BATCHER_DEBUG_PORT:6060"
       - "$OP1_BATCHER_METRICS_PORT:7300"
@@ -154,6 +190,7 @@ services:
       OP_BATCHER_PPROF_ENABLED: "true"
       OP_BATCHER_METRICS_ENABLED: "true"
       OP_BATCHER_RPC_ENABLE_ADMIN: "true"
+      OP_BATCHER_BATCH_TYPE: 0
     # The batcher does not respond to sigint
     stop_grace_period: 1s
 
@@ -187,31 +224,20 @@ services:
     depends_on:
       - op1-geth-proxy
 
-  artifact-server:
-    depends_on:
-      - l1
-    image: nginx:1.25-alpine
-    ports:
-      - "8080:80"
-    volumes:
-      - "${DEVNET_DIR}/:/usr/share/nginx/html/:ro"
-    security_opt:
-      - "no-new-privileges:true"
-
-  stateviz:
-    image: ghcr.io/espressosystems/op-espresso-integration/stateviz:integration
-    build:
-      context: ../
-      dockerfile: ./ops-bedrock/Dockerfile.stateviz
-    command:
-      - stateviz
-      - -addr=0.0.0.0:8080
-      - -snapshot=/op_log/snapshot.log
-      - -refresh=10s
-    ports:
-      - "9090:8080"
-    volumes:
-      - op1_log:/op_log:ro
+  # stateviz:
+  #   image: ghcr.io/espressosystems/op-espresso-integration/stateviz:integration
+  #   build:
+  #     context: ../
+  #     dockerfile: ./ops-bedrock/Dockerfile.stateviz
+  #   command:
+  #     - stateviz
+  #     - -addr=0.0.0.0:8080
+  #     - -snapshot=/op_log/snapshot.log
+  #     - -refresh=10s
+  #   ports:
+  #     - "9090:8080"
+  #   volumes:
+  #     - op1_log:/op_log:ro
 
   ##################################################################################################
   # OP stack 901 block explorer
@@ -379,6 +405,7 @@ services:
     ports:
       - "$OP2_PROPOSER_DEBUG_PORT:6060"
       - "$OP2_PROPOSER_METRICS_PORT:7300"
+      - "$OP2_PROPOSER_RPC_PORT:8545"
     environment:
       OP_PROPOSER_L1_ETH_RPC: http://l1:8545
       OP_PROPOSER_ROLLUP_RPC: http://op2-node:8545
