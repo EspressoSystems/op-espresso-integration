@@ -40,7 +40,7 @@ jobs:
         run: |
           GIT_COMMIT=$(git rev-parse HEAD)
           GIT_DATE=$(git show -s --format='%ct')
-          IMAGE_TAGS=$GIT_COMMIT,latest
+          IMAGE_TAGS=$GIT_COMMIT,latest,integration
           echo "GIT_COMMIT=$GIT_COMMIT" >> "$GITHUB_ENV"
           echo "GIT_DATE=$GIT_DATE" >> "$GITHUB_ENV"
           echo "IMAGE_TAGS=$IMAGE_TAGS" >> "$GITHUB_ENV"
