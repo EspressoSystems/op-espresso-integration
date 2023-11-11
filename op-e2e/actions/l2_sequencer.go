@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/require"
 
@@ -28,8 +30,12 @@ func (m *MockL1OriginSelector) FindL1Origin(ctx context.Context, l2Head eth.L2Bl
 	return m.actual.FindL1Origin(ctx, l2Head)
 }
 
-func (m *MockL1OriginSelector) FindL1OriginByNumber(ctx context.Context, number uint64) (eth.L1BlockRef, error) {
-	return m.actual.FindL1OriginByNumber(ctx, number)
+func (m *MockL1OriginSelector) L1BlockRefByNumber(ctx context.Context, n uint64) (eth.L1BlockRef, error) {
+	return m.actual.L1BlockRefByNumber(ctx, n)
+}
+
+func (m *MockL1OriginSelector) FetchReceipts(ctx context.Context, blockHash common.Hash) (eth.BlockInfo, types.Receipts, error) {
+	return m.actual.FetchReceipts(ctx, blockHash)
 }
 
 // L2Sequencer is an actor that functions like a rollup node,
@@ -53,7 +59,7 @@ func NewL2Sequencer(t Testing, log log.Logger, l1 derive.L1Fetcher, eng L2API, c
 	}
 	return &L2Sequencer{
 		L2Verifier:              *ver,
-		sequencer:               driver.NewSequencer(log, cfg, ver.derivation, attrBuilder, l1OriginSelector, nil, metrics.NoopMetrics),
+		sequencer:               driver.NewSequencer(log, cfg, ver.derivation, eng, attrBuilder, l1OriginSelector, nil, metrics.NoopMetrics),
 		mockL1OriginSelector:    l1OriginSelector,
 		failL2GossipUnsafeBlock: nil,
 	}

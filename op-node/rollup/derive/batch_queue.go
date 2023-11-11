@@ -35,6 +35,7 @@ type NextBatchProvider interface {
 type SafeBlockFetcher interface {
 	L2BlockRefByNumber(context.Context, uint64) (eth.L2BlockRef, error)
 	PayloadByNumber(context.Context, uint64) (*eth.ExecutionPayload, error)
+	SystemConfigL2Fetcher
 }
 
 // BatchQueue contains a set of batches for every L1 block.
@@ -101,7 +102,7 @@ func (bq *BatchQueue) maybeAdvanceEpoch(nextBatch *SingularBatch) {
 	}
 }
 
-func (bq *BatchQueue) NextBatch(ctx context.Context, safeL2Head eth.L2BlockRef, usingEspresso bool) (*SingularBatch, error) {
+func (bq *BatchQueue) NextBatch(ctx context.Context, safeL2Head eth.L2BlockRef) (*SingularBatch, error) {
 	if len(bq.nextSpan) > 0 {
 		// If there are cached singular batches, pop first one and return.
 		nextBatch := bq.popNextBatch(safeL2Head)
@@ -131,6 +132,11 @@ func (bq *BatchQueue) NextBatch(ctx context.Context, safeL2Head eth.L2BlockRef, 
 		bq.log.Info("Advancing bq origin", "origin", bq.origin, "originBehind", originBehind)
 	}
 
+	sysCfg, err := bq.l2.SystemConfigByL2Hash(ctx, safeL2Head.Hash)
+	if err != nil {
+		return nil, NewTemporaryError(fmt.Errorf("failed to retrieve L2 parent SystemConfig: %w", err))
+	}
+
 	// Load more data into the batch queue
 	outOfData := false
 	if batch, err := bq.prev.NextBatch(ctx); err == io.EOF {
@@ -138,7 +144,7 @@ func (bq *BatchQueue) NextBatch(ctx context.Context, safeL2Head eth.L2BlockRef, 
 	} else if err != nil {
 		return nil, err
 	} else if !originBehind {
-		bq.AddBatch(ctx, batch, safeL2Head, usingEspresso)
+		bq.AddBatch(ctx, &sysCfg, batch, safeL2Head)
 	}
 
 	// Skip adding data unless we are up to date with the origin, but do fully
@@ -152,7 +158,7 @@ func (bq *BatchQueue) NextBatch(ctx context.Context, safeL2Head eth.L2BlockRef, 
 	}
 
 	// Finally attempt to derive more batches
-	batch, err := bq.deriveNextBatch(ctx, outOfData, safeL2Head, usingEspresso)
+	batch, err := bq.deriveNextBatch(ctx, &sysCfg, outOfData, safeL2Head)
 	if err == io.EOF && outOfData {
 		return nil, io.EOF
 	} else if err == io.EOF {
@@ -204,7 +210,7 @@ func (bq *BatchQueue) Reset(ctx context.Context, base eth.L1BlockRef, _ eth.Syst
 	return io.EOF
 }
 
-func (bq *BatchQueue) AddBatch(ctx context.Context, batch Batch, l2SafeHead eth.L2BlockRef, usingEspresso bool) {
+func (bq *BatchQueue) AddBatch(ctx context.Context, sysCfg *eth.SystemConfig, batch Batch, l2SafeHead eth.L2BlockRef) {
 	if len(bq.l1Blocks) == 0 {
 		panic(fmt.Errorf("cannot add batch with timestamp %d, no origin was prepared", batch.GetTimestamp()))
 	}
@@ -212,7 +218,7 @@ func (bq *BatchQueue) AddBatch(ctx context.Context, batch Batch, l2SafeHead eth.
 		L1InclusionBlock: bq.origin,
 		Batch:            batch,
 	}
-	validity := CheckBatch(ctx, bq.config, bq.log, bq.l1Blocks, l2SafeHead, &data, usingEspresso, bq.l1, bq.l2)
+	validity := CheckBatch(ctx, bq.config, sysCfg, bq.log, bq.l1Blocks, l2SafeHead, &data, bq.l1, bq.l2)
 	if validity == BatchDrop {
 		return // if we do drop the batch, CheckBatch will log the drop reason with WARN level.
 	}
@@ -224,7 +230,7 @@ func (bq *BatchQueue) AddBatch(ctx context.Context, batch Batch, l2SafeHead eth.
 // following the validity rules imposed on consecutive batches,
 // based on currently available buffered batch and L1 origin information.
 // If no batch can be derived yet, then (nil, io.EOF) is returned.
-func (bq *BatchQueue) deriveNextBatch(ctx context.Context, outOfData bool, l2SafeHead eth.L2BlockRef, usingEspresso bool) (Batch, error) {
+func (bq *BatchQueue) deriveNextBatch(ctx context.Context, sysCfg *eth.SystemConfig, outOfData bool, l2SafeHead eth.L2BlockRef) (Batch, error) {
 	if len(bq.l1Blocks) == 0 {
 		return nil, NewCriticalError(errors.New("cannot derive next batch, no origin was prepared"))
 	}
@@ -249,7 +255,7 @@ func (bq *BatchQueue) deriveNextBatch(ctx context.Context, outOfData bool, l2Saf
 	var remaining []*BatchWithL1InclusionBlock
 batchLoop:
 	for i, batch := range bq.batches {
-		validity := CheckBatch(ctx, bq.config, bq.log.New("batch_index", i), bq.l1Blocks, l2SafeHead, batch, usingEspresso, bq.l1, bq.l2)
+		validity := CheckBatch(ctx, bq.config, sysCfg, bq.log.New("batch_index", i), bq.l1Blocks, l2SafeHead, batch, bq.l1, bq.l2)
 		switch validity {
 		case BatchFuture:
 			remaining = append(remaining, batch)

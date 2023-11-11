@@ -77,6 +77,10 @@ func makeHeader(timestamp uint64) espresso.Header {
 }
 
 func TestValidBatchEspresso(t *testing.T) {
+	sysCfg := eth.SystemConfig{
+		Espresso:            true,
+		EspressoL1ConfDepth: 0,
+	}
 	conf := rollup.Config{
 		Genesis: rollup.Genesis{
 			L2Time: 31, // a genesis time that itself does not align to make it more interesting
@@ -505,7 +509,7 @@ func TestValidBatchEspresso(t *testing.T) {
 			l1.setBlocks(testCase.L1Blocks)
 			l1.setHeaders(testCase.Headers)
 			ctx := context.Background()
-			validity := CheckBatch(ctx, &conf, logger, testCase.L1Blocks, testCase.L2SafeHead, &testCase.Batch, true, l1, nil)
+			validity := CheckBatch(ctx, &conf, &sysCfg, logger, testCase.L1Blocks, testCase.L2SafeHead, &testCase.Batch, l1, nil)
 			require.Equal(t, testCase.Expected, validity, "batch check must return expected validity level")
 		})
 	}
