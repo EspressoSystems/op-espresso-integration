@@ -617,18 +617,19 @@ contract Deploy is Deployer {
             _implementation: systemConfig,
             _innerCallData: abi.encodeCall(
                 SystemConfig.initialize,
-                (
-                    cfg.finalSystemOwner(),
-                    cfg.gasPriceOracleOverhead(),
-                    cfg.gasPriceOracleScalar(),
-                    batcherHash,
-                    uint64(cfg.l2GenesisBlockGasLimit()),
-                    cfg.espresso(),
-                    cfg.p2pSequencerAddress(),
-                    Constants.DEFAULT_RESOURCE_CONFIG(),
-                    startBlock,
-                    cfg.batchInboxAddress(),
-                    SystemConfig.Addresses({
+                (SystemConfig.Initialize({
+                    owner: cfg.finalSystemOwner(),
+                    overhead: cfg.gasPriceOracleOverhead(),
+                    scalar: cfg.gasPriceOracleScalar(),
+                    batcherHash: batcherHash,
+                    gasLimit: uint64(cfg.l2GenesisBlockGasLimit()),
+                    espresso: cfg.espresso(),
+                    espressoL1ConfDepth: uint64(cfg.espressoL1ConfDepth()),
+                    unsafeBlockSigner: cfg.p2pSequencerAddress(),
+                    config: Constants.DEFAULT_RESOURCE_CONFIG(),
+                    startBlock: startBlock,
+                    batchInbox: cfg.batchInboxAddress(),
+                    addresses: SystemConfig.Addresses({
                         l1CrossDomainMessenger: mustGetAddress("L1CrossDomainMessengerProxy"),
                         l1ERC721Bridge: mustGetAddress("L1ERC721BridgeProxy"),
                         l1StandardBridge: mustGetAddress("L1StandardBridgeProxy"),
@@ -636,8 +637,8 @@ contract Deploy is Deployer {
                         optimismPortal: mustGetAddress("OptimismPortalProxy"),
                         optimismMintableERC20Factory: mustGetAddress("OptimismMintableERC20FactoryProxy")
                     })
-                )
-                )
+                }))
+            )
         });
 
         SystemConfig config = SystemConfig(systemConfigProxy);

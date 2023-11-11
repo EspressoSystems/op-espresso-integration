@@ -357,5 +357,7 @@ type SystemConfig struct {
 	GasLimit uint64 `json:"gasLimit"`
 	// Whether to use the Espresso sequencer
 	Espresso bool `json:"espresso"`
+	// The minimum confirmation depth for L1 origins when using the Espresso sequencer
+	EspressoL1ConfDepth uint64 `json:"espressoL1ConfDepth"`
 	// More fields can be added for future SystemConfig versions.
 }

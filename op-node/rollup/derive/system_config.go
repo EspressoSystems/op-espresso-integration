@@ -17,11 +17,12 @@ import (
 )
 
 var (
-	SystemConfigUpdateBatcher           = common.Hash{31: 0}
-	SystemConfigUpdateGasConfig         = common.Hash{31: 1}
-	SystemConfigUpdateGasLimit          = common.Hash{31: 2}
-	SystemConfigUpdateUnsafeBlockSigner = common.Hash{31: 3}
-	SystemConfigUpdateEspresso          = common.Hash{31: 4}
+	SystemConfigUpdateBatcher             = common.Hash{31: 0}
+	SystemConfigUpdateGasConfig           = common.Hash{31: 1}
+	SystemConfigUpdateGasLimit            = common.Hash{31: 2}
+	SystemConfigUpdateUnsafeBlockSigner   = common.Hash{31: 3}
+	SystemConfigUpdateEspresso            = common.Hash{31: 4}
+	SystemConfigUpdateEspressoL1ConfDepth = common.Hash{31: 5}
 )
 
 var (
@@ -157,6 +158,22 @@ func ProcessSystemConfigUpdateLogEvent(destSysCfg *eth.SystemConfig, ev *types.L
 			return NewCriticalError(errors.New("invalid espresso value"))
 		}
 		destSysCfg.Espresso = (espresso[31] == 1)
+		return nil
+	case SystemConfigUpdateEspressoL1ConfDepth:
+		if pointer, err := solabi.ReadUint64(reader); err != nil || pointer != 32 {
+			return NewCriticalError(errors.New("invalid pointer field"))
+		}
+		if length, err := solabi.ReadUint64(reader); err != nil || length != 32 {
+			return NewCriticalError(errors.New("invalid length field"))
+		}
+		l1ConfDepth, err := solabi.ReadUint64(reader)
+		if err != nil {
+			return NewCriticalError(errors.New("could not read gas limit"))
+		}
+		if !solabi.EmptyReader(reader) {
+			return NewCriticalError(errors.New("too many bytes"))
+		}
+		destSysCfg.EspressoL1ConfDepth = l1ConfDepth
 		return nil
 	default:
 		return fmt.Errorf("unrecognized L1 sysCfg update type: %s", updateType)

@@ -434,18 +434,19 @@ contract Multichain is SafeBuilder {
         // Upgrade the SystemConfig
         bytes memory initializeCall = abi.encodeCall(
             SystemConfig.initialize,
-            (
-                cfg.finalSystemOwner(),
-                cfg.gasPriceOracleOverhead(),
-                cfg.gasPriceOracleScalar(),
-                bytes32(uint256(uint160(cfg.batchSenderAddress()))),
-                uint64(cfg.l2GenesisBlockGasLimit()),
-                cfg.espresso(),
-                cfg.p2pSequencerAddress(),
-                Constants.DEFAULT_RESOURCE_CONFIG(),
-                cfg.systemConfigStartBlock(),
-                cfg.batchInboxAddress(),
-                SystemConfig.Addresses({
+            (SystemConfig.Initialize({
+                owner: cfg.finalSystemOwner(),
+                overhead: cfg.gasPriceOracleOverhead(),
+                scalar: cfg.gasPriceOracleScalar(),
+                batcherHash: bytes32(uint256(uint160(cfg.batchSenderAddress()))),
+                gasLimit: uint64(cfg.l2GenesisBlockGasLimit()),
+                espresso: cfg.espresso(),
+                espressoL1ConfDepth: uint64(cfg.espressoL1ConfDepth()),
+                unsafeBlockSigner: cfg.p2pSequencerAddress(),
+                config: Constants.DEFAULT_RESOURCE_CONFIG(),
+                startBlock: cfg.systemConfigStartBlock(),
+                batchInbox: cfg.batchInboxAddress(),
+                addresses: SystemConfig.Addresses({
                     l1CrossDomainMessenger: prox.L1CrossDomainMessenger,
                     l1ERC721Bridge: prox.L1ERC721Bridge,
                     l1StandardBridge: prox.L1StandardBridge,
@@ -453,7 +454,7 @@ contract Multichain is SafeBuilder {
                     optimismPortal: prox.OptimismPortal,
                     optimismMintableERC20Factory: prox.OptimismMintableERC20Factory
                 })
-            )
+            }))
         );
         calls[5] = IMulticall3.Call3({
             target: _proxyAdmin,

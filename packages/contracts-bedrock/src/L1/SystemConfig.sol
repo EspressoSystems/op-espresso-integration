@@ -18,12 +18,18 @@ contract SystemConfig is OwnableUpgradeable, ISemver {
     /// @custom:value GAS_LIMIT            Represents an update to gas limit on L2.
     /// @custom:value UNSAFE_BLOCK_SIGNER  Represents an update to the signer key for unsafe
     ///                                    block distrubution.
+    /// @custom:value ESPRESSO             Represents an update to whether the Espresso Sequencer is
+    ///                                    being used to build L2 blocks.
+    /// @custom:value ESPRESSO_L1_CONF_DEPTH Represents an update to the confirmation depth for L1
+    ///                                      blocks when the Espresso Sequencer is being used to
+    ///                                      build L2 blocks.
     enum UpdateType {
         BATCHER,
         GAS_CONFIG,
         GAS_LIMIT,
         UNSAFE_BLOCK_SIGNER,
-        ESPRESSO
+        ESPRESSO,
+        ESPRESSO_L1_CONF_DEPTH
     }
 
     /// @notice Struct representing the addresses of L1 system contracts. These should be the
@@ -35,6 +41,35 @@ contract SystemConfig is OwnableUpgradeable, ISemver {
         address l2OutputOracle;
         address optimismPortal;
         address optimismMintableERC20Factory;
+    }
+
+    struct Initialize {
+        // Initial owner of the contract.
+        address owner;
+        // Initial overhead value.
+        uint256 overhead;
+        // Initial scalar value.
+        uint256 scalar;
+        // Initial batcher hash.
+        bytes32 batcherHash;
+        // Initial gas limit.
+        uint64 gasLimit;
+        // Whether to use the Espresso Sequencer in the initial config.
+        bool espresso;
+        // Initial confirmation depth for L1 blocks, when `_espresso`.
+        uint64 espressoL1ConfDepth;
+        // Initial unsafe block signer address.
+        address unsafeBlockSigner;
+        // Initial ResourceConfig.
+        ResourceMetering.ResourceConfig config;
+        // Starting block for the op-node to search for logs from. Contracts that were deployed
+        // before this field existed need to have this field set manually via an override. Newly
+        // deployed contracts should set this value to uint256(0).
+        uint256 startBlock;
+        // Batch inbox address. An identifier for the op-node to find canonical data.
+        address batchInbox;
+        // Set of L1 contract addresses. These should be the proxies.
+        SystemConfig.Addresses addresses;
     }
 
     /// @notice Version identifier, used for upgrades.
@@ -90,6 +125,18 @@ contract SystemConfig is OwnableUpgradeable, ISemver {
     /// @notice Whether the Espresso Sequencer is enabled.
     bool public espresso;
 
+    /// @notice Minimum confirmation depth for L1 origin blocks.
+    ///         When running _without_ Espresso, the sequencer has a parameter that allows the L1
+    ///         origin for each L2 batch to lag behind the latest L1 block. This allows the pipeline
+    ///         to deal only in L1 blocks with a certain number of confirmations, which makes it
+    ///         significantly less sensitive to L1 reorgs. With Espresso, this parameter is not
+    ///         supported, since the L1 origin is not up to the sequencer, but must be determined by
+    ///         the Espresso Sequencer. Instead, this `espressoL1ConfDepth` config can be set and
+    ///         used in _both_ the sequencer and the derivation pipeline, to adjust the
+    ///         deterministic function of Espresso L1 block numbers that the sequencer uses to
+    ///         choose L1 origins and the derivation pipeline uses to check them.
+    uint64 public espressoL1ConfDepth;
+
     /// @notice The configuration for the deposit fee market.
     ///         Used by the OptimismPortal to meter the cost of buying L2 gas on L1.
     ///         Set as internal with a getter so that the struct is returned instead of a tuple.
@@ -112,25 +159,28 @@ contract SystemConfig is OwnableUpgradeable, ISemver {
     ///         the owner to `address(0)` due to the Ownable contract's
     ///         implementation, so set it to `address(0xdEaD)`
     constructor() {
-        initialize({
-            _owner: address(0xdEaD),
-            _overhead: 0,
-            _scalar: 0,
-            _batcherHash: bytes32(0),
-            _gasLimit: 1,
-            _espresso: false,
-            _unsafeBlockSigner: address(0),
-            _config: ResourceMetering.ResourceConfig({
-                maxResourceLimit: 1,
-                elasticityMultiplier: 1,
-                baseFeeMaxChangeDenominator: 2,
-                minimumBaseFee: 0,
-                systemTxMaxGas: 0,
-                maximumBaseFee: 0
-            }),
-            _startBlock: type(uint256).max,
-            _batchInbox: address(0),
-            _addresses: SystemConfig.Addresses({
+        ResourceMetering.ResourceConfig memory config = ResourceMetering.ResourceConfig({
+            maxResourceLimit: 1,
+            elasticityMultiplier: 1,
+            baseFeeMaxChangeDenominator: 2,
+            minimumBaseFee: 0,
+            systemTxMaxGas: 0,
+            maximumBaseFee: 0
+        });
+
+        initialize(Initialize({
+            owner: address(0xdEaD),
+            overhead: 0,
+            scalar: 0,
+            batcherHash: bytes32(0),
+            gasLimit: 1,
+            espresso: false,
+            espressoL1ConfDepth: 0,
+            unsafeBlockSigner: address(0),
+            config: config,
+            startBlock: type(uint256).max,
+            batchInbox: address(0),
+            addresses: SystemConfig.Addresses({
                 l1CrossDomainMessenger: address(0),
                 l1ERC721Bridge: address(0),
                 l1StandardBridge: address(0),
@@ -138,63 +188,38 @@ contract SystemConfig is OwnableUpgradeable, ISemver {
                 optimismPortal: address(0),
                 optimismMintableERC20Factory: address(0)
             })
-        });
+        }));
     }
 
     /// @notice Initializer.
     ///         The resource config must be set before the require check.
-    /// @param _owner             Initial owner of the contract.
-    /// @param _overhead          Initial overhead value.
-    /// @param _scalar            Initial scalar value.
-    /// @param _batcherHash       Initial batcher hash.
-    /// @param _gasLimit          Initial gas limit.
-    /// @param _unsafeBlockSigner Initial unsafe block signer address.
-    /// @param _config            Initial ResourceConfig.
-    /// @param _startBlock        Starting block for the op-node to search for logs from.
-    ///                           Contracts that were deployed before this field existed
-    ///                           need to have this field set manually via an override.
-    ///                           Newly deployed contracts should set this value to uint256(0).
-    /// @param _batchInbox        Batch inbox address. An identifier for the op-node to find
-    ///                           canonical data.
-    /// @param _addresses         Set of L1 contract addresses. These should be the proxies.
-    function initialize(
-        address _owner,
-        uint256 _overhead,
-        uint256 _scalar,
-        bytes32 _batcherHash,
-        uint64 _gasLimit,
-        bool _espresso,
-        address _unsafeBlockSigner,
-        ResourceMetering.ResourceConfig memory _config,
-        uint256 _startBlock,
-        address _batchInbox,
-        SystemConfig.Addresses memory _addresses
-    )
+    function initialize(Initialize memory args)
         public
         reinitializer(Constants.INITIALIZER)
     {
         __Ownable_init();
-        transferOwnership(_owner);
+        transferOwnership(args.owner);
 
         // These are set in ascending order of their UpdateTypes.
-        _setBatcherHash(_batcherHash);
-        _setGasConfig({ _overhead: _overhead, _scalar: _scalar });
-        _setGasLimit(_gasLimit);
-        _setUnsafeBlockSigner(_unsafeBlockSigner);
-        _setEspresso(_espresso);
+        _setBatcherHash(args.batcherHash);
+        _setGasConfig({ _overhead: args.overhead, _scalar: args.scalar });
+        _setGasLimit(args.gasLimit);
+        _setUnsafeBlockSigner(args.unsafeBlockSigner);
+        _setEspresso(args.espresso);
+        _setEspressoL1ConfDepth(args.espressoL1ConfDepth);
 
-        Storage.setAddress(BATCH_INBOX_SLOT, _batchInbox);
-        Storage.setAddress(L1_CROSS_DOMAIN_MESSENGER_SLOT, _addresses.l1CrossDomainMessenger);
-        Storage.setAddress(L1_ERC_721_BRIDGE_SLOT, _addresses.l1ERC721Bridge);
-        Storage.setAddress(L1_STANDARD_BRIDGE_SLOT, _addresses.l1StandardBridge);
-        Storage.setAddress(L2_OUTPUT_ORACLE_SLOT, _addresses.l2OutputOracle);
-        Storage.setAddress(OPTIMISM_PORTAL_SLOT, _addresses.optimismPortal);
-        Storage.setAddress(OPTIMISM_MINTABLE_ERC20_FACTORY_SLOT, _addresses.optimismMintableERC20Factory);
+        Storage.setAddress(BATCH_INBOX_SLOT, args.batchInbox);
+        Storage.setAddress(L1_CROSS_DOMAIN_MESSENGER_SLOT, args.addresses.l1CrossDomainMessenger);
+        Storage.setAddress(L1_ERC_721_BRIDGE_SLOT, args.addresses.l1ERC721Bridge);
+        Storage.setAddress(L1_STANDARD_BRIDGE_SLOT, args.addresses.l1StandardBridge);
+        Storage.setAddress(L2_OUTPUT_ORACLE_SLOT, args.addresses.l2OutputOracle);
+        Storage.setAddress(OPTIMISM_PORTAL_SLOT, args.addresses.optimismPortal);
+        Storage.setAddress(OPTIMISM_MINTABLE_ERC20_FACTORY_SLOT, args.addresses.optimismMintableERC20Factory);
 
-        _setStartBlock(_startBlock);
+        _setStartBlock(args.startBlock);
 
-        _setResourceConfig(_config);
-        require(_gasLimit >= minimumGasLimit(), "SystemConfig: gas limit too low");
+        _setResourceConfig(args.config);
+        require(args.gasLimit >= minimumGasLimit(), "SystemConfig: gas limit too low");
     }
 
     /// @notice Returns the minimum L2 gas limit that can be safely set for the system to
@@ -296,6 +321,17 @@ contract SystemConfig is OwnableUpgradeable, ISemver {
 
         bytes memory data = abi.encode(_espresso);
         emit ConfigUpdate(VERSION, UpdateType.ESPRESSO, data);
+    }
+
+    function setEspressoL1ConfDepth(uint64 l1ConfDepth) external onlyOwner {
+        _setEspressoL1ConfDepth(l1ConfDepth);
+    }
+
+    function _setEspressoL1ConfDepth(uint64 l1ConfDepth) internal {
+        espressoL1ConfDepth = l1ConfDepth;
+
+        bytes memory data = abi.encode(l1ConfDepth);
+        emit ConfigUpdate(VERSION, UpdateType.ESPRESSO_L1_CONF_DEPTH, data);
     }
 
     /// @notice Updates the batcher hash. Can only be called by the owner.

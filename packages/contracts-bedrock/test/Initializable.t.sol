@@ -28,15 +28,16 @@ contract Initializer_Test is ERC721Bridge_Initializer {
         op.initialize(L2OutputOracle(address(0)), address(0), SystemConfig(address(0)), false);
 
         vm.expectRevert("Initializable: contract is already initialized");
-        systemConfig.initialize({
-            _owner: address(0xdEaD),
-            _overhead: 0,
-            _scalar: 0,
-            _batcherHash: bytes32(0),
-            _gasLimit: 1,
-            _espresso: false,
-            _unsafeBlockSigner: address(0),
-            _config: ResourceMetering.ResourceConfig({
+        systemConfig.initialize(SystemConfig.Initialize({
+            owner: address(0xdEaD),
+            overhead: 0,
+            scalar: 0,
+            batcherHash: bytes32(0),
+            gasLimit: 1,
+            espresso: false,
+            espressoL1ConfDepth: 0,
+            unsafeBlockSigner: address(0),
+            config: ResourceMetering.ResourceConfig({
                 maxResourceLimit: 1,
                 elasticityMultiplier: 1,
                 baseFeeMaxChangeDenominator: 2,
@@ -44,9 +45,9 @@ contract Initializer_Test is ERC721Bridge_Initializer {
                 systemTxMaxGas: 0,
                 maximumBaseFee: 0
             }),
-            _startBlock: type(uint256).max,
-            _batchInbox: address(0),
-            _addresses: SystemConfig.Addresses({
+            startBlock: type(uint256).max,
+            batchInbox: address(0),
+            addresses: SystemConfig.Addresses({
                 l1CrossDomainMessenger: address(0),
                 l1ERC721Bridge: address(0),
                 l1StandardBridge: address(0),
@@ -54,7 +55,7 @@ contract Initializer_Test is ERC721Bridge_Initializer {
                 optimismPortal: address(0),
                 optimismMintableERC20Factory: address(0)
             })
-        });
+        }));
 
         vm.expectRevert("Initializable: contract is already initialized");
         L1NFTBridge.initialize(CrossDomainMessenger(address(0)));

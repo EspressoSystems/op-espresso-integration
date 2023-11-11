@@ -48,6 +48,7 @@ contract DeployConfig is Script {
     uint256 public faultGameMaxDepth;
     uint256 public faultGameMaxDuration;
     bool public espresso;
+    uint256 public espressoL1ConfDepth;
     uint256 public systemConfigStartBlock;
     uint256 public requiredProtocolVersion;
     uint256 public recommendedProtocolVersion;
@@ -100,6 +101,10 @@ contract DeployConfig is Script {
             faultGameAbsolutePrestate = stdJson.readUint(_json, "$.faultGameAbsolutePrestate");
             faultGameMaxDepth = stdJson.readUint(_json, "$.faultGameMaxDepth");
             faultGameMaxDuration = stdJson.readUint(_json, "$.faultGameMaxDuration");
+        }
+
+        if (espresso) {
+            espressoL1ConfDepth = stdJson.readUint(_json, "$.espressoL1ConfDepth");
         }
     }
 

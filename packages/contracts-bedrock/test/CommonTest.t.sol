@@ -191,18 +191,19 @@ contract Portal_Initializer is L2OutputOracle_Initializer {
             address(systemConfigImpl),
             abi.encodeCall(
                 SystemConfig.initialize,
-                (
-                    address(1), //_owner,
-                    0, //_overhead,
-                    10000, //_scalar,
-                    bytes32(0), //_batcherHash,
-                    30_000_000, //_gasLimit,
-                    false, //_espresso,
-                    address(0), //_unsafeBlockSigner,
-                    Constants.DEFAULT_RESOURCE_CONFIG(), //_config,
-                    0, //_startBlock
-                    address(0xff), // _batchInbox
-                    SystemConfig.Addresses({ // _addresses
+                (SystemConfig.Initialize({
+                    owner: address(1),
+                    overhead: 0,
+                    scalar: 10000,
+                    batcherHash: bytes32(0),
+                    gasLimit: 30_000_000,
+                    espresso: false,
+                    espressoL1ConfDepth: 0,
+                    unsafeBlockSigner: address(0),
+                    config: Constants.DEFAULT_RESOURCE_CONFIG(),
+                    startBlock: 0,
+                    batchInbox: address(0xff),
+                    addresses: SystemConfig.Addresses({
                         l1CrossDomainMessenger: address(0),
                         l1ERC721Bridge: address(0),
                         l1StandardBridge: address(0),
@@ -210,7 +211,7 @@ contract Portal_Initializer is L2OutputOracle_Initializer {
                         optimismPortal: address(op),
                         optimismMintableERC20Factory: address(0)
                     })
-                )
+                }))
             )
         );
 

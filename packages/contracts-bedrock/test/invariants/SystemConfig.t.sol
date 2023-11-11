@@ -24,18 +24,19 @@ contract SystemConfig_GasLimitLowerBound_Invariant is Test {
             address(configImpl),
             abi.encodeCall(
                 configImpl.initialize,
-                (
-                    address(0xbeef), // owner
-                    2100, // overhead
-                    1000000, // scalar
-                    bytes32(hex"abcd"), // batcher hash
-                    30_000_000, // gas limit
-                    false, // espresso
-                    address(1), // unsafe block signer
-                    Constants.DEFAULT_RESOURCE_CONFIG(), // resource config
-                    0, //_startBlock
-                    address(0), // _batchInbox
-                    SystemConfig.Addresses({ // _addrs
+                (SystemConfig.Initialize({
+                    owner: address(0xbeef),
+                    overhead: 2100,
+                    scalar: 1000000,
+                    batcherHash: bytes32(hex"abcd"),
+                    gasLimit: 30_000_000,
+                    espresso: false,
+                    espressoL1ConfDepth: 0,
+                    unsafeBlockSigner: address(1),
+                    config: Constants.DEFAULT_RESOURCE_CONFIG(),
+                    startBlock: 0,
+                    batchInbox: address(0),
+                    addresses: SystemConfig.Addresses({
                         l1CrossDomainMessenger: address(0),
                         l1ERC721Bridge: address(0),
                         l1StandardBridge: address(0),
@@ -43,7 +44,7 @@ contract SystemConfig_GasLimitLowerBound_Invariant is Test {
                         optimismPortal: address(0),
                         optimismMintableERC20Factory: address(0)
                     })
-                )
+                }))
             )
         );
 
