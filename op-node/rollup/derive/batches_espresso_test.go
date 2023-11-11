@@ -514,3 +514,124 @@ func TestValidBatchEspresso(t *testing.T) {
 		})
 	}
 }
+
+func TestL1OriginLag(t *testing.T) {
+	sysCfg := eth.SystemConfig{
+		Espresso:            true,
+		EspressoL1ConfDepth: 2,
+	}
+	conf := rollup.Config{
+		Genesis: rollup.Genesis{
+			L2Time: 31, // a genesis time that itself does not align to make it more interesting
+		},
+		BlockTime:         2,
+		SeqWindowSize:     4,
+		MaxSequencerDrift: 17,
+		L2ChainID:         big.NewInt(901),
+		// other config fields are ignored and can be left empty.
+	}
+
+	rng := rand.New(rand.NewSource(1234))
+	l1A := eth.L1BlockRef{
+		Hash:       testutils.RandomHash(rng),
+		Number:     0,
+		ParentHash: testutils.RandomHash(rng),
+		Time:       rng.Uint64(),
+	}
+	l1B := eth.L1BlockRef{
+		Hash:       testutils.RandomHash(rng),
+		Number:     l1A.Number + 1,
+		ParentHash: l1A.Hash,
+		Time:       l1A.Time + 7,
+	}
+	l1C := eth.L1BlockRef{
+		Hash:       testutils.RandomHash(rng),
+		Number:     l1B.Number + 1,
+		ParentHash: l1B.Hash,
+		Time:       l1B.Time + 7,
+	}
+
+	headers := []espresso.Header{
+		{
+			Metadata: espresso.Metadata{
+				Timestamp: l1C.Time,
+				L1Head:    l1C.Number,
+			},
+		},
+		{
+			Metadata: espresso.Metadata{
+				Timestamp: l1C.Time + 2*conf.BlockTime + 1,
+				L1Head:    l1C.Number,
+			},
+		},
+	}
+
+	l2SafeHead := eth.L2BlockRef{
+		Hash:           testutils.RandomHash(rng),
+		Number:         100,
+		ParentHash:     testutils.RandomHash(rng),
+		Time:           l1C.Time,
+		L1Origin:       l1A.ID(),
+		SequenceNumber: 0,
+	}
+
+	testCases := []EspressoValidBatchTestCase{
+		{
+			Name:       "valid origin lag",
+			L1Blocks:   []eth.L1BlockRef{l1A, l1B, l1C},
+			L2SafeHead: l2SafeHead,
+			Headers:    headers,
+			Batch: BatchWithL1InclusionBlock{
+				L1InclusionBlock: l1C,
+				Batch: &SingularBatch{
+					ParentHash: l2SafeHead.Hash,
+					EpochNum:   rollup.Epoch(l1A.Number),
+					EpochHash:  l1A.Hash,
+					Timestamp:  l2SafeHead.Time + conf.BlockTime,
+					Justification: &eth.L2BatchJustification{
+						Prev: &headers[0],
+						Next: &headers[1],
+						From: 1,
+					},
+				},
+			},
+			Expected: BatchAccept,
+		},
+		{
+			Name:       "missing lag",
+			L1Blocks:   []eth.L1BlockRef{l1A, l1B, l1C},
+			L2SafeHead: l2SafeHead,
+			Headers:    headers,
+			Batch: BatchWithL1InclusionBlock{
+				L1InclusionBlock: l1C,
+				Batch: &SingularBatch{
+					ParentHash: l2SafeHead.Hash,
+					EpochNum:   rollup.Epoch(l1B.Number),
+					EpochHash:  l1B.Hash,
+					Timestamp:  l2SafeHead.Time + conf.BlockTime,
+					Justification: &eth.L2BatchJustification{
+						Prev: &headers[0],
+						Next: &headers[1],
+						From: 1,
+					},
+				},
+			},
+			Expected: BatchDrop,
+		},
+	}
+
+	// Log level can be increased for debugging purposes
+	logger := testlog.Logger(t, log.LvlWarn)
+
+	var l1 = &mockL1Provider{}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.Name, func(t *testing.T) {
+			l1.setBlocks(testCase.L1Blocks)
+			l1.setHeaders(testCase.Headers)
+			ctx := context.Background()
+			validity := CheckBatch(ctx, &conf, &sysCfg, logger, testCase.L1Blocks, testCase.L2SafeHead, &testCase.Batch, l1, nil)
+			require.Equal(t, testCase.Expected, validity, "batch check must return expected validity level")
+		})
+	}
+}

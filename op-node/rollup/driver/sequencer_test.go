@@ -550,7 +550,8 @@ func SetupSequencer(t *testing.T, useEspresso bool) *TestSequencer {
 			L2:     mockL2ID(200000),
 			L2Time: l1Time + 300, // L2 may start with a relative old L1 origin and will have to catch it up
 			SystemConfig: eth.SystemConfig{
-				Espresso: useEspresso,
+				Espresso:            useEspresso,
+				EspressoL1ConfDepth: 3, // set a non-zero L1 lag, to test those edge cases
 			},
 		},
 		L1ChainID:         big.NewInt(900),

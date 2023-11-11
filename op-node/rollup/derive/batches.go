@@ -101,7 +101,8 @@ func EspressoL1Origin(ctx context.Context, cfg *rollup.Config, sysCfg *eth.Syste
 		// forced to advance the L1 origin. At worst, the derivation pipeline may block until the
 		// next L1 origin is available, but if the chosen L1 origin is this old, it is likely that a
 		// new L1 block is available and Espresso just hasn't seen it yet for some reason.
-		l.Info("L1 origin is too old, advancing by one")
+		l.Info("L1 origin is too old, advancing by one",
+			"suggested", l1Block, "suggested_time", l1Block.Time)
 		nextL1Block, err := l1.L1BlockRefByNumber(ctx, prev.Number+1)
 		if err != nil {
 			return eth.L1BlockRef{}, fmt.Errorf("failed to fetch next possible L1 origin %d: %w", nextL1Block, err)
