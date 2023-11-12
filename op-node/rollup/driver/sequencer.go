@@ -228,7 +228,7 @@ func (d *Sequencer) sealEspressoBatch(ctx context.Context) (*eth.ExecutionPayloa
 	attrs.NoTxPool = true
 	attrs.Transactions = append(attrs.Transactions, batch.transactions...)
 
-	d.log.Debug("prepared attributes for new Espresso block",
+	d.log.Info("prepared attributes for new Espresso block",
 		"num", batch.onto.Number+1, "time", uint64(attrs.Timestamp), "origin", l1Origin)
 
 	// Start a payload building process.

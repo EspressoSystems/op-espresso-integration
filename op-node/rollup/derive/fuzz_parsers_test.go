@@ -72,17 +72,19 @@ func FuzzL1InfoRoundTrip(f *testing.F) {
 // FuzzL1InfoAgainstContract checks the custom marshalling functions against the contract
 // bindings to ensure that our functions are up to date and match the bindings.
 func FuzzL1InfoAgainstContract(f *testing.F) {
-	f.Fuzz(func(t *testing.T, number, time uint64, baseFee, hash []byte, seqNumber uint64, batcherHash []byte, l1FeeOverhead []byte, l1FeeScalar []byte) {
+	f.Fuzz(func(t *testing.T, number, time uint64, baseFee, hash []byte, seqNumber uint64, batcherHash []byte, l1FeeOverhead []byte, l1FeeScalar []byte, espresso bool, espressoL1ConfDepth uint64) {
 		expected := L1BlockInfo{
-			Number:         number,
-			Time:           time,
-			BaseFee:        BytesToBigInt(baseFee),
-			BlockHash:      common.BytesToHash(hash),
-			SequenceNumber: seqNumber,
-			BatcherAddr:    common.BytesToAddress(batcherHash),
-			L1FeeOverhead:  eth.Bytes32(common.BytesToHash(l1FeeOverhead)),
-			L1FeeScalar:    eth.Bytes32(common.BytesToHash(l1FeeScalar)),
-			Justification:  nil,
+			Number:              number,
+			Time:                time,
+			BaseFee:             BytesToBigInt(baseFee),
+			BlockHash:           common.BytesToHash(hash),
+			SequenceNumber:      seqNumber,
+			BatcherAddr:         common.BytesToAddress(batcherHash),
+			L1FeeOverhead:       eth.Bytes32(common.BytesToHash(l1FeeOverhead)),
+			L1FeeScalar:         eth.Bytes32(common.BytesToHash(l1FeeScalar)),
+			Espresso:            espresso,
+			EspressoL1ConfDepth: espressoL1ConfDepth,
+			Justification:       nil,
 		}
 
 		// Setup opts
@@ -101,6 +103,8 @@ func FuzzL1InfoAgainstContract(f *testing.F) {
 			eth.AddressAsLeftPaddedHash(common.BytesToAddress(batcherHash)),
 			common.BytesToHash(l1FeeOverhead).Big(),
 			common.BytesToHash(l1FeeScalar).Big(),
+			espresso,
+			espressoL1ConfDepth,
 			// Since we set `Justification: nil`, the RLP encoded bytes will encode an empty list.
 			// This is encoded by `c0` to signify a list followed by no elements.
 			[]byte{0xc0},

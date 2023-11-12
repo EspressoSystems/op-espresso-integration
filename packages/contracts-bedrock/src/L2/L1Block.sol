@@ -38,6 +38,12 @@ contract L1Block is ISemver {
     /// @notice The scalar value applied to the L1 portion of the transaction fee.
     uint256 public l1FeeScalar;
 
+    /// @notice Whether the Espresso Sequencer is enabled.
+    bool public espresso;
+
+    /// @notice Minimum confirmation depth for L1 origin blocks.
+    uint64 public espressoL1ConfDepth;
+
     /// @custom:semver 1.1.0
     string public constant version = "1.1.0";
 
@@ -50,6 +56,8 @@ contract L1Block is ISemver {
     /// @param _batcherHash    Versioned hash to authenticate batcher by.
     /// @param _l1FeeOverhead  L1 fee overhead.
     /// @param _l1FeeScalar    L1 fee scalar.
+    /// @param _espresso       Whether the Espresso Sequencer is enabled.
+    /// @param _espressoL1ConfDepth Minimum confirmation depth for L1 origin blocks.
     /// @param _justification  The RLP-encoded L2 batch justification.
     function setL1BlockValues(
         uint64 _number,
@@ -60,6 +68,8 @@ contract L1Block is ISemver {
         bytes32 _batcherHash,
         uint256 _l1FeeOverhead,
         uint256 _l1FeeScalar,
+        bool _espresso,
+        uint64 _espressoL1ConfDepth,
         bytes calldata _justification
     )
         external
@@ -74,5 +84,7 @@ contract L1Block is ISemver {
         batcherHash = _batcherHash;
         l1FeeOverhead = _l1FeeOverhead;
         l1FeeScalar = _l1FeeScalar;
+        espresso = _espresso;
+        espressoL1ConfDepth = _espressoL1ConfDepth;
     }
 }

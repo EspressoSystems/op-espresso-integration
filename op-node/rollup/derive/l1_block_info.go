@@ -17,14 +17,14 @@ import (
 )
 
 const (
-	L1InfoFuncSignature = "setL1BlockValues(uint64,uint64,uint256,bytes32,uint64,bytes32,uint256,uint256,bytes)"
+	L1InfoFuncSignature = "setL1BlockValues(uint64,uint64,uint256,bytes32,uint64,bytes32,uint256,uint256,bool,uint64,bytes)"
 	L1InfoArguments     = 8
 )
 
 var (
 	L1InfoFuncBytes4          = crypto.Keccak256([]byte(L1InfoFuncSignature))[:4]
 	L1InfoDepositerAddress    = common.HexToAddress("0xdeaddeaddeaddeaddeaddeaddeaddeaddead0001")
-	L1InfoJustificationOffset = new(big.Int).SetUint64(288) // See Binary Format table below
+	L1InfoJustificationOffset = new(big.Int).SetUint64(352) // See Binary Format table below
 	L1BlockAddress            = predeploys.L1BlockAddr
 )
 
@@ -45,6 +45,11 @@ type L1BlockInfo struct {
 	BatcherAddr   common.Address
 	L1FeeOverhead eth.Bytes32
 	L1FeeScalar   eth.Bytes32
+	// Whether Espresso mode is enabled.
+	Espresso bool
+	// When using Espresso, the configured confirmation depth for L1 origins.
+	EspressoL1ConfDepth uint64
+
 	Justification *eth.L2BatchJustification `rlp:"nil"`
 }
 
@@ -61,6 +66,8 @@ type L1BlockInfo struct {
 // | 32      | BatcherAddr              |
 // | 32      | L1FeeOverhead            |
 // | 32      | L1FeeScalar              |
+// | 32      | Espresso
+// | 32      | EspressoL1ConfDepth      |
 // | 32      | L1InfoJustificationOffset|
 // | 		 | (this is how dynamic     |
 // | 		 | types are ABI encoded)   |
@@ -94,6 +101,12 @@ func (info *L1BlockInfo) MarshalBinary() ([]byte, error) {
 		return nil, err
 	}
 	if err := solabi.WriteEthBytes32(w, info.L1FeeScalar); err != nil {
+		return nil, err
+	}
+	if err := solabi.WriteBool(w, info.Espresso); err != nil {
+		return nil, err
+	}
+	if err := solabi.WriteUint64(w, info.EspressoL1ConfDepth); err != nil {
 		return nil, err
 	}
 
@@ -152,6 +165,12 @@ func (info *L1BlockInfo) UnmarshalBinary(data []byte) error {
 	if info.L1FeeScalar, err = solabi.ReadEthBytes32(reader); err != nil {
 		return err
 	}
+	if info.Espresso, err = solabi.ReadBool(reader); err != nil {
+		return err
+	}
+	if info.EspressoL1ConfDepth, err = solabi.ReadUint64(reader); err != nil {
+		return err
+	}
 
 	// Read the offset of the Justification bytes followed by the bytes themselves.
 	rlpOffset, err := solabi.ReadUint256(reader)
@@ -181,11 +200,6 @@ func (info *L1BlockInfo) UnmarshalBinary(data []byte) error {
 	return nil
 }
 
-// Whether the rollup is using the Espresso sequencer at this point in its history.
-func (info *L1BlockInfo) UsingEspresso() bool {
-	return info.Justification != nil
-}
-
 // L1InfoDepositTxData is the inverse of L1InfoDeposit, to see where the L2 chain is derived from
 func L1InfoDepositTxData(data []byte) (L1BlockInfo, error) {
 	var info L1BlockInfo
@@ -197,15 +211,17 @@ func L1InfoDepositTxData(data []byte) (L1BlockInfo, error) {
 // and the L2 block-height difference with the start of the epoch.
 func L1InfoDeposit(seqNumber uint64, block eth.BlockInfo, sysCfg eth.SystemConfig, justification *eth.L2BatchJustification, regolith bool) (*types.DepositTx, error) {
 	infoDat := L1BlockInfo{
-		Number:         block.NumberU64(),
-		Time:           block.Time(),
-		BaseFee:        block.BaseFee(),
-		BlockHash:      block.Hash(),
-		SequenceNumber: seqNumber,
-		BatcherAddr:    sysCfg.BatcherAddr,
-		L1FeeOverhead:  sysCfg.Overhead,
-		L1FeeScalar:    sysCfg.Scalar,
-		Justification:  justification,
+		Number:              block.NumberU64(),
+		Time:                block.Time(),
+		BaseFee:             block.BaseFee(),
+		BlockHash:           block.Hash(),
+		SequenceNumber:      seqNumber,
+		BatcherAddr:         sysCfg.BatcherAddr,
+		L1FeeOverhead:       sysCfg.Overhead,
+		L1FeeScalar:         sysCfg.Scalar,
+		Espresso:            sysCfg.Espresso,
+		EspressoL1ConfDepth: sysCfg.EspressoL1ConfDepth,
+		Justification:       justification,
 	}
 	data, err := infoDat.MarshalBinary()
 	if err != nil {

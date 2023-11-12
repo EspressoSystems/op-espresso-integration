@@ -71,11 +71,12 @@ func PayloadToSystemConfig(payload *eth.ExecutionPayload, cfg *rollup.Config) (e
 			return eth.SystemConfig{}, fmt.Errorf("failed to parse L1 info deposit tx from L2 block: %w", err)
 		}
 		return eth.SystemConfig{
-			BatcherAddr: info.BatcherAddr,
-			Overhead:    info.L1FeeOverhead,
-			Scalar:      info.L1FeeScalar,
-			GasLimit:    uint64(payload.GasLimit),
-			Espresso:    info.UsingEspresso(),
+			BatcherAddr:         info.BatcherAddr,
+			Overhead:            info.L1FeeOverhead,
+			Scalar:              info.L1FeeScalar,
+			GasLimit:            uint64(payload.GasLimit),
+			Espresso:            info.Espresso,
+			EspressoL1ConfDepth: info.EspressoL1ConfDepth,
 		}, err
 	}
 }

@@ -59,6 +59,14 @@ func ReadAddress(r io.Reader) (common.Address, error) {
 	return a, err
 }
 
+func ReadBool(r io.Reader) (bool, error) {
+	n, err := ReadUint64(r)
+	if err != nil {
+		return false, err
+	}
+	return n != 0, err
+}
+
 // ReadUint64 reads a big endian uint64 from a 32 byte word
 func ReadUint64(r io.Reader) (uint64, error) {
 	var readPadding [24]byte
@@ -158,6 +166,14 @@ func WriteUint64(w io.Writer, n uint64) error {
 		return err
 	}
 	return nil
+}
+
+func WriteBool(w io.Writer, b bool) error {
+	if b {
+		return WriteUint64(w, 1)
+	} else {
+		return WriteUint64(w, 0)
+	}
 }
 
 func WriteBytes(w io.Writer, b []byte) error {
