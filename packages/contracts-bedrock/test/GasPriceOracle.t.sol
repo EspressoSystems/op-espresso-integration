@@ -47,19 +47,21 @@ contract GasPriceOracle_Test is CommonTest {
         gasOracle = new GasPriceOracle();
 
         vm.prank(depositor);
-        l1Block.setL1BlockValues({
-            _number: number,
-            _timestamp: timestamp,
-            _basefee: basefee,
-            _hash: hash,
-            _sequenceNumber: sequenceNumber,
-            _batcherHash: batcherHash,
-            _l1FeeOverhead: l1FeeOverhead,
-            _l1FeeScalar: l1FeeScalar,
-            _espresso: espresso,
-            _espressoL1ConfDepth: espressoL1ConfDepth,
-            _justification: hex"c0"
-        });
+        l1Block.setL1BlockValues(
+            L1Block.L1BlockValues({
+                number: number,
+                timestamp: timestamp,
+                basefee: basefee,
+                hash: hash,
+                sequenceNumber: sequenceNumber,
+                batcherHash: batcherHash,
+                l1FeeOverhead: l1FeeOverhead,
+                l1FeeScalar: l1FeeScalar,
+                espresso: espresso,
+                espressoL1ConfDepth: espressoL1ConfDepth,
+                justification: hex"c0"
+            })
+        );
     }
 
     /// @dev Tests that `l1BaseFee` is set correctly.

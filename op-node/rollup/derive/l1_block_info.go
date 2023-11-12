@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	L1InfoFuncSignature = "setL1BlockValues(uint64,uint64,uint256,bytes32,uint64,bytes32,uint256,uint256,bool,uint64,bytes)"
+	L1InfoFuncSignature = "setL1BlockValues((uint64,uint64,uint256,bytes32,uint64,bytes32,uint256,uint256,bool,uint64,bytes))"
 	L1InfoArguments     = 8
 )
 
@@ -54,10 +54,24 @@ type L1BlockInfo struct {
 }
 
 // Binary Format
+//
+// We marshal `L1BlockInfo` using the ABI encoding for a call to the `setL1BlockValues` method. This
+// method has one argument, a struct of type `L1BlockValues`. This struct in turn contains all the
+// fields of `L1BlockInfo` (we do this to avoid exceeding the stack depth, since we must pass many
+// fields).
+//
+// As always, the parameters to a method are encoded as a tuple, in this case a 1-tuple containing
+// only the struct. The struct itself is also encoded as a tuple, which is a dynamically sized type.
+// Thus, the encoding of the struct consists of the offset of the segment of the encoding containing
+// dynamic values, followed by each field of the struct in order. In this case, since there is only
+// one argument in the outer tuple, the offset of the dynamic section is 32, since the offset itself
+// takes up 32 bytes and the dynamic section follows immediately after.
+//
 // +---------+--------------------------+
 // | Bytes   | Field                    |
 // +---------+--------------------------+
 // | 4       | Function signature       |
+// | 32      | Struct fields offset (32)|
 // | 32      | Number                   |
 // | 32      | Time                     |
 // | 32      | BaseFee                  |
@@ -66,17 +80,18 @@ type L1BlockInfo struct {
 // | 32      | BatcherAddr              |
 // | 32      | L1FeeOverhead            |
 // | 32      | L1FeeScalar              |
-// | 32      | Espresso
+// | 32      | Espresso                 |
 // | 32      | EspressoL1ConfDepth      |
 // | 32      | L1InfoJustificationOffset|
-// | 		 | (this is how dynamic     |
-// | 		 | types are ABI encoded)   |
 // | variable| Justification            |
 // +---------+--------------------------+
 
 func (info *L1BlockInfo) MarshalBinary() ([]byte, error) {
 	w := new(bytes.Buffer)
 	if err := solabi.WriteSignature(w, L1InfoFuncBytes4); err != nil {
+		return nil, err
+	}
+	if err := solabi.WriteUint64(w, 32); err != nil {
 		return nil, err
 	}
 	if err := solabi.WriteUint64(w, info.Number); err != nil {
@@ -140,6 +155,11 @@ func (info *L1BlockInfo) UnmarshalBinary(data []byte) error {
 	var err error
 	if _, err := solabi.ReadAndValidateSignature(reader, L1InfoFuncBytes4); err != nil {
 		return err
+	}
+	if fieldsOffset, err := solabi.ReadUint64(reader); err != nil {
+		return err
+	} else if fieldsOffset != 32 {
+		return fmt.Errorf("invalid struct fields offset (%d, expected 32)", fieldsOffset)
 	}
 	if info.Number, err = solabi.ReadUint64(reader); err != nil {
 		return err
