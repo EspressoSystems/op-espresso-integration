@@ -179,11 +179,12 @@ func Setup(t require.TestingT, deployParams *DeployParams, alloc *AllocParams) *
 
 func SystemConfigFromDeployConfig(deployConfig *genesis.DeployConfig) eth.SystemConfig {
 	return eth.SystemConfig{
-		BatcherAddr: deployConfig.BatchSenderAddress,
-		Overhead:    eth.Bytes32(common.BigToHash(new(big.Int).SetUint64(deployConfig.GasPriceOracleOverhead))),
-		Scalar:      eth.Bytes32(common.BigToHash(new(big.Int).SetUint64(deployConfig.GasPriceOracleScalar))),
-		GasLimit:    uint64(deployConfig.L2GenesisBlockGasLimit),
-		Espresso:    deployConfig.Espresso,
+		BatcherAddr:         deployConfig.BatchSenderAddress,
+		Overhead:            eth.Bytes32(common.BigToHash(new(big.Int).SetUint64(deployConfig.GasPriceOracleOverhead))),
+		Scalar:              eth.Bytes32(common.BigToHash(new(big.Int).SetUint64(deployConfig.GasPriceOracleScalar))),
+		GasLimit:            uint64(deployConfig.L2GenesisBlockGasLimit),
+		Espresso:            deployConfig.Espresso,
+		EspressoL1ConfDepth: deployConfig.EspressoL1ConfDepth,
 	}
 }
 

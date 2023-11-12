@@ -4,6 +4,7 @@ version: '3.4'
 
 services:
   op-geth-proxy:
+    image: ghcr.io/espressosystems/op-espresso-integration/op-geth-proxy:integration
     build:
       context: ../
       dockerfile: ./op-geth-proxy/Dockerfile
