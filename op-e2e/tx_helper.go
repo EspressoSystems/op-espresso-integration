@@ -19,11 +19,11 @@ import (
 )
 
 func depositTimeout(cfg *SystemConfig) time.Duration {
-	seconds := 15*cfg.DeployConfig.L2BlockTime
+	seconds := 15 * cfg.DeployConfig.L2BlockTime
 	if cfg.DeployConfig.Espresso {
-		seconds += cfg.DeployConfig.EspressoL1ConfDepth*cfg.DeployConfig.L1BlockTime
+		seconds += cfg.DeployConfig.EspressoL1ConfDepth * cfg.DeployConfig.L1BlockTime
 	}
-	return time.Duration(seconds)*time.Second
+	return time.Duration(seconds) * time.Second
 }
 
 // SendDepositTx creates and sends a deposit transaction.
