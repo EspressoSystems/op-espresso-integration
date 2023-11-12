@@ -168,35 +168,34 @@ contract SystemConfig is OwnableUpgradeable, ISemver {
             maximumBaseFee: 0
         });
 
-        initialize(Initialize({
-            owner: address(0xdEaD),
-            overhead: 0,
-            scalar: 0,
-            batcherHash: bytes32(0),
-            gasLimit: 1,
-            espresso: false,
-            espressoL1ConfDepth: 0,
-            unsafeBlockSigner: address(0),
-            config: config,
-            startBlock: type(uint256).max,
-            batchInbox: address(0),
-            addresses: SystemConfig.Addresses({
-                l1CrossDomainMessenger: address(0),
-                l1ERC721Bridge: address(0),
-                l1StandardBridge: address(0),
-                l2OutputOracle: address(0),
-                optimismPortal: address(0),
-                optimismMintableERC20Factory: address(0)
+        initialize(
+            Initialize({
+                owner: address(0xdEaD),
+                overhead: 0,
+                scalar: 0,
+                batcherHash: bytes32(0),
+                gasLimit: 1,
+                espresso: false,
+                espressoL1ConfDepth: 0,
+                unsafeBlockSigner: address(0),
+                config: config,
+                startBlock: type(uint256).max,
+                batchInbox: address(0),
+                addresses: SystemConfig.Addresses({
+                    l1CrossDomainMessenger: address(0),
+                    l1ERC721Bridge: address(0),
+                    l1StandardBridge: address(0),
+                    l2OutputOracle: address(0),
+                    optimismPortal: address(0),
+                    optimismMintableERC20Factory: address(0)
+                })
             })
-        }));
+        );
     }
 
     /// @notice Initializer.
     ///         The resource config must be set before the require check.
-    function initialize(Initialize memory args)
-        public
-        reinitializer(Constants.INITIALIZER)
-    {
+    function initialize(Initialize memory args) public reinitializer(Constants.INITIALIZER) {
         __Ownable_init();
         transferOwnership(args.owner);
 

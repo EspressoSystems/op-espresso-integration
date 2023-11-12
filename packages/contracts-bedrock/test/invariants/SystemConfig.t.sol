@@ -24,27 +24,29 @@ contract SystemConfig_GasLimitLowerBound_Invariant is Test {
             address(configImpl),
             abi.encodeCall(
                 configImpl.initialize,
-                (SystemConfig.Initialize({
-                    owner: address(0xbeef),
-                    overhead: 2100,
-                    scalar: 1000000,
-                    batcherHash: bytes32(hex"abcd"),
-                    gasLimit: 30_000_000,
-                    espresso: false,
-                    espressoL1ConfDepth: 0,
-                    unsafeBlockSigner: address(1),
-                    config: Constants.DEFAULT_RESOURCE_CONFIG(),
-                    startBlock: 0,
-                    batchInbox: address(0),
-                    addresses: SystemConfig.Addresses({
-                        l1CrossDomainMessenger: address(0),
-                        l1ERC721Bridge: address(0),
-                        l1StandardBridge: address(0),
-                        l2OutputOracle: address(0),
-                        optimismPortal: address(0),
-                        optimismMintableERC20Factory: address(0)
+                (
+                    SystemConfig.Initialize({
+                        owner: address(0xbeef),
+                        overhead: 2100,
+                        scalar: 1000000,
+                        batcherHash: bytes32(hex"abcd"),
+                        gasLimit: 30_000_000,
+                        espresso: false,
+                        espressoL1ConfDepth: 0,
+                        unsafeBlockSigner: address(1),
+                        config: Constants.DEFAULT_RESOURCE_CONFIG(),
+                        startBlock: 0,
+                        batchInbox: address(0),
+                        addresses: SystemConfig.Addresses({
+                            l1CrossDomainMessenger: address(0),
+                            l1ERC721Bridge: address(0),
+                            l1StandardBridge: address(0),
+                            l2OutputOracle: address(0),
+                            optimismPortal: address(0),
+                            optimismMintableERC20Factory: address(0)
+                        })
                     })
-                }))
+                )
             )
         );
 
