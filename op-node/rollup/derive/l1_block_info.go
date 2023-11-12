@@ -132,13 +132,12 @@ func (info *L1BlockInfo) MarshalBinary() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	// The ABI-encoding of function parameters is that of a tuple, which requires that dynamic types
-	// (such as `bytes`) are represented in the initial list of items as a uint256 with the offset
-	// from the start of the encoding to the start of the payload of the dynamic type, which follows
-	// the initial list of static types and dynamic type offsets. In this case, we only have one
-	// item of dynamic type, and it is at the end of the list of items, so we will encode it by its
-	// offset, which is just the length of the static section of the list, followed by the item
-	// itself.
+	// The ABI-encoding of struct fields is that of a tuple, which requires that dynamic types (such
+	// as `bytes`) are represented in the initial list of items as a uint256 with the offset from
+	// the start of the encoding to the start of the payload of the dynamic type, which follows the
+	// initial list of static types and dynamic type offsets. In this case, we only have one item of
+	// dynamic type, and it is at the end of the list of items, so we will encode it by its offset,
+	// which is just the length of the static section of the list, followed by the item itself.
 	if err := solabi.WriteUint256(w, L1InfoJustificationOffset); err != nil {
 		return nil, err
 	}

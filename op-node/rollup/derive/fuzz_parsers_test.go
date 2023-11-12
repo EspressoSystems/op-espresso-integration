@@ -3,6 +3,7 @@ package derive
 import (
 	"bytes"
 	"math/big"
+	"math/rand"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -16,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm/runtime"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/rlp"
 
 	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -73,6 +75,11 @@ func FuzzL1InfoRoundTrip(f *testing.F) {
 // bindings to ensure that our functions are up to date and match the bindings.
 func FuzzL1InfoAgainstContract(f *testing.F) {
 	f.Fuzz(func(t *testing.T, number, time uint64, baseFee, hash []byte, seqNumber uint64, batcherHash []byte, l1FeeOverhead []byte, l1FeeScalar []byte, espresso bool, espressoL1ConfDepth uint64) {
+		rng := rand.New(rand.NewSource(12345))
+		jst := testutils.RandomL2BatchJustification(rng)
+		jstBytes, err := rlp.EncodeToBytes(jst)
+		require.NoError(t, err)
+
 		expected := L1BlockInfo{
 			Number:              number,
 			Time:                time,
@@ -84,7 +91,7 @@ func FuzzL1InfoAgainstContract(f *testing.F) {
 			L1FeeScalar:         eth.Bytes32(common.BytesToHash(l1FeeScalar)),
 			Espresso:            espresso,
 			EspressoL1ConfDepth: espressoL1ConfDepth,
-			Justification:       nil,
+			Justification:       jst,
 		}
 
 		// Setup opts
@@ -104,9 +111,7 @@ func FuzzL1InfoAgainstContract(f *testing.F) {
 			L1FeeScalar:         common.BytesToHash(l1FeeScalar).Big(),
 			Espresso:            espresso,
 			EspressoL1ConfDepth: espressoL1ConfDepth,
-			// Since we set `Justification: nil`, the RLP encoded bytes will encode an empty list.
-			// This is encoded by `c0` to signify a list followed by no elements.
-			Justification: []byte{0xc0},
+			Justification:       jstBytes,
 		})
 		if err != nil {
 			t.Fatalf("Failed to create the transaction: %v", err)

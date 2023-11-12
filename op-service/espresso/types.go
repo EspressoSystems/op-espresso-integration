@@ -244,6 +244,10 @@ func NewU256() *U256 {
 	return new(U256)
 }
 
+func (i U256) Equal(other U256) bool {
+	return i.Int.Cmp(&other.Int) == 0
+}
+
 func (i *U256) SetBigInt(n *big.Int) *U256 {
 	i.Int.Set(n)
 	return i
