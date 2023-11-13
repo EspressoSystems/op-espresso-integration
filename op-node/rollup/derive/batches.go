@@ -103,11 +103,7 @@ func EspressoL1Origin(ctx context.Context, cfg *rollup.Config, sysCfg *eth.Syste
 		// new L1 block is available and Espresso just hasn't seen it yet for some reason.
 		l.Info("L1 origin is too old, advancing by one",
 			"suggested", l1Block, "suggested_time", l1Block.Time)
-		nextL1Block, err := l1.L1BlockRefByNumber(ctx, prev.Number+1)
-		if err != nil {
-			return eth.L1BlockRef{}, fmt.Errorf("failed to fetch next possible L1 origin %d: %w", nextL1Block, err)
-		}
-		return nextL1Block, nil
+		return l1.L1BlockRefByNumber(ctx, prev.Number+1)
 	}
 	// Constraint 4: the L1 origin must not be newer than the L2 batch.
 	if l1Block.Time > windowStart {
