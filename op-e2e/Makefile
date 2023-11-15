@@ -12,7 +12,7 @@ endif
 # more once they start working, simply add to the -run flag below.
 espresso_test_flags = -l1-allocs ../.devnet-espresso/allocs-l1.json \
 	-l1-deployments ../.devnet-espresso/addresses.json \
-	-deploy-config ../packages/contracts-bedrock/deploy-config/devnetL1-espresso.json \
+	-deploy-config ../packages/contracts-bedrock/deploy-config/devnetL1-espresso-template.json \
 	-parallel 1 \
 	-run "TestMissingGasLimit|TestGethOnlyPendingBlockIsLatest|TestInvalidDepositInFCU|TestRegolith|TestPreregolith|TestSystemE2E|TestConfirmationDepth|TestMintOnRevertedDeposit|TestSystemP2PAltSync|TestSystemRPCAltSync|TestWithdrawals|TestERC20BridgeDeposits" \
 

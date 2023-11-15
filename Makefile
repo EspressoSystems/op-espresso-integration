@@ -56,7 +56,7 @@ op-bindings:
 .PHONY: op-bindings
 
 make op-bindings-docker:
-	docker run -v $(monorepo-base):/work -it us-docker.pkg.dev/oplabs-tools-artifacts/images/ci-builder make -C /work op-bindings
+	docker run -v $(monorepo-base):/work -it us-docker.pkg.dev/oplabs-tools-artifacts/images/ci-builder "make -C /work op-bindings"
 	echo "Asking for root permissions to set owner of files to ${USER} after docker run"
 	sudo chown -R ${USER} $(monorepo-base)
 
@@ -139,7 +139,7 @@ devnet-up: pre-devnet
 	PYTHONPATH=./bedrock-devnet $(PYTHON) ./bedrock-devnet/main.py --monorepo-dir=.
 .PHONY: devnet-up
 
-devnet-up-espresso:
+devnet-up-espresso: pre-devnet
 	$(shell ./ops/scripts/newer-file.sh .devnet-espresso/allocs-l1.json ./packages/contracts-bedrock)
 	if [ $(.SHELLSTATUS) -ne 0 ]; then \
 		make devnet-allocs-espresso; \
@@ -147,11 +147,11 @@ devnet-up-espresso:
 	PYTHONPATH=./bedrock-devnet python3 ./bedrock-devnet/main.py --monorepo-dir=. $(DEVNET_ESPRESSO_FLAGS)
 .PHONY: devnet-up-espresso
 
-devnet-up-espresso2:
+devnet-up-espresso2: pre-devnet
 	PYTHONPATH=./bedrock-devnet python3 ./bedrock-devnet/main.py --monorepo-dir=. $(DEVNET_ESPRESSO_OP2_FLAGS) --deploy-l2
 .PHONY: devnet-up-espresso2
 
-devnet-up-espresso-demo:
+devnet-up-espresso-demo: pre-devnet
 	PYTHONPATH=./bedrock-devnet python3 ./bedrock-devnet/main.py --monorepo-dir=. $(DEVNET_ESPRESSO_DEMO_FLAGS) --deploy-l2
 .PHONY: devnet-up-espresso-demo
 
@@ -162,15 +162,15 @@ devnet-test: pre-devnet
 	PYTHONPATH=./bedrock-devnet $(PYTHON) ./bedrock-devnet/main.py --monorepo-dir=. --test
 .PHONY: devnet-test
 
-devnet-test-espresso:
+devnet-test-espresso: pre-devnet
 	PYTHONPATH=./bedrock-devnet python3 ./bedrock-devnet/main.py --monorepo-dir=. $(DEVNET_ESPRESSO_FLAGS) --test
 .PHONY: devnet-test-espresso
 
-devnet-test-espresso2:
+devnet-test-espresso2: pre-devnet
 	PYTHONPATH=./bedrock-devnet python3 ./bedrock-devnet/main.py --monorepo-dir=. $(DEVNET_ESPRESSO_OP2_FLAGS) --test
 .PHONY: devnet-test-espresso2
 
-devnet-test-espresso-demo:
+devnet-test-espresso-demo: pre-devnet
 	PYTHONPATH=./bedrock-devnet python3 ./bedrock-devnet/main.py --monorepo-dir=. $(DEVNET_ESPRESSO_DEMO_FLAGS) --test
 .PHONY: devnet-test-espresso-demo
 

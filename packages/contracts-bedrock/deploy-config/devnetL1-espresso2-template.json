@@ -50,5 +50,6 @@
   "hotshotContractAddress": "0xfbfbfddd6e35da57b7b0f9a2c10e34be70b3a4e9",
   "requiredProtocolVersion": "0x0000000000000000000000000000000000000000000000000000000000000000",
   "recommendedProtocolVersion": "0x0000000000000000000000000000000000000000000000000000000000000000",
-  "espresso": true
+  "espresso": true,
+  "espressoL1ConfDepth": 0
 }

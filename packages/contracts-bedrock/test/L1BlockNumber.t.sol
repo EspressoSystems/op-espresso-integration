@@ -24,17 +24,21 @@ contract L1BlockNumberTest is Test {
         bn = new L1BlockNumber();
         vm.prank(lb.DEPOSITOR_ACCOUNT());
 
-        lb.setL1BlockValues({
-            _number: number,
-            _timestamp: uint64(2),
-            _basefee: 3,
-            _hash: bytes32(uint256(10)),
-            _sequenceNumber: uint64(4),
-            _batcherHash: bytes32(uint256(0)),
-            _l1FeeOverhead: 2,
-            _l1FeeScalar: 3,
-            _justification: hex"c0"
-        });
+        lb.setL1BlockValues(
+            L1Block.L1BlockValues({
+                number: number,
+                timestamp: uint64(2),
+                basefee: 3,
+                hash: bytes32(uint256(10)),
+                sequenceNumber: uint64(4),
+                batcherHash: bytes32(uint256(0)),
+                l1FeeOverhead: 2,
+                l1FeeScalar: 3,
+                espresso: false,
+                espressoL1ConfDepth: 0,
+                justification: hex"c0"
+            })
+        );
     }
 
     /// @dev Tests that `getL1BlockNumber` returns the set block number.

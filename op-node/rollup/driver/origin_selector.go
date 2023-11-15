@@ -22,14 +22,14 @@ type L1OriginSelector struct {
 	log log.Logger
 	cfg *rollup.Config
 
-	l1 L1Blocks
+	L1Blocks
 }
 
 func NewL1OriginSelector(log log.Logger, cfg *rollup.Config, l1 L1Blocks) *L1OriginSelector {
 	return &L1OriginSelector{
-		log: log,
-		cfg: cfg,
-		l1:  l1,
+		log:      log,
+		cfg:      cfg,
+		L1Blocks: l1,
 	}
 }
 
@@ -38,7 +38,7 @@ func NewL1OriginSelector(log log.Logger, cfg *rollup.Config, l1 L1Blocks) *L1Ori
 // if the next L2 block's time is greater than or equal to the L2 Head's Origin.
 func (los *L1OriginSelector) FindL1Origin(ctx context.Context, l2Head eth.L2BlockRef) (eth.L1BlockRef, error) {
 	// Grab a reference to the current L1 origin block. This call is by hash and thus easily cached.
-	currentOrigin, err := los.l1.L1BlockRefByHash(ctx, l2Head.L1Origin.Hash)
+	currentOrigin, err := los.L1BlockRefByHash(ctx, l2Head.L1Origin.Hash)
 	if err != nil {
 		return eth.L1BlockRef{}, err
 	}
@@ -55,7 +55,7 @@ func (los *L1OriginSelector) FindL1Origin(ctx context.Context, l2Head eth.L2Bloc
 	// Attempt to find the next L1 origin block, where the next origin is the immediate child of
 	// the current origin block.
 	// The L1 source can be shimmed to hide new L1 blocks and enforce a sequencer confirmation distance.
-	nextOrigin, err := los.l1.L1BlockRefByNumber(ctx, currentOrigin.Number+1)
+	nextOrigin, err := los.L1BlockRefByNumber(ctx, currentOrigin.Number+1)
 	if err != nil {
 		if pastSeqDrift {
 			return eth.L1BlockRef{}, fmt.Errorf("cannot build next L2 block past current L1 origin %s by more than sequencer time drift, and failed to find next L1 origin: %w", currentOrigin, err)
@@ -78,8 +78,4 @@ func (los *L1OriginSelector) FindL1Origin(ctx context.Context, l2Head eth.L2Bloc
 	}
 
 	return currentOrigin, nil
-}
-
-func (los *L1OriginSelector) FindL1OriginByNumber(ctx context.Context, number uint64) (eth.L1BlockRef, error) {
-	return los.l1.L1BlockRefByNumber(ctx, number)
 }

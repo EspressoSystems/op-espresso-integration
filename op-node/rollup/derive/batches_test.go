@@ -534,7 +534,7 @@ func TestValidSingularBatch(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.Name, func(t *testing.T) {
 			ctx := context.Background()
-			validity := CheckBatch(ctx, &conf, logger, testCase.L1Blocks, testCase.L2SafeHead, &testCase.Batch, false, nil, nil)
+			validity := CheckBatch(ctx, &conf, &eth.SystemConfig{}, logger, testCase.L1Blocks, testCase.L2SafeHead, &testCase.Batch, nil, nil)
 			require.Equal(t, testCase.Expected, validity, "batch check must return expected validity level")
 		})
 	}
@@ -1419,7 +1419,7 @@ func TestValidSpanBatch(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.Name, func(t *testing.T) {
 			ctx := context.Background()
-			validity := CheckBatch(ctx, &conf, logger, testCase.L1Blocks, testCase.L2SafeHead, &testCase.Batch, false, nil, &l2Client)
+			validity := CheckBatch(ctx, &conf, &eth.SystemConfig{}, logger, testCase.L1Blocks, testCase.L2SafeHead, &testCase.Batch, nil, &l2Client)
 			require.Equal(t, testCase.Expected, validity, "batch check must return expected validity level")
 		})
 	}
@@ -1552,7 +1552,7 @@ func TestSpanBatchHardFork(t *testing.T) {
 			rcfg := conf
 			rcfg.SpanBatchTime = &testCase.SpanBatchTime
 			ctx := context.Background()
-			validity := CheckBatch(ctx, &rcfg, logger, testCase.L1Blocks, testCase.L2SafeHead, &testCase.Batch, false, nil, nil)
+			validity := CheckBatch(ctx, &rcfg, &eth.SystemConfig{}, logger, testCase.L1Blocks, testCase.L2SafeHead, &testCase.Batch, nil, nil)
 			require.Equal(t, testCase.Expected, validity, "batch check must return expected validity level")
 		})
 	}

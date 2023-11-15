@@ -3,6 +3,7 @@ package derive
 import (
 	"bytes"
 	"math/big"
+	"math/rand"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -16,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm/runtime"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/rlp"
 
 	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -72,17 +74,24 @@ func FuzzL1InfoRoundTrip(f *testing.F) {
 // FuzzL1InfoAgainstContract checks the custom marshalling functions against the contract
 // bindings to ensure that our functions are up to date and match the bindings.
 func FuzzL1InfoAgainstContract(f *testing.F) {
-	f.Fuzz(func(t *testing.T, number, time uint64, baseFee, hash []byte, seqNumber uint64, batcherHash []byte, l1FeeOverhead []byte, l1FeeScalar []byte) {
+	f.Fuzz(func(t *testing.T, number, time uint64, baseFee, hash []byte, seqNumber uint64, batcherHash []byte, l1FeeOverhead []byte, l1FeeScalar []byte, espresso bool, espressoL1ConfDepth uint64) {
+		rng := rand.New(rand.NewSource(12345))
+		jst := testutils.RandomL2BatchJustification(rng)
+		jstBytes, err := rlp.EncodeToBytes(jst)
+		require.NoError(t, err)
+
 		expected := L1BlockInfo{
-			Number:         number,
-			Time:           time,
-			BaseFee:        BytesToBigInt(baseFee),
-			BlockHash:      common.BytesToHash(hash),
-			SequenceNumber: seqNumber,
-			BatcherAddr:    common.BytesToAddress(batcherHash),
-			L1FeeOverhead:  eth.Bytes32(common.BytesToHash(l1FeeOverhead)),
-			L1FeeScalar:    eth.Bytes32(common.BytesToHash(l1FeeScalar)),
-			Justification:  nil,
+			Number:              number,
+			Time:                time,
+			BaseFee:             BytesToBigInt(baseFee),
+			BlockHash:           common.BytesToHash(hash),
+			SequenceNumber:      seqNumber,
+			BatcherAddr:         common.BytesToAddress(batcherHash),
+			L1FeeOverhead:       eth.Bytes32(common.BytesToHash(l1FeeOverhead)),
+			L1FeeScalar:         eth.Bytes32(common.BytesToHash(l1FeeScalar)),
+			Espresso:            espresso,
+			EspressoL1ConfDepth: espressoL1ConfDepth,
+			Justification:       jst,
 		}
 
 		// Setup opts
@@ -91,20 +100,19 @@ func FuzzL1InfoAgainstContract(f *testing.F) {
 		opts.NoSend = true
 		opts.Nonce = common.Big0
 		// Create the SetL1BlockValues transaction
-		tx, err := l1BlockInfoContract.SetL1BlockValues(
-			opts,
-			number,
-			time,
-			BytesToBigInt(baseFee),
-			common.BytesToHash(hash),
-			seqNumber,
-			eth.AddressAsLeftPaddedHash(common.BytesToAddress(batcherHash)),
-			common.BytesToHash(l1FeeOverhead).Big(),
-			common.BytesToHash(l1FeeScalar).Big(),
-			// Since we set `Justification: nil`, the RLP encoded bytes will encode an empty list.
-			// This is encoded by `c0` to signify a list followed by no elements.
-			[]byte{0xc0},
-		)
+		tx, err := l1BlockInfoContract.SetL1BlockValues(opts, bindings.L1BlockL1BlockValues{
+			Number:              number,
+			Timestamp:           time,
+			Basefee:             BytesToBigInt(baseFee),
+			Hash:                common.BytesToHash(hash),
+			SequenceNumber:      seqNumber,
+			BatcherHash:         eth.AddressAsLeftPaddedHash(common.BytesToAddress(batcherHash)),
+			L1FeeOverhead:       common.BytesToHash(l1FeeOverhead).Big(),
+			L1FeeScalar:         common.BytesToHash(l1FeeScalar).Big(),
+			Espresso:            espresso,
+			EspressoL1ConfDepth: espressoL1ConfDepth,
+			Justification:       jstBytes,
+		})
 		if err != nil {
 			t.Fatalf("Failed to create the transaction: %v", err)
 		}

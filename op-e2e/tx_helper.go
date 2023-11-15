@@ -18,6 +18,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func depositTimeout(cfg *SystemConfig) time.Duration {
+	seconds := 15 * cfg.DeployConfig.L2BlockTime
+	if cfg.DeployConfig.Espresso {
+		seconds += cfg.DeployConfig.EspressoL1ConfDepth * cfg.DeployConfig.L1BlockTime
+	}
+	return time.Duration(seconds) * time.Second
+}
+
 // SendDepositTx creates and sends a deposit transaction.
 // The L1 transaction, including sender, is configured by the l1Opts param.
 // The L2 transaction options can be configured by modifying the DepositTxOps value supplied to applyL2Opts
@@ -47,7 +55,7 @@ func SendDepositTx(t *testing.T, cfg SystemConfig, l1Client *ethclient.Client, l
 	reconstructedDep, err := derive.UnmarshalDepositLogEvent(l1Receipt.Logs[0])
 	require.NoError(t, err, "Could not reconstruct L2 Deposit")
 	tx = types.NewTx(reconstructedDep)
-	l2Receipt, err := geth.WaitForTransaction(tx.Hash(), l2Client, 15*time.Duration(cfg.DeployConfig.L2BlockTime)*time.Second)
+	l2Receipt, err := geth.WaitForTransaction(tx.Hash(), l2Client, depositTimeout(&cfg))
 	require.NoError(t, err)
 	require.Equal(t, l2Opts.ExpectedStatus, l2Receipt.Status, "l2 transaction status")
 	return l2Receipt

@@ -38,41 +38,53 @@ contract L1Block is ISemver {
     /// @notice The scalar value applied to the L1 portion of the transaction fee.
     uint256 public l1FeeScalar;
 
+    /// @notice Whether the Espresso Sequencer is enabled.
+    bool public espresso;
+
+    /// @notice Minimum confirmation depth for L1 origin blocks.
+    uint64 public espressoL1ConfDepth;
+
     /// @custom:semver 1.1.0
     string public constant version = "1.1.0";
 
+    struct L1BlockValues {
+        // L1 blocknumber.
+        uint64 number;
+        // L1 timestamp.
+        uint64 timestamp;
+        // L1 basefee.
+        uint256 basefee;
+        // L1 blockhash.
+        bytes32 hash;
+        // Number of L2 blocks since epoch start.
+        uint64 sequenceNumber;
+        // Versioned hash to authenticate batcher by.
+        bytes32 batcherHash;
+        // L1 fee overhead.
+        uint256 l1FeeOverhead;
+        // L1 fee scalar.
+        uint256 l1FeeScalar;
+        // Whether the Espresso Sequencer is enabled.
+        bool espresso;
+        // Minimum confirmation depth for L1 origin blocks.
+        uint64 espressoL1ConfDepth;
+        // The RLP-encoded L2 batch justification.
+        bytes justification;
+    }
+
     /// @notice Updates the L1 block values.
-    /// @param _number         L1 blocknumber.
-    /// @param _timestamp      L1 timestamp.
-    /// @param _basefee        L1 basefee.
-    /// @param _hash           L1 blockhash.
-    /// @param _sequenceNumber Number of L2 blocks since epoch start.
-    /// @param _batcherHash    Versioned hash to authenticate batcher by.
-    /// @param _l1FeeOverhead  L1 fee overhead.
-    /// @param _l1FeeScalar    L1 fee scalar.
-    /// @param _justification  The RLP-encoded L2 batch justification.
-    function setL1BlockValues(
-        uint64 _number,
-        uint64 _timestamp,
-        uint256 _basefee,
-        bytes32 _hash,
-        uint64 _sequenceNumber,
-        bytes32 _batcherHash,
-        uint256 _l1FeeOverhead,
-        uint256 _l1FeeScalar,
-        bytes calldata _justification
-    )
-        external
-    {
+    function setL1BlockValues(L1BlockValues calldata v) external {
         require(msg.sender == DEPOSITOR_ACCOUNT, "L1Block: only the depositor account can set L1 block values");
 
-        number = _number;
-        timestamp = _timestamp;
-        basefee = _basefee;
-        hash = _hash;
-        sequenceNumber = _sequenceNumber;
-        batcherHash = _batcherHash;
-        l1FeeOverhead = _l1FeeOverhead;
-        l1FeeScalar = _l1FeeScalar;
+        number = v.number;
+        timestamp = v.timestamp;
+        basefee = v.basefee;
+        hash = v.hash;
+        sequenceNumber = v.sequenceNumber;
+        batcherHash = v.batcherHash;
+        l1FeeOverhead = v.l1FeeOverhead;
+        l1FeeScalar = v.l1FeeScalar;
+        espresso = v.espresso;
+        espressoL1ConfDepth = v.espressoL1ConfDepth;
     }
 }

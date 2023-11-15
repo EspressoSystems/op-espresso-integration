@@ -18,17 +18,21 @@ contract L1BlockTest is CommonTest {
         lb = new L1Block();
         depositor = lb.DEPOSITOR_ACCOUNT();
         vm.prank(depositor);
-        lb.setL1BlockValues({
-            _number: uint64(1),
-            _timestamp: uint64(2),
-            _basefee: 3,
-            _hash: NON_ZERO_HASH,
-            _sequenceNumber: uint64(4),
-            _batcherHash: bytes32(0),
-            _l1FeeOverhead: 2,
-            _l1FeeScalar: 3,
-            _justification: "0xc0"
-        });
+        lb.setL1BlockValues(
+            L1Block.L1BlockValues({
+                number: uint64(1),
+                timestamp: uint64(2),
+                basefee: 3,
+                hash: NON_ZERO_HASH,
+                sequenceNumber: uint64(4),
+                batcherHash: bytes32(0),
+                l1FeeOverhead: 2,
+                l1FeeScalar: 3,
+                espresso: false,
+                espressoL1ConfDepth: 0,
+                justification: "0xc0"
+            })
+        );
     }
 
     /// @dev Tests that `setL1BlockValues` updates the values correctly.
@@ -40,12 +44,28 @@ contract L1BlockTest is CommonTest {
         uint64 s,
         bytes32 bt,
         uint256 fo,
-        uint256 fs
+        uint256 fs,
+        bool e,
+        uint64 cd
     )
         external
     {
         vm.prank(depositor);
-        lb.setL1BlockValues(n, t, b, h, s, bt, fo, fs, "0xc0");
+        lb.setL1BlockValues(
+            L1Block.L1BlockValues({
+                number: n,
+                timestamp: t,
+                basefee: b,
+                hash: h,
+                sequenceNumber: s,
+                batcherHash: bt,
+                l1FeeOverhead: fo,
+                l1FeeScalar: fs,
+                espresso: e,
+                espressoL1ConfDepth: cd,
+                justification: "0xc0"
+            })
+        );
         assertEq(lb.number(), n);
         assertEq(lb.timestamp(), t);
         assertEq(lb.basefee(), b);
@@ -54,6 +74,8 @@ contract L1BlockTest is CommonTest {
         assertEq(lb.batcherHash(), bt);
         assertEq(lb.l1FeeOverhead(), fo);
         assertEq(lb.l1FeeScalar(), fs);
+        assertEq(lb.espresso(), e);
+        assertEq(lb.espressoL1ConfDepth(), cd);
     }
 
     /// @dev Tests that `number` returns the correct value.
@@ -84,16 +106,20 @@ contract L1BlockTest is CommonTest {
     /// @dev Tests that `setL1BlockValues` can set max values.
     function test_updateValues_succeeds() external {
         vm.prank(depositor);
-        lb.setL1BlockValues({
-            _number: type(uint64).max,
-            _timestamp: type(uint64).max,
-            _basefee: type(uint256).max,
-            _hash: keccak256(abi.encode(1)),
-            _sequenceNumber: type(uint64).max,
-            _batcherHash: bytes32(type(uint256).max),
-            _l1FeeOverhead: type(uint256).max,
-            _l1FeeScalar: type(uint256).max,
-            _justification: hex"c0"
-        });
+        lb.setL1BlockValues(
+            L1Block.L1BlockValues({
+                number: type(uint64).max,
+                timestamp: type(uint64).max,
+                basefee: type(uint256).max,
+                hash: keccak256(abi.encode(1)),
+                sequenceNumber: type(uint64).max,
+                batcherHash: bytes32(type(uint256).max),
+                l1FeeOverhead: type(uint256).max,
+                l1FeeScalar: type(uint256).max,
+                espresso: true,
+                espressoL1ConfDepth: type(uint64).max,
+                justification: hex"c0"
+            })
+        );
     }
 }

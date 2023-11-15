@@ -200,13 +200,13 @@ func (s *TestSequencer) PreparePayloadAttributes(ctx context.Context, l2Parent e
 	}, nil
 }
 
-// The system config never changes in this test, so we just read whether Espresso is enabled or not from the genesis config.
+// The system config never changes in this test, so we just read from the genesis config.
 // Sometimes we fake an error.
-func (s *TestSequencer) ChildNeedsJustification(ctx context.Context, parent eth.L2BlockRef) (bool, error) {
+func (s *TestSequencer) SystemConfigByL2Hash(ctx context.Context, hash common.Hash) (eth.SystemConfig, error) {
 	if s.attrsErr != nil {
-		return false, s.attrsErr
+		return eth.SystemConfig{}, s.attrsErr
 	}
-	return s.cfg.Genesis.SystemConfig.Espresso, nil
+	return s.cfg.Genesis.SystemConfig, nil
 }
 
 var _ derive.AttributesBuilder = (*TestSequencer)(nil)
@@ -235,13 +235,6 @@ func (s *TestSequencer) FindL1Origin(ctx context.Context, l2Head eth.L2BlockRef)
 	} else {
 		return origin, nil
 	}
-}
-
-func (s *TestSequencer) FindL1OriginByNumber(ctx context.Context, number uint64) (eth.L1BlockRef, error) {
-	if s.originErr != nil {
-		return eth.L1BlockRef{}, s.originErr
-	}
-	return s.l1BlockByNumber(number), nil
 }
 
 // Infallible version of `FindL1OriginByNumber`. This is used internally by other mock functions
@@ -307,7 +300,10 @@ var _ L1OriginSelectorIface = (*TestSequencer)(nil)
 // Implement EspressoL1Provider interface for TestSequencer.
 
 func (s *TestSequencer) L1BlockRefByNumber(ctx context.Context, number uint64) (eth.L1BlockRef, error) {
-	return s.FindL1OriginByNumber(ctx, number)
+	if s.originErr != nil {
+		return eth.L1BlockRef{}, s.originErr
+	}
+	return s.l1BlockByNumber(number), nil
 }
 
 func (s *TestSequencer) FetchReceipts(ctx context.Context, blockHash common.Hash) (eth.BlockInfo, types.Receipts, error) {
@@ -554,7 +550,8 @@ func SetupSequencer(t *testing.T, useEspresso bool) *TestSequencer {
 			L2:     mockL2ID(200000),
 			L2Time: l1Time + 300, // L2 may start with a relative old L1 origin and will have to catch it up
 			SystemConfig: eth.SystemConfig{
-				Espresso: useEspresso,
+				Espresso:            useEspresso,
+				EspressoL1ConfDepth: 3, // set a non-zero L1 lag, to test those edge cases
 			},
 		},
 		L1ChainID:         big.NewInt(900),
@@ -612,7 +609,7 @@ func SetupSequencer(t *testing.T, useEspresso bool) *TestSequencer {
 		s.espresso = new(FakeEspressoClient)
 	}
 
-	s.seq = NewSequencer(log, &s.cfg, &s.engControl, s, s, s, metrics.NoopMetrics)
+	s.seq = NewSequencer(log, &s.cfg, &s.engControl, s, s, s, s, metrics.NoopMetrics)
 	s.seq.timeNow = s.clockFn
 
 	return s
@@ -767,7 +764,7 @@ func TestSequencerChaosMonkeyEspresso(t *testing.T) {
 		}
 
 		// Check that the derivation pipeline would accept this batch.
-		status := derive.CheckBatchEspresso(&s.cfg, testlog.Logger(t, log.LvlInfo), l2Head, batch, s)
+		status := derive.CheckBatchEspresso(&s.cfg, &s.cfg.Genesis.SystemConfig, testlog.Logger(t, log.LvlInfo), l2Head, batch, s)
 		require.Equal(t, status, derive.BatchValidity(derive.BatchAccept), "sequencer built a block that the derivation pipeline will not accept")
 
 		// Figure out which interesting cases we hit.

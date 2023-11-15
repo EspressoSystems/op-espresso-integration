@@ -77,20 +77,21 @@
 ➡ src/L1/SystemConfig.sol:SystemConfig
 =======================
 
-| Name            | Type                                   | Slot | Offset | Bytes | Contract                             |
-|-----------------|----------------------------------------|------|--------|-------|--------------------------------------|
-| _initialized    | uint8                                  | 0    | 0      | 1     | src/L1/SystemConfig.sol:SystemConfig |
-| _initializing   | bool                                   | 0    | 1      | 1     | src/L1/SystemConfig.sol:SystemConfig |
-| __gap           | uint256[50]                            | 1    | 0      | 1600  | src/L1/SystemConfig.sol:SystemConfig |
-| _owner          | address                                | 51   | 0      | 20    | src/L1/SystemConfig.sol:SystemConfig |
-| __gap           | uint256[49]                            | 52   | 0      | 1568  | src/L1/SystemConfig.sol:SystemConfig |
-| overhead        | uint256                                | 101  | 0      | 32    | src/L1/SystemConfig.sol:SystemConfig |
-| scalar          | uint256                                | 102  | 0      | 32    | src/L1/SystemConfig.sol:SystemConfig |
-| batcherHash     | bytes32                                | 103  | 0      | 32    | src/L1/SystemConfig.sol:SystemConfig |
-| gasLimit        | uint64                                 | 104  | 0      | 8     | src/L1/SystemConfig.sol:SystemConfig |
-| espresso        | bool                                   | 104  | 8      | 1     | src/L1/SystemConfig.sol:SystemConfig |
-| _resourceConfig | struct ResourceMetering.ResourceConfig | 105  | 0      | 32    | src/L1/SystemConfig.sol:SystemConfig |
-| startBlock      | uint256                                | 106  | 0      | 32    | src/L1/SystemConfig.sol:SystemConfig |
+| Name                | Type                                   | Slot | Offset | Bytes | Contract                             |
+|---------------------|----------------------------------------|------|--------|-------|--------------------------------------|
+| _initialized        | uint8                                  | 0    | 0      | 1     | src/L1/SystemConfig.sol:SystemConfig |
+| _initializing       | bool                                   | 0    | 1      | 1     | src/L1/SystemConfig.sol:SystemConfig |
+| __gap               | uint256[50]                            | 1    | 0      | 1600  | src/L1/SystemConfig.sol:SystemConfig |
+| _owner              | address                                | 51   | 0      | 20    | src/L1/SystemConfig.sol:SystemConfig |
+| __gap               | uint256[49]                            | 52   | 0      | 1568  | src/L1/SystemConfig.sol:SystemConfig |
+| overhead            | uint256                                | 101  | 0      | 32    | src/L1/SystemConfig.sol:SystemConfig |
+| scalar              | uint256                                | 102  | 0      | 32    | src/L1/SystemConfig.sol:SystemConfig |
+| batcherHash         | bytes32                                | 103  | 0      | 32    | src/L1/SystemConfig.sol:SystemConfig |
+| gasLimit            | uint64                                 | 104  | 0      | 8     | src/L1/SystemConfig.sol:SystemConfig |
+| espresso            | bool                                   | 104  | 8      | 1     | src/L1/SystemConfig.sol:SystemConfig |
+| espressoL1ConfDepth | uint64                                 | 104  | 9      | 8     | src/L1/SystemConfig.sol:SystemConfig |
+| _resourceConfig     | struct ResourceMetering.ResourceConfig | 105  | 0      | 32    | src/L1/SystemConfig.sol:SystemConfig |
+| startBlock          | uint256                                | 106  | 0      | 32    | src/L1/SystemConfig.sol:SystemConfig |
 
 =======================
 ➡ src/L1/L1ERC721Bridge.sol:L1ERC721Bridge
@@ -117,16 +118,18 @@
 ➡ src/L2/L1Block.sol:L1Block
 =======================
 
-| Name           | Type    | Slot | Offset | Bytes | Contract                   |
-|----------------|---------|------|--------|-------|----------------------------|
-| number         | uint64  | 0    | 0      | 8     | src/L2/L1Block.sol:L1Block |
-| timestamp      | uint64  | 0    | 8      | 8     | src/L2/L1Block.sol:L1Block |
-| basefee        | uint256 | 1    | 0      | 32    | src/L2/L1Block.sol:L1Block |
-| hash           | bytes32 | 2    | 0      | 32    | src/L2/L1Block.sol:L1Block |
-| sequenceNumber | uint64  | 3    | 0      | 8     | src/L2/L1Block.sol:L1Block |
-| batcherHash    | bytes32 | 4    | 0      | 32    | src/L2/L1Block.sol:L1Block |
-| l1FeeOverhead  | uint256 | 5    | 0      | 32    | src/L2/L1Block.sol:L1Block |
-| l1FeeScalar    | uint256 | 6    | 0      | 32    | src/L2/L1Block.sol:L1Block |
+| Name                | Type    | Slot | Offset | Bytes | Contract                   |
+|---------------------|---------|------|--------|-------|----------------------------|
+| number              | uint64  | 0    | 0      | 8     | src/L2/L1Block.sol:L1Block |
+| timestamp           | uint64  | 0    | 8      | 8     | src/L2/L1Block.sol:L1Block |
+| basefee             | uint256 | 1    | 0      | 32    | src/L2/L1Block.sol:L1Block |
+| hash                | bytes32 | 2    | 0      | 32    | src/L2/L1Block.sol:L1Block |
+| sequenceNumber      | uint64  | 3    | 0      | 8     | src/L2/L1Block.sol:L1Block |
+| batcherHash         | bytes32 | 4    | 0      | 32    | src/L2/L1Block.sol:L1Block |
+| l1FeeOverhead       | uint256 | 5    | 0      | 32    | src/L2/L1Block.sol:L1Block |
+| l1FeeScalar         | uint256 | 6    | 0      | 32    | src/L2/L1Block.sol:L1Block |
+| espresso            | bool    | 7    | 0      | 1     | src/L2/L1Block.sol:L1Block |
+| espressoL1ConfDepth | uint64  | 7    | 1      | 8     | src/L2/L1Block.sol:L1Block |
 
 =======================
 ➡ src/legacy/L1BlockNumber.sol:L1BlockNumber

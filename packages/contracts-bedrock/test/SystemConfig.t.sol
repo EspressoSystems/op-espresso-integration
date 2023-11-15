@@ -33,6 +33,7 @@ contract SystemConfig_Init is CommonTest {
     bytes32 constant batcherHash = bytes32(hex"abcd");
     uint64 constant gasLimit = 30_000_000;
     bool constant espresso = false;
+    uint64 constant espressoL1ConfDepth = 0;
     address constant unsafeBlockSigner = address(1);
 
     function setUp() public virtual override {
@@ -47,23 +48,26 @@ contract SystemConfig_Init is CommonTest {
             abi.encodeCall(
                 SystemConfig.initialize,
                 (
-                    alice, // _owner,
-                    overhead, // _overhead,
-                    scalar, // _scalar,
-                    batcherHash, // _batcherHash
-                    gasLimit, // _gasLimit,
-                    espresso, // _espresso,
-                    unsafeBlockSigner, // _unsafeBlockSigner,
-                    Constants.DEFAULT_RESOURCE_CONFIG(), // _config,
-                    0, // _startBlock
-                    batchInbox, // _batchInbox
-                    SystemConfig.Addresses({ // _addresses
-                        l1CrossDomainMessenger: l1CrossDomainMessenger,
-                        l1ERC721Bridge: l1ERC721Bridge,
-                        l1StandardBridge: l1StandardBridge,
-                        l2OutputOracle: l2OutputOracle,
-                        optimismPortal: optimismPortal,
-                        optimismMintableERC20Factory: optimismMintableERC20Factory
+                    SystemConfig.Initialize({
+                        owner: alice,
+                        overhead: overhead,
+                        scalar: scalar,
+                        batcherHash: batcherHash,
+                        gasLimit: gasLimit,
+                        espresso: espresso,
+                        espressoL1ConfDepth: espressoL1ConfDepth,
+                        unsafeBlockSigner: unsafeBlockSigner,
+                        config: Constants.DEFAULT_RESOURCE_CONFIG(),
+                        startBlock: 0,
+                        batchInbox: batchInbox,
+                        addresses: SystemConfig.Addresses({
+                            l1CrossDomainMessenger: l1CrossDomainMessenger,
+                            l1ERC721Bridge: l1ERC721Bridge,
+                            l1StandardBridge: l1StandardBridge,
+                            l2OutputOracle: l2OutputOracle,
+                            optimismPortal: optimismPortal,
+                            optimismMintableERC20Factory: optimismMintableERC20Factory
+                        })
                     })
                 )
             )
@@ -120,23 +124,26 @@ contract SystemConfig_Initialize_Test is SystemConfig_Init {
             abi.encodeCall(
                 SystemConfig.initialize,
                 (
-                    alice, // _owner,
-                    overhead, // _overhead,
-                    scalar, // _scalar,
-                    batcherHash, // _batcherHash
-                    gasLimit, // _gasLimit,
-                    espresso, // _espresso,
-                    unsafeBlockSigner, // _unsafeBlockSigner,
-                    Constants.DEFAULT_RESOURCE_CONFIG(), // _config,
-                    startBlock, // _startBlock
-                    batchInbox, // _batchInbox
-                    SystemConfig.Addresses({ // _addresses
-                        l1CrossDomainMessenger: l1CrossDomainMessenger,
-                        l1ERC721Bridge: l1ERC721Bridge,
-                        l1StandardBridge: l1StandardBridge,
-                        l2OutputOracle: l2OutputOracle,
-                        optimismPortal: optimismPortal,
-                        optimismMintableERC20Factory: optimismMintableERC20Factory
+                    SystemConfig.Initialize({
+                        owner: alice,
+                        overhead: overhead,
+                        scalar: scalar,
+                        batcherHash: batcherHash,
+                        gasLimit: gasLimit,
+                        espresso: espresso,
+                        espressoL1ConfDepth: espressoL1ConfDepth,
+                        unsafeBlockSigner: unsafeBlockSigner,
+                        config: Constants.DEFAULT_RESOURCE_CONFIG(),
+                        startBlock: startBlock,
+                        batchInbox: batchInbox,
+                        addresses: SystemConfig.Addresses({
+                            l1CrossDomainMessenger: l1CrossDomainMessenger,
+                            l1ERC721Bridge: l1ERC721Bridge,
+                            l1StandardBridge: l1StandardBridge,
+                            l2OutputOracle: l2OutputOracle,
+                            optimismPortal: optimismPortal,
+                            optimismMintableERC20Factory: optimismMintableERC20Factory
+                        })
                     })
                 )
             )
@@ -160,23 +167,26 @@ contract SystemConfig_Initialize_Test is SystemConfig_Init {
             abi.encodeCall(
                 SystemConfig.initialize,
                 (
-                    alice, // _owner,
-                    overhead, // _overhead,
-                    scalar, // _scalar,
-                    batcherHash, // _batcherHash
-                    gasLimit, // _gasLimit,
-                    espresso, // _espresso,
-                    unsafeBlockSigner, // _unsafeBlockSigner,
-                    Constants.DEFAULT_RESOURCE_CONFIG(), // _config,
-                    1, // _startBlock
-                    batchInbox, // _batchInbox
-                    SystemConfig.Addresses({ // _addresses
-                        l1CrossDomainMessenger: l1CrossDomainMessenger,
-                        l1ERC721Bridge: l1ERC721Bridge,
-                        l1StandardBridge: l1StandardBridge,
-                        l2OutputOracle: l2OutputOracle,
-                        optimismPortal: optimismPortal,
-                        optimismMintableERC20Factory: optimismMintableERC20Factory
+                    SystemConfig.Initialize({
+                        owner: alice,
+                        overhead: overhead,
+                        scalar: scalar,
+                        batcherHash: batcherHash,
+                        gasLimit: gasLimit,
+                        espresso: espresso,
+                        espressoL1ConfDepth: espressoL1ConfDepth,
+                        unsafeBlockSigner: unsafeBlockSigner,
+                        config: Constants.DEFAULT_RESOURCE_CONFIG(),
+                        startBlock: 1,
+                        batchInbox: batchInbox,
+                        addresses: SystemConfig.Addresses({
+                            l1CrossDomainMessenger: l1CrossDomainMessenger,
+                            l1ERC721Bridge: l1ERC721Bridge,
+                            l1StandardBridge: l1StandardBridge,
+                            l2OutputOracle: l2OutputOracle,
+                            optimismPortal: optimismPortal,
+                            optimismMintableERC20Factory: optimismMintableERC20Factory
+                        })
                     })
                 )
             )
@@ -211,23 +221,26 @@ contract SystemConfig_Initialize_Test is SystemConfig_Init {
             abi.encodeCall(
                 SystemConfig.initialize,
                 (
-                    alice, // _owner,
-                    overhead, // _overhead,
-                    scalar, // _scalar,
-                    batcherHash, // _batcherHash
-                    gasLimit, // _gasLimit,
-                    espresso, // _espresso,
-                    unsafeBlockSigner, // _unsafeBlockSigner,
-                    Constants.DEFAULT_RESOURCE_CONFIG(), // _config,
-                    0, // _startBlock
-                    batchInbox, // _batchInbox
-                    SystemConfig.Addresses({ // _addresses
-                        l1CrossDomainMessenger: l1CrossDomainMessenger,
-                        l1ERC721Bridge: l1ERC721Bridge,
-                        l1StandardBridge: l1StandardBridge,
-                        l2OutputOracle: l2OutputOracle,
-                        optimismPortal: optimismPortal,
-                        optimismMintableERC20Factory: optimismMintableERC20Factory
+                    SystemConfig.Initialize({
+                        owner: alice,
+                        overhead: overhead,
+                        scalar: scalar,
+                        batcherHash: batcherHash,
+                        gasLimit: gasLimit,
+                        espresso: espresso,
+                        espressoL1ConfDepth: espressoL1ConfDepth,
+                        unsafeBlockSigner: unsafeBlockSigner,
+                        config: Constants.DEFAULT_RESOURCE_CONFIG(),
+                        startBlock: 0,
+                        batchInbox: batchInbox,
+                        addresses: SystemConfig.Addresses({
+                            l1CrossDomainMessenger: l1CrossDomainMessenger,
+                            l1ERC721Bridge: l1ERC721Bridge,
+                            l1StandardBridge: l1StandardBridge,
+                            l2OutputOracle: l2OutputOracle,
+                            optimismPortal: optimismPortal,
+                            optimismMintableERC20Factory: optimismMintableERC20Factory
+                        })
                     })
                 )
             )
@@ -251,23 +264,26 @@ contract SystemConfig_Initialize_TestFail is SystemConfig_Init {
             abi.encodeCall(
                 SystemConfig.initialize,
                 (
-                    alice, // _owner,
-                    2100, // _overhead,
-                    1000000, // _scalar,
-                    bytes32(hex"abcd"), // _batcherHash,
-                    minimumGasLimit - 1, // _gasLimit,
-                    false, // _espresso
-                    address(1), // _unsafeBlockSigner,
-                    Constants.DEFAULT_RESOURCE_CONFIG(), // _config,
-                    0, // _startBlock
-                    address(0), // _batchInbox
-                    SystemConfig.Addresses({ // _addresses
-                        l1CrossDomainMessenger: address(0),
-                        l1ERC721Bridge: address(0),
-                        l1StandardBridge: address(0),
-                        l2OutputOracle: address(0),
-                        optimismPortal: address(0),
-                        optimismMintableERC20Factory: address(0)
+                    SystemConfig.Initialize({
+                        owner: alice,
+                        overhead: 2100,
+                        scalar: 1000000,
+                        batcherHash: bytes32(hex"abcd"),
+                        gasLimit: minimumGasLimit - 1,
+                        espresso: false,
+                        espressoL1ConfDepth: 0,
+                        unsafeBlockSigner: address(1),
+                        config: Constants.DEFAULT_RESOURCE_CONFIG(),
+                        startBlock: 0,
+                        batchInbox: address(0),
+                        addresses: SystemConfig.Addresses({
+                            l1CrossDomainMessenger: address(0),
+                            l1ERC721Bridge: address(0),
+                            l1StandardBridge: address(0),
+                            l2OutputOracle: address(0),
+                            optimismPortal: address(0),
+                            optimismMintableERC20Factory: address(0)
+                        })
                     })
                 )
             )

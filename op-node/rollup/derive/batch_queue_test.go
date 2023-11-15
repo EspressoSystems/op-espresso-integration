@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
@@ -161,6 +162,13 @@ func TestBatchQueue(t *testing.T) {
 	}
 }
 
+func mockL2() *testutils.MockL2Client {
+	var err error
+	l2 := &testutils.MockL2Client{}
+	l2.Mock.On("SystemConfigByL2Hash", mock.Anything).Return(eth.SystemConfig{}, &err)
+	return l2
+}
+
 // BatchQueueNewOrigin tests that the batch queue properly saves the new origin
 // when the safehead's origin is ahead of the pipeline's origin (as is after a reset).
 // This issue was fixed in https://github.com/ethereum-optimism/optimism/pull/3694
@@ -191,13 +199,13 @@ func BatchQueueNewOrigin(t *testing.T, batchType int) {
 		origin:  l1[0],
 	}
 
-	bq := NewBatchQueue(log, cfg, input, nil, nil)
+	bq := NewBatchQueue(log, cfg, input, nil, mockL2())
 	_ = bq.Reset(context.Background(), l1[0], eth.SystemConfig{})
 	require.Equal(t, []eth.L1BlockRef{l1[0]}, bq.l1Blocks)
 
 	// Prev Origin: 0; Safehead Origin: 2; Internal Origin: 0
 	// Should return no data but keep the same origin
-	data, err := bq.NextBatch(context.Background(), safeHead, false)
+	data, err := bq.NextBatch(context.Background(), safeHead)
 	require.Nil(t, data)
 	require.Equal(t, io.EOF, err)
 	require.Equal(t, []eth.L1BlockRef{l1[0]}, bq.l1Blocks)
@@ -206,7 +214,7 @@ func BatchQueueNewOrigin(t *testing.T, batchType int) {
 	// Prev Origin: 1; Safehead Origin: 2; Internal Origin: 0
 	// Should wipe l1blocks + advance internal origin
 	input.origin = l1[1]
-	data, err = bq.NextBatch(context.Background(), safeHead, false)
+	data, err = bq.NextBatch(context.Background(), safeHead)
 	require.Nil(t, data)
 	require.Equal(t, io.EOF, err)
 	require.Empty(t, bq.l1Blocks)
@@ -215,7 +223,7 @@ func BatchQueueNewOrigin(t *testing.T, batchType int) {
 	// Prev Origin: 2; Safehead Origin: 2; Internal Origin: 1
 	// Should add to l1Blocks + advance internal origin
 	input.origin = l1[2]
-	data, err = bq.NextBatch(context.Background(), safeHead, false)
+	data, err = bq.NextBatch(context.Background(), safeHead)
 	require.Nil(t, data)
 	require.Equal(t, io.EOF, err)
 	require.Equal(t, []eth.L1BlockRef{l1[2]}, bq.l1Blocks)
@@ -280,13 +288,13 @@ func BatchQueueEager(t *testing.T, batchType int) {
 		origin:  l1[0],
 	}
 
-	bq := NewBatchQueue(log, cfg, input, nil, nil)
+	bq := NewBatchQueue(log, cfg, input, nil, mockL2())
 	_ = bq.Reset(context.Background(), l1[0], eth.SystemConfig{})
 	// Advance the origin
 	input.origin = l1[1]
 
 	for i := 0; i < len(expectedOutputBatches); i++ {
-		b, e := bq.NextBatch(context.Background(), safeHead, false)
+		b, e := bq.NextBatch(context.Background(), safeHead)
 		require.ErrorIs(t, e, expectedOutputErrors[i])
 		if b == nil {
 			require.Nil(t, expectedOutputBatches[i])
@@ -358,12 +366,12 @@ func BatchQueueInvalidInternalAdvance(t *testing.T, batchType int) {
 		origin:  l1[0],
 	}
 
-	bq := NewBatchQueue(log, cfg, input, nil, nil)
+	bq := NewBatchQueue(log, cfg, input, nil, mockL2())
 	_ = bq.Reset(context.Background(), l1[0], eth.SystemConfig{})
 
 	// Load continuous batches for epoch 0
 	for i := 0; i < len(expectedOutputBatches); i++ {
-		b, e := bq.NextBatch(context.Background(), safeHead, false)
+		b, e := bq.NextBatch(context.Background(), safeHead)
 		require.ErrorIs(t, e, expectedOutputErrors[i])
 		if b == nil {
 			require.Nil(t, expectedOutputBatches[i])
@@ -378,20 +386,20 @@ func BatchQueueInvalidInternalAdvance(t *testing.T, batchType int) {
 
 	// Advance to origin 1. No forced batches yet.
 	input.origin = l1[1]
-	b, e := bq.NextBatch(context.Background(), safeHead, false)
+	b, e := bq.NextBatch(context.Background(), safeHead)
 	require.ErrorIs(t, e, io.EOF)
 	require.Nil(t, b)
 
 	// Advance to origin 2. No forced batches yet because we are still on epoch 0
 	// & have batches for epoch 0.
 	input.origin = l1[2]
-	b, e = bq.NextBatch(context.Background(), safeHead, false)
+	b, e = bq.NextBatch(context.Background(), safeHead)
 	require.ErrorIs(t, e, io.EOF)
 	require.Nil(t, b)
 
 	// Advance to origin 3. Should generate one empty batch.
 	input.origin = l1[3]
-	b, e = bq.NextBatch(context.Background(), safeHead, false)
+	b, e = bq.NextBatch(context.Background(), safeHead)
 	require.Nil(t, e)
 	require.NotNil(t, b)
 	require.Equal(t, safeHead.Time+2, b.Timestamp)
@@ -400,13 +408,13 @@ func BatchQueueInvalidInternalAdvance(t *testing.T, batchType int) {
 	safeHead.Time += 2
 	safeHead.Hash = mockHash(b.Timestamp, 2)
 	safeHead.L1Origin = b.Epoch()
-	b, e = bq.NextBatch(context.Background(), safeHead, false)
+	b, e = bq.NextBatch(context.Background(), safeHead)
 	require.ErrorIs(t, e, io.EOF)
 	require.Nil(t, b)
 
 	// Advance to origin 4. Should generate one empty batch.
 	input.origin = l1[4]
-	b, e = bq.NextBatch(context.Background(), safeHead, false)
+	b, e = bq.NextBatch(context.Background(), safeHead)
 	require.Nil(t, e)
 	require.NotNil(t, b)
 	require.Equal(t, rollup.Epoch(2), b.EpochNum)
@@ -415,7 +423,7 @@ func BatchQueueInvalidInternalAdvance(t *testing.T, batchType int) {
 	safeHead.Time += 2
 	safeHead.Hash = mockHash(b.Timestamp, 2)
 	safeHead.L1Origin = b.Epoch()
-	b, e = bq.NextBatch(context.Background(), safeHead, false)
+	b, e = bq.NextBatch(context.Background(), safeHead)
 	require.ErrorIs(t, e, io.EOF)
 	require.Nil(t, b)
 
@@ -473,11 +481,11 @@ func BatchQueueMissing(t *testing.T, batchType int) {
 		origin:  l1[0],
 	}
 
-	bq := NewBatchQueue(log, cfg, input, nil, nil)
+	bq := NewBatchQueue(log, cfg, input, nil, mockL2())
 	_ = bq.Reset(context.Background(), l1[0], eth.SystemConfig{})
 
 	for i := 0; i < len(expectedOutputBatches); i++ {
-		b, e := bq.NextBatch(context.Background(), safeHead, false)
+		b, e := bq.NextBatch(context.Background(), safeHead)
 		require.ErrorIs(t, e, NotEnoughData)
 		require.Nil(t, b)
 	}
@@ -485,7 +493,7 @@ func BatchQueueMissing(t *testing.T, batchType int) {
 	// advance origin. Underlying stage still has no more inputBatches
 	// This is not enough to auto advance yet
 	input.origin = l1[1]
-	b, e := bq.NextBatch(context.Background(), safeHead, false)
+	b, e := bq.NextBatch(context.Background(), safeHead)
 	require.ErrorIs(t, e, io.EOF)
 	require.Nil(t, b)
 
@@ -493,7 +501,7 @@ func BatchQueueMissing(t *testing.T, batchType int) {
 	input.origin = l1[2]
 
 	// Check for a generated batch at t = 12
-	b, e = bq.NextBatch(context.Background(), safeHead, false)
+	b, e = bq.NextBatch(context.Background(), safeHead)
 	require.Nil(t, e)
 	require.Equal(t, b.Timestamp, uint64(12))
 	require.Empty(t, b.Transactions)
@@ -503,7 +511,7 @@ func BatchQueueMissing(t *testing.T, batchType int) {
 	safeHead.Hash = mockHash(b.Timestamp, 2)
 
 	// Check for generated batch at t = 14
-	b, e = bq.NextBatch(context.Background(), safeHead, false)
+	b, e = bq.NextBatch(context.Background(), safeHead)
 	require.Nil(t, e)
 	require.Equal(t, b.Timestamp, uint64(14))
 	require.Empty(t, b.Transactions)
@@ -513,7 +521,7 @@ func BatchQueueMissing(t *testing.T, batchType int) {
 	safeHead.Hash = mockHash(b.Timestamp, 2)
 
 	// Check for the inputted batch at t = 16
-	b, e = bq.NextBatch(context.Background(), safeHead, false)
+	b, e = bq.NextBatch(context.Background(), safeHead)
 	require.Nil(t, e)
 	require.Equal(t, b, expectedOutputBatches[0])
 	require.Equal(t, rollup.Epoch(0), b.EpochNum)
@@ -527,9 +535,9 @@ func BatchQueueMissing(t *testing.T, batchType int) {
 	// Check for the generated batch at t = 18. This batch advances the epoch
 	// Note: We need one io.EOF returned from the bq that advances the internal L1 Blocks view
 	// before the batch will be auto generated
-	_, e = bq.NextBatch(context.Background(), safeHead, false)
+	_, e = bq.NextBatch(context.Background(), safeHead)
 	require.Equal(t, e, io.EOF)
-	b, e = bq.NextBatch(context.Background(), safeHead, false)
+	b, e = bq.NextBatch(context.Background(), safeHead)
 	require.Nil(t, e)
 	require.Equal(t, b.Timestamp, uint64(18))
 	require.Empty(t, b.Transactions)
@@ -600,7 +608,7 @@ func BatchQueueAdvancedEpoch(t *testing.T, batchType int) {
 		origin:  l1[inputOriginNumber],
 	}
 
-	bq := NewBatchQueue(log, cfg, input, nil, nil)
+	bq := NewBatchQueue(log, cfg, input, nil, mockL2())
 	_ = bq.Reset(context.Background(), l1[1], eth.SystemConfig{})
 
 	for i := 0; i < len(expectedOutputBatches); i++ {
@@ -610,7 +618,7 @@ func BatchQueueAdvancedEpoch(t *testing.T, batchType int) {
 			inputOriginNumber += 1
 			input.origin = l1[inputOriginNumber]
 		}
-		b, e := bq.NextBatch(context.Background(), safeHead, false)
+		b, e := bq.NextBatch(context.Background(), safeHead)
 		require.ErrorIs(t, e, expectedOutputErrors[i])
 		if b == nil {
 			require.Nil(t, expectedOutput)
@@ -692,7 +700,7 @@ func BatchQueueShuffle(t *testing.T, batchType int) {
 		origin:  l1[inputOriginNumber],
 	}
 
-	bq := NewBatchQueue(log, cfg, input, nil, nil)
+	bq := NewBatchQueue(log, cfg, input, nil, mockL2())
 	_ = bq.Reset(context.Background(), l1[1], eth.SystemConfig{})
 
 	for i := 0; i < len(expectedOutputBatches); i++ {
@@ -706,7 +714,7 @@ func BatchQueueShuffle(t *testing.T, batchType int) {
 		var e error
 		for j := 0; j < len(expectedOutputBatches); j++ {
 			// Multiple NextBatch() executions may be required because the order of input is shuffled
-			b, e = bq.NextBatch(context.Background(), safeHead, false)
+			b, e = bq.NextBatch(context.Background(), safeHead)
 			if !errors.Is(e, NotEnoughData) {
 				break
 			}
@@ -784,7 +792,7 @@ func TestBatchQueueOverlappingSpanBatch(t *testing.T) {
 		origin:  l1[0],
 	}
 
-	l2Client := testutils.MockL2Client{}
+	l2Client := mockL2()
 	var nilErr error
 	for i, batch := range expectedOutputBatches {
 		if batch != nil {
@@ -808,13 +816,13 @@ func TestBatchQueueOverlappingSpanBatch(t *testing.T) {
 		}
 	}
 
-	bq := NewBatchQueue(log, cfg, input, nil, &l2Client)
+	bq := NewBatchQueue(log, cfg, input, nil, l2Client)
 	_ = bq.Reset(context.Background(), l1[0], eth.SystemConfig{})
 	// Advance the origin
 	input.origin = l1[1]
 
 	for i := 0; i < len(expectedOutputBatches); i++ {
-		b, e := bq.NextBatch(context.Background(), safeHead, false)
+		b, e := bq.NextBatch(context.Background(), safeHead)
 		require.ErrorIs(t, e, expectedOutputErrors[i])
 		if b == nil {
 			require.Nil(t, expectedOutputBatches[i])
@@ -895,7 +903,7 @@ func TestBatchQueueComplex(t *testing.T) {
 		origin:  l1[inputOriginNumber],
 	}
 
-	l2Client := testutils.MockL2Client{}
+	l2Client := mockL2()
 	var nilErr error
 	for i, batch := range expectedOutputBatches {
 		if batch != nil {
@@ -914,7 +922,7 @@ func TestBatchQueueComplex(t *testing.T) {
 		}
 	}
 
-	bq := NewBatchQueue(log, cfg, input, nil, &l2Client)
+	bq := NewBatchQueue(log, cfg, input, nil, l2Client)
 	_ = bq.Reset(context.Background(), l1[1], eth.SystemConfig{})
 
 	for i := 0; i < len(expectedOutputBatches); i++ {
@@ -928,7 +936,7 @@ func TestBatchQueueComplex(t *testing.T) {
 		var e error
 		for j := 0; j < len(expectedOutputBatches); j++ {
 			// Multiple NextBatch() executions may be required because the order of input is shuffled
-			b, e = bq.NextBatch(context.Background(), safeHead, false)
+			b, e = bq.NextBatch(context.Background(), safeHead)
 			if !errors.Is(e, NotEnoughData) {
 				break
 			}

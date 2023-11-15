@@ -31,7 +31,7 @@ type Downloader interface {
 
 type L1OriginSelectorIface interface {
 	FindL1Origin(ctx context.Context, l2Head eth.L2BlockRef) (eth.L1BlockRef, error)
-	FindL1OriginByNumber(ctx context.Context, number uint64) (eth.L1BlockRef, error)
+	derive.L1BlockRefByNumberFetcher
 }
 
 type SequencerMetrics interface {
@@ -61,6 +61,7 @@ type Sequencer struct {
 
 	engine derive.ResettableEngineControl
 
+	cfgFetcher       derive.SystemConfigL2Fetcher
 	attrBuilder      derive.AttributesBuilder
 	l1OriginSelector L1OriginSelectorIface
 	espresso         espresso.QueryService
@@ -76,13 +77,16 @@ type Sequencer struct {
 	espressoBatch *InProgressBatch
 }
 
-func NewSequencer(log log.Logger, cfg *rollup.Config, engine derive.ResettableEngineControl, attributesBuilder derive.AttributesBuilder, l1OriginSelector L1OriginSelectorIface, espresso espresso.QueryService, metrics SequencerMetrics) *Sequencer {
+func NewSequencer(log log.Logger, cfg *rollup.Config, engine derive.ResettableEngineControl,
+	cfgFetcher derive.SystemConfigL2Fetcher, attributesBuilder derive.AttributesBuilder,
+	l1OriginSelector L1OriginSelectorIface, espresso espresso.QueryService, metrics SequencerMetrics) *Sequencer {
 	return &Sequencer{
 		log:              log,
 		config:           cfg,
 		mode:             Unknown,
 		engine:           engine,
 		timeNow:          time.Now,
+		cfgFetcher:       cfgFetcher,
 		attrBuilder:      attributesBuilder,
 		l1OriginSelector: l1OriginSelector,
 		espresso:         espresso,
@@ -191,29 +195,18 @@ func (d *Sequencer) tryToSealEspressoBatch(ctx context.Context) (*eth.ExecutionP
 func (d *Sequencer) sealEspressoBatch(ctx context.Context) (*eth.ExecutionPayload, error) {
 	batch := d.espressoBatch
 
-	// Deterministically choose an L1 origin for this L2 batch, based on the latest L1 block that
-	// Espresso has told us exists, but adjusting as needed to meet the constraints of the
-	// derivation pipeline.
-	suggestedL1Origin, err := d.l1OriginSelector.FindL1OriginByNumber(ctx, batch.jst.Next.L1Head)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch suggested L1 origin %d: %w", batch.jst.Next.L1Head, err)
-	}
-	nextL1Number := batch.onto.L1Origin.Number + 1
-	fetchNextL1Block := func() (eth.L1BlockRef, error) {
-		return d.l1OriginSelector.FindL1OriginByNumber(ctx, nextL1Number)
-	}
-	l1OriginNumber, err := derive.EspressoL1Origin(d.config, batch.onto, suggestedL1Origin, fetchNextL1Block, d.log)
+	sysCfg, err := d.cfgFetcher.SystemConfigByL2Hash(ctx, batch.onto.Hash)
 	if err != nil {
 		return nil, err
 	}
-	l1Origin := suggestedL1Origin
-	if l1Origin.Number != l1OriginNumber {
-		l1Origin, err = d.l1OriginSelector.FindL1OriginByNumber(ctx, l1OriginNumber)
-		if err != nil {
-			return nil, fmt.Errorf("failed to fetch L1 origin %d: %w", l1OriginNumber, err)
-		}
-		d.log.Info("using adjusted L1 origin",
-			"suggested", suggestedL1Origin, "adjusted", l1Origin, "parent", batch.onto, "parentOrigin", batch.onto.L1Origin)
+
+	// Deterministically choose an L1 origin for this L2 batch, based on the latest L1 block that
+	// Espresso has told us exists, but adjusting as needed to meet the constraints of the
+	// derivation pipeline.
+	l1Origin, err := derive.EspressoL1Origin(ctx, d.config, &sysCfg, batch.onto,
+		batch.jst.Next.L1Head, d.l1OriginSelector, d.log)
+	if err != nil {
+		return nil, err
 	}
 
 	// In certain edge cases, like when the L2 has fallen too far behind the L1, we are required to
@@ -235,7 +228,7 @@ func (d *Sequencer) sealEspressoBatch(ctx context.Context) (*eth.ExecutionPayloa
 	attrs.NoTxPool = true
 	attrs.Transactions = append(attrs.Transactions, batch.transactions...)
 
-	d.log.Debug("prepared attributes for new Espresso block",
+	d.log.Info("prepared attributes for new Espresso block",
 		"num", batch.onto.Number+1, "time", uint64(attrs.Timestamp), "origin", l1Origin)
 
 	// Start a payload building process.
@@ -575,11 +568,11 @@ func (d *Sequencer) buildLegacyBlock(ctx context.Context, building bool) (*eth.E
 
 func (d *Sequencer) detectMode(ctx context.Context) error {
 	head := d.engine.UnsafeL2Head()
-	espressoBatch, err := d.attrBuilder.ChildNeedsJustification(ctx, head)
+	sysCfg, err := d.cfgFetcher.SystemConfigByL2Hash(ctx, head.Hash)
 	if err != nil {
 		return err
 	}
-	if espressoBatch {
+	if sysCfg.Espresso {
 		d.log.Info("OP sequencer running in Espresso mode")
 		d.mode = Espresso
 	} else {
