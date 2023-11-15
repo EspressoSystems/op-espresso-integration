@@ -252,7 +252,7 @@ task('deposit-erc20', 'Deposits WETH9 onto L2.')
     console.log('Checking to make sure deposit was successful')
     // Deposit might get reorged, wait and also log for reorgs.
     let prevBlockHash: string = ''
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 18; i++) {
       const messageReceipt = await signer.provider!.getTransactionReceipt(
         depositTx.hash
       )
