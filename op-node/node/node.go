@@ -14,6 +14,8 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/libp2p/go-libp2p/core/peer"
 
+	espressoClient "github.com/EspressoSystems/go-espresso-sequencer/client"
+
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
@@ -24,7 +26,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/rollup/driver"
 	"github.com/ethereum-optimism/optimism/op-node/version"
 	"github.com/ethereum-optimism/optimism/op-service/client"
-	"github.com/ethereum-optimism/optimism/op-service/espresso"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	oppprof "github.com/ethereum-optimism/optimism/op-service/pprof"
 	"github.com/ethereum-optimism/optimism/op-service/retry"
@@ -305,12 +306,12 @@ func (n *OpNode) initL2(ctx context.Context, cfg *Config, snapshotLog log.Logger
 		return err
 	}
 
-	var espressoClient *espresso.Client
+	var espresso *espressoClient.Client
 	if cfg.EspressoUrl != "" {
-		espressoClient = espresso.NewClient(n.log, cfg.EspressoUrl)
+		espresso = espressoClient.NewClient(n.log, cfg.EspressoUrl)
 	}
 
-	n.l2Driver = driver.NewDriver(&cfg.Driver, &cfg.Rollup, n.l2Source, n.l1Source, espressoClient, n, n, n.log, snapshotLog, n.metrics, cfg.ConfigPersistence, &cfg.Sync)
+	n.l2Driver = driver.NewDriver(&cfg.Driver, &cfg.Rollup, n.l2Source, n.l1Source, espresso, n, n, n.log, snapshotLog, n.metrics, cfg.ConfigPersistence, &cfg.Sync)
 
 	return nil
 }

@@ -12,7 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/trie"
 
-	"github.com/ethereum-optimism/optimism/op-service/espresso"
+	espresso "github.com/EspressoSystems/go-espresso-sequencer/types"
 
 	"github.com/holiman/uint256"
 )

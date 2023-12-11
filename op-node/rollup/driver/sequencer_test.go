@@ -11,6 +11,9 @@ import (
 	"testing"
 	"time"
 
+	espressoClient "github.com/EspressoSystems/go-espresso-sequencer/client"
+	espresso "github.com/EspressoSystems/go-espresso-sequencer/types"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
@@ -19,7 +22,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/metrics"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
-	"github.com/ethereum-optimism/optimism/op-service/espresso"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/ethereum-optimism/optimism/op-service/testutils"
@@ -323,24 +325,24 @@ var _ derive.EspressoL1Provider = (*TestSequencer)(nil)
 
 // Implement Espresso QueryService interface for TestSequencer.
 
-func (s *TestSequencer) FetchHeadersForWindow(ctx context.Context, start uint64, end uint64) (espresso.WindowStart, error) {
+func (s *TestSequencer) FetchHeadersForWindow(ctx context.Context, start uint64, end uint64) (espressoClient.WindowStart, error) {
 	// Find the start of the range.
 	for i := uint64(0); ; i += 1 {
 		header := s.espressoBlock(i)
 		if header == nil {
 			// New headers not available.
-			return espresso.WindowStart{}, nil
+			return espressoClient.WindowStart{}, nil
 		}
 		if header.Timestamp >= start {
 			res, err := s.FetchRemainingHeadersForWindow(ctx, i, end)
 			if err != nil {
-				return espresso.WindowStart{}, err
+				return espressoClient.WindowStart{}, err
 			} else {
 				var prev *espresso.Header
 				if i > 0 {
 					prev = s.espressoBlock(i - 1)
 				}
-				return espresso.WindowStart{
+				return espressoClient.WindowStart{
 					From:   i,
 					Window: res.Window,
 					Prev:   prev,
@@ -351,10 +353,10 @@ func (s *TestSequencer) FetchHeadersForWindow(ctx context.Context, start uint64,
 	}
 }
 
-func (s *TestSequencer) FetchRemainingHeadersForWindow(ctx context.Context, from uint64, end uint64) (espresso.WindowMore, error) {
+func (s *TestSequencer) FetchRemainingHeadersForWindow(ctx context.Context, from uint64, end uint64) (espressoClient.WindowMore, error) {
 	// Inject errors.
 	if s.espressoErr != nil {
-		return espresso.WindowMore{}, s.espressoErr
+		return espressoClient.WindowMore{}, s.espressoErr
 	}
 
 	headers := make([]espresso.Header, 0)
@@ -362,13 +364,13 @@ func (s *TestSequencer) FetchRemainingHeadersForWindow(ctx context.Context, from
 		header := s.espressoBlock(i)
 		if header == nil {
 			// New headers not available.
-			return espresso.WindowMore{
+			return espressoClient.WindowMore{
 				Window: headers,
 				Next:   nil,
 			}, nil
 		}
 		if header.Timestamp >= end {
-			return espresso.WindowMore{
+			return espressoClient.WindowMore{
 				Window: headers,
 				Next:   header,
 			}, nil
@@ -377,26 +379,26 @@ func (s *TestSequencer) FetchRemainingHeadersForWindow(ctx context.Context, from
 	}
 }
 
-func (s *TestSequencer) FetchTransactionsInBlock(ctx context.Context, block uint64, header *espresso.Header, namespace uint64) (espresso.TransactionsInBlock, error) {
+func (s *TestSequencer) FetchTransactionsInBlock(ctx context.Context, block uint64, header *espresso.Header, namespace uint64) (espressoClient.TransactionsInBlock, error) {
 	// Inject errors.
 	if s.espressoErr != nil {
-		return espresso.TransactionsInBlock{}, s.espressoErr
+		return espressoClient.TransactionsInBlock{}, s.espressoErr
 	}
 
 	// The sequencer should only ever ask for one namespace, that of the OP-chain.
 	require.Equal(s.t, namespace, s.cfg.L2ChainID.Uint64())
 
 	if int(block) >= len(s.espresso.Blocks) {
-		return espresso.TransactionsInBlock{}, fmt.Errorf("invalid block number %d total blocks %d", block, len(s.espresso.Blocks))
+		return espressoClient.TransactionsInBlock{}, fmt.Errorf("invalid block number %d total blocks %d", block, len(s.espresso.Blocks))
 	}
 	if s.espresso.Blocks[block].Header.Commit() != header.Commit() {
-		return espresso.TransactionsInBlock{}, fmt.Errorf("wrong header for block %d header %v expected %v", block, header, s.espresso.Blocks[block].Header)
+		return espressoClient.TransactionsInBlock{}, fmt.Errorf("wrong header for block %d header %v expected %v", block, header, s.espresso.Blocks[block].Header)
 	}
 	txs := s.espresso.Blocks[block].Transactions
 
 	// Fake an NMT proof.
 	proof := espresso.NmtProof{}
-	return espresso.TransactionsInBlock{
+	return espressoClient.TransactionsInBlock{
 		Transactions: txs,
 		Proof:        proof,
 	}, nil
@@ -512,7 +514,7 @@ func (s *TestSequencer) nextEspressoBlock() *espresso.Header {
 	return &header
 }
 
-var _ espresso.QueryService = (*TestSequencer)(nil)
+var _ espressoClient.QueryService = (*TestSequencer)(nil)
 
 func mockL1Hash(num uint64) (out common.Hash) {
 	out[31] = 1

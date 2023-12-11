@@ -3,7 +3,8 @@ package derive
 import (
 	"testing"
 
-	"github.com/ethereum-optimism/optimism/op-service/espresso"
+	espresso "github.com/EspressoSystems/go-espresso-sequencer/types"
+
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/testutils"
 	"github.com/ethereum-optimism/optimism/op-service/testutils/fuzzerutils"

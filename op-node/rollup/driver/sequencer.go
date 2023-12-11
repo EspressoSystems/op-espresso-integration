@@ -6,13 +6,15 @@ import (
 	"fmt"
 	"time"
 
+	espressoClient "github.com/EspressoSystems/go-espresso-sequencer/client"
+	espresso "github.com/EspressoSystems/go-espresso-sequencer/types"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
-	"github.com/ethereum-optimism/optimism/op-service/espresso"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
 
@@ -64,7 +66,7 @@ type Sequencer struct {
 	cfgFetcher       derive.SystemConfigL2Fetcher
 	attrBuilder      derive.AttributesBuilder
 	l1OriginSelector L1OriginSelectorIface
-	espresso         espresso.QueryService
+	espresso         espressoClient.QueryService
 
 	metrics SequencerMetrics
 
@@ -79,7 +81,7 @@ type Sequencer struct {
 
 func NewSequencer(log log.Logger, cfg *rollup.Config, engine derive.ResettableEngineControl,
 	cfgFetcher derive.SystemConfigL2Fetcher, attributesBuilder derive.AttributesBuilder,
-	l1OriginSelector L1OriginSelectorIface, espresso espresso.QueryService, metrics SequencerMetrics) *Sequencer {
+	l1OriginSelector L1OriginSelectorIface, espresso espressoClient.QueryService, metrics SequencerMetrics) *Sequencer {
 	return &Sequencer{
 		log:              log,
 		config:           cfg,

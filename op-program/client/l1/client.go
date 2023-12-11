@@ -5,9 +5,10 @@ import (
 	"errors"
 	"fmt"
 
+	espresso "github.com/EspressoSystems/go-espresso-sequencer/types"
+
 	"github.com/ethereum/go-ethereum"
 
-	"github.com/ethereum-optimism/optimism/op-service/espresso"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"

@@ -5,8 +5,10 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/EspressoSystems/go-espresso-sequencer/nmt"
+	espresso "github.com/EspressoSystems/go-espresso-sequencer/types"
+
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
-	"github.com/ethereum-optimism/optimism/op-service/espresso"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
@@ -200,7 +202,7 @@ func CheckBatchEspresso(cfg *rollup.Config, sysCfg *eth.SystemConfig, log log.Lo
 		for i, tx := range batch.Transactions {
 			txs[i] = []byte(tx)
 		}
-		err = espresso.ValidateBatchTransactions(cfg.L2ChainID.Uint64(), roots, proofs, txs)
+		err = nmt.ValidateBatchTransactions(cfg.L2ChainID.Uint64(), roots, proofs, txs)
 		if err != nil {
 			log.Warn("dropping batch because of invalid NMT proofs", "err", err)
 			return BatchDrop
