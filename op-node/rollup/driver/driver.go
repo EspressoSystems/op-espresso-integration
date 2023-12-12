@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
-	espressoClient "github.com/EspressoSystems/go-espresso-sequencer/client"
+	espressoClient "github.com/EspressoSystems/espresso-sequencer-go/client"
 
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"

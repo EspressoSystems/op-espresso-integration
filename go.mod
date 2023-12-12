@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	github.com/BurntSushi/toml v1.3.2
-	github.com/EspressoSystems/go-espresso-sequencer v0.0.0-20231211154954-48e238d77e9d
+	github.com/EspressoSystems/espresso-sequencer-go v0.0.1-beta
 	github.com/btcsuite/btcd v0.23.3
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.0.1
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0

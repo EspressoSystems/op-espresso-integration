@@ -6,7 +6,7 @@ import (
 	"math/big"
 	"math/rand"
 
-	espresso "github.com/EspressoSystems/go-espresso-sequencer/types"
+	espresso "github.com/EspressoSystems/espresso-sequencer-go/types"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"

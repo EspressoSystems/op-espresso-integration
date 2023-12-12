@@ -5,8 +5,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/EspressoSystems/go-espresso-sequencer/nmt"
-	espresso "github.com/EspressoSystems/go-espresso-sequencer/types"
+	"github.com/EspressoSystems/espresso-sequencer-go/nmt"
+	espresso "github.com/EspressoSystems/espresso-sequencer-go/types"
 
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"

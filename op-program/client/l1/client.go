@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	espresso "github.com/EspressoSystems/go-espresso-sequencer/types"
+	espresso "github.com/EspressoSystems/espresso-sequencer-go/types"
 
 	"github.com/ethereum/go-ethereum"
 

@@ -14,7 +14,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/libp2p/go-libp2p/core/peer"
 
-	espressoClient "github.com/EspressoSystems/go-espresso-sequencer/client"
+	espressoClient "github.com/EspressoSystems/espresso-sequencer-go/client"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/event"

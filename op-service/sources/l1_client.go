@@ -12,8 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/EspressoSystems/go-espresso-sequencer/hotshot"
-	espresso "github.com/EspressoSystems/go-espresso-sequencer/types"
+	"github.com/EspressoSystems/espresso-sequencer-go/hotshot"
+	espresso "github.com/EspressoSystems/espresso-sequencer-go/types"
 
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/client"

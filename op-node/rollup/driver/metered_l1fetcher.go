@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	espresso "github.com/EspressoSystems/go-espresso-sequencer/types"
+	espresso "github.com/EspressoSystems/espresso-sequencer-go/types"
 
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-service/eth"

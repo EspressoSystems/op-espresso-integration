@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	espressoClient "github.com/EspressoSystems/go-espresso-sequencer/client"
-	espresso "github.com/EspressoSystems/go-espresso-sequencer/types"
+	espressoClient "github.com/EspressoSystems/espresso-sequencer-go/client"
+	espresso "github.com/EspressoSystems/espresso-sequencer-go/types"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
