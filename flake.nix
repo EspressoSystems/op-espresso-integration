@@ -31,12 +31,18 @@
             permittedInsecurePackages = [ "nodejs-16.20.2" ];
           };
         };
+        # nixWithFlakes allows pre v2.4 nix installations to use
+        # flake commands (like `nix flake update`)
+        nixWithFlakes = pkgs.writeShellScriptBin "nix" ''
+          exec ${pkgs.nixFlakes}/bin/nix --experimental-features "nix-command flakes" "$@"
+        '';
       in
       {
         devShells.default = pkgs.mkShell {
           COMPOSE_DOCKER_CLI_BUILD=1;
           DOCKER_BUILDKIT=1;
           packages = with pkgs; [
+            nixWithFlakes
             go
             # goimports, godoc, etc.
             gotools
