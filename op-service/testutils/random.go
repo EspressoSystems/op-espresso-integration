@@ -337,7 +337,6 @@ func RandomL2BatchJustification(rng *rand.Rand) *eth.L2BatchJustification {
 	return &eth.L2BatchJustification{
 		Prev:   &prev,
 		Next:   &next,
-		From:   RandomBlockID(rng).Number,
 		Blocks: make([]eth.EspressoBlockJustification, 0),
 	}
 }
@@ -345,16 +344,16 @@ func RandomL2BatchJustification(rng *rand.Rand) *eth.L2BatchJustification {
 func RandomEspressoHeader(rng *rand.Rand) espresso.Header {
 	l1Block := RandomBlockRef(rng)
 	return espresso.Header{
-		TransactionsRoot: RandomNmtRoot(rng),
-		Metadata: espresso.Metadata{
-			Timestamp: rng.Uint64(),
-			L1Head:    RandomBlockRef(rng).Number,
-			L1Finalized: &espresso.L1BlockInfo{
-				Number:    l1Block.Number,
-				Timestamp: *espresso.NewU256().SetUint64(l1Block.Time),
-				Hash:      l1Block.Hash,
-			},
+		Height:    rng.Uint64(),
+		Timestamp: rng.Uint64(),
+		L1Head:    RandomBlockRef(rng).Number,
+		L1Finalized: &espresso.L1BlockInfo{
+			Number:    l1Block.Number,
+			Timestamp: *espresso.NewU256().SetUint64(l1Block.Time),
+			Hash:      l1Block.Hash,
 		},
+		TransactionsRoot:  RandomNmtRoot(rng),
+		PayloadCommitment: RandomPayloadCommitment(rng),
 	}
 }
 
@@ -364,6 +363,12 @@ func RandomNmtRoot(rng *rand.Rand) espresso.NmtRoot {
 	return espresso.NmtRoot{
 		Root: bytes,
 	}
+}
+
+func RandomPayloadCommitment(rng *rand.Rand) espresso.Bytes {
+	bytes := make([]byte, 48)
+	rng.Read(bytes[:])
+	return bytes
 }
 
 func RandomOutputV0(rng *rand.Rand) *eth.OutputV0 {

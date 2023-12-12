@@ -293,11 +293,26 @@ type L2BatchJustification struct {
 	// the end of Blocks, by showing that Next is the immediate successor of the last block in
 	// Blocks and has a timestamp later than the L2 batch window.
 	Next *espresso.Header `json:"next"`
+}
 
-	// The block number of the first block in Blocks, if it exists. If Blocks is empty, this is the
-	// block number of Next. The numbers of all other blocks in Prev, Blocks, and Next are
-	// determined in relation to this number, since the blocks should all be consecutive.
-	From uint64 `json:"from"`
+func (j *L2BatchJustification) First() *espresso.Header {
+	if j.Prev != nil {
+		return j.Prev
+	}
+	if len(j.Blocks) != 0 {
+		return &j.Blocks[0].Header
+	}
+	return j.Next
+}
+
+func (j *L2BatchJustification) Last() *espresso.Header {
+	if j.Next != nil {
+		return j.Next
+	}
+	if len(j.Blocks) != 0 {
+		return &j.Blocks[len(j.Blocks)-1].Header
+	}
+	return j.Prev
 }
 
 type ExecutePayloadStatus string

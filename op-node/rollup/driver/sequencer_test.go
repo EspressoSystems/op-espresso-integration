@@ -343,7 +343,6 @@ func (s *TestSequencer) FetchHeadersForWindow(ctx context.Context, start uint64,
 					prev = s.espressoBlock(i - 1)
 				}
 				return espressoClient.WindowStart{
-					From:   i,
 					Window: res.Window,
 					Prev:   prev,
 					Next:   res.Next,
@@ -379,7 +378,7 @@ func (s *TestSequencer) FetchRemainingHeadersForWindow(ctx context.Context, from
 	}
 }
 
-func (s *TestSequencer) FetchTransactionsInBlock(ctx context.Context, block uint64, header *espresso.Header, namespace uint64) (espressoClient.TransactionsInBlock, error) {
+func (s *TestSequencer) FetchTransactionsInBlock(ctx context.Context, header *espresso.Header, namespace uint64) (espressoClient.TransactionsInBlock, error) {
 	// Inject errors.
 	if s.espressoErr != nil {
 		return espressoClient.TransactionsInBlock{}, s.espressoErr
@@ -388,13 +387,13 @@ func (s *TestSequencer) FetchTransactionsInBlock(ctx context.Context, block uint
 	// The sequencer should only ever ask for one namespace, that of the OP-chain.
 	require.Equal(s.t, namespace, s.cfg.L2ChainID.Uint64())
 
-	if int(block) >= len(s.espresso.Blocks) {
-		return espressoClient.TransactionsInBlock{}, fmt.Errorf("invalid block number %d total blocks %d", block, len(s.espresso.Blocks))
+	if int(header.Height) >= len(s.espresso.Blocks) {
+		return espressoClient.TransactionsInBlock{}, fmt.Errorf("invalid block number %d total blocks %d", header.Height, len(s.espresso.Blocks))
 	}
-	if s.espresso.Blocks[block].Header.Commit() != header.Commit() {
-		return espressoClient.TransactionsInBlock{}, fmt.Errorf("wrong header for block %d header %v expected %v", block, header, s.espresso.Blocks[block].Header)
+	if s.espresso.Blocks[header.Height].Header.Commit() != header.Commit() {
+		return espressoClient.TransactionsInBlock{}, fmt.Errorf("wrong header for block %d header %v expected %v", header.Height, header, s.espresso.Blocks[header.Height].Header)
 	}
-	txs := s.espresso.Blocks[block].Transactions
+	txs := s.espresso.Blocks[header.Height].Transactions
 
 	// Fake an NMT proof.
 	proof := espresso.NmtProof{}
@@ -494,11 +493,10 @@ func (s *TestSequencer) nextEspressoBlock() *espresso.Header {
 	}
 
 	header := espresso.Header{
+		Height:           uint64(len(s.espresso.Blocks)),
 		TransactionsRoot: root,
-		Metadata: espresso.Metadata{
-			Timestamp: timestamp,
-			L1Head:    l1Origin.Number,
-		},
+		Timestamp:        timestamp,
+		L1Head:           l1Origin.Number,
 	}
 
 	// Randomly generate between 0 and 20 transactions.
