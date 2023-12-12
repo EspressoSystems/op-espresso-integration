@@ -556,7 +556,7 @@ func TestValidBatchEspresso(t *testing.T) {
 		{
 			Name:       "invalid batch missing prev not genesis",
 			L1Blocks:   []eth.L1BlockRef{l1A, l1B, l1C},
-			L2SafeHead: l2Parent,
+			L2SafeHead: l2A0,
 			Headers:    hotshotHeaders,
 			Batch: BatchWithL1InclusionBlock{
 				L1InclusionBlock: l1A,
@@ -580,7 +580,7 @@ func TestValidBatchEspresso(t *testing.T) {
 			Expected: BatchDrop,
 		},
 		{
-			Name:       "invalid batch missing genesis before window start",
+			Name:       "invalid batch missing prev genesis before window start",
 			L1Blocks:   []eth.L1BlockRef{l1A, l1B, l1C},
 			L2SafeHead: l2A0,
 			Headers:    hotshotHeaders,
