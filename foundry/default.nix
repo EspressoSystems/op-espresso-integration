@@ -17,8 +17,16 @@ rustPlatform.buildRustPackage rec {
   src = fetchFromGitHub {
     owner = "foundry-rs";
     repo = "foundry";
-    rev = "3e962e2efe17396886fcb1fd141ccf4204cd3a21";
-    hash = "sha256-4ESOsNYtTPSnvtBtcXZ5FJXGCQOpW1mtlVOLyeJnLCE=";
+    # NOTE: as of 2023-12-13 commits newer than the one below have a problem
+    # where they escape constructor arguments in the deployment JSON files. When
+    # updating, make sure to check if the problem is fixed, for example by
+    # running
+    #
+    #     make devnet-clean
+    #     make devnet-up-espresso
+    #
+    rev = "d85718785859dc0b5a095d2302d1a20ec06ab77a";
+    hash = "sha256-/yHvPUGHqek5255JkKGGK3TquCo4In9uBe0eaPkQr20=";
   };
 
   cargoLock = {
