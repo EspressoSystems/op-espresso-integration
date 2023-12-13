@@ -5,42 +5,38 @@
   inputs.flake-utils.url = "github:numtide/flake-utils";
   inputs.flake-compat.url = "github:edolstra/flake-compat";
   inputs.flake-compat.flake = false;
+  inputs.solc-bin.url = "github:EspressoSystems/nix-solc-bin";
 
-  inputs.foundry.url = "github:shazow/foundry.nix/monthly";
-
-  outputs = { self, flake-utils, nixpkgs, foundry, ... }:
-    let
-      goVersion = 21; # Change this to update the whole stack
-      overlays = [
-        (final: prev: {
-          go = prev."go_1_${toString goVersion}";
-          # Overlaying nodejs here to ensure nodePackages use the desired
-          # version of nodejs.
-          nodejs = prev.nodejs-16_x;
-          pnpm = prev.nodePackages.pnpm;
-          yarn = prev.nodePackages.yarn;
-        })
-        foundry.overlay
-      ];
-    in
+  outputs = { flake-utils, nixpkgs, solc-bin, ... }:
     flake-utils.lib.eachDefaultSystem (system:
       let
+        goVersion = 21; # Change this to update the whole stack
+        overlays = [
+          # solc-bin.overlays.default
+          (final: prev: {
+            go = prev."go_1_${toString goVersion}";
+            # Overlaying nodejs here to ensure nodePackages use the desired
+            # version of nodejs.
+            nodejs = prev.nodejs-18_x;
+            pnpm = prev.nodePackages.pnpm;
+            yarn = prev.nodePackages.yarn;
+          })
+        ];
+
         pkgs = import nixpkgs {
           inherit overlays system;
-          config = {
-            permittedInsecurePackages = [ "nodejs-16.20.2" ];
-          };
         };
         # nixWithFlakes allows pre v2.4 nix installations to use
         # flake commands (like `nix flake update`)
         nixWithFlakes = pkgs.writeShellScriptBin "nix" ''
           exec ${pkgs.nixFlakes}/bin/nix --experimental-features "nix-command flakes" "$@"
         '';
+        foundry = pkgs.callPackage ./foundry { solc-bin-src = solc-bin; };
       in
       {
         devShells.default = pkgs.mkShell {
-          COMPOSE_DOCKER_CLI_BUILD=1;
-          DOCKER_BUILDKIT=1;
+          COMPOSE_DOCKER_CLI_BUILD = 1;
+          DOCKER_BUILDKIT = 1;
           packages = with pkgs; [
             nixWithFlakes
             go
@@ -55,8 +51,8 @@
             yarn # `pnpm build` fails without this
 
             # Foundry, and tools like the anvil dev node
-            foundry-bin
-            solc
+            foundry
+            # solc
 
             # Docker
             docker-compose # provides the `docker-compose` command
