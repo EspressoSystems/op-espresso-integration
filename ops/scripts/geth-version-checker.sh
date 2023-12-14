@@ -1,10 +1,5 @@
 #!/usr/bin/env bash
 
-# Disable this check, we have nix, if necessary we can also find a nixpkgs
-# commit with the right geth version, but at the moment we have only a minor
-# version higher than `.gethrc` and that's likely to work.
-exit 0
-
 # Extract the version from the geth command output
 GETH_VERSION="v$(geth version | grep '^Version:' | awk '{print $2}')"
 
