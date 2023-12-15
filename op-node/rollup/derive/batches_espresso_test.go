@@ -10,8 +10,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	espresso "github.com/EspressoSystems/espresso-sequencer-go/types"
+
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
-	"github.com/ethereum-optimism/optimism/op-service/espresso"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/ethereum-optimism/optimism/op-service/testutils"
@@ -68,14 +69,6 @@ func (m *mockL1Provider) setHeaders(headers []espresso.Header) {
 	m.Headers = headers
 }
 
-func makeHeader(timestamp uint64) espresso.Header {
-	return espresso.Header{
-		Metadata: espresso.Metadata{
-			Timestamp: timestamp,
-		},
-	}
-}
-
 func TestValidBatchEspresso(t *testing.T) {
 	sysCfg := eth.SystemConfig{
 		Espresso:            true,
@@ -112,11 +105,20 @@ func TestValidBatchEspresso(t *testing.T) {
 		Time:       l1B.Time + 7,
 	}
 
+	l2Parent := eth.L2BlockRef{
+		Hash:           testutils.RandomHash(rng),
+		Number:         99,
+		ParentHash:     testutils.RandomHash(rng),
+		Time:           l1A.Time - conf.BlockTime,
+		L1Origin:       l1A.ID(),
+		SequenceNumber: 0,
+	}
+
 	l2A0 := eth.L2BlockRef{
 		Hash:           testutils.RandomHash(rng),
-		Number:         100,
-		ParentHash:     testutils.RandomHash(rng),
-		Time:           l1A.Time,
+		Number:         l2Parent.Number + 1,
+		ParentHash:     l2Parent.Hash,
+		Time:           l2Parent.Time + conf.BlockTime,
 		L1Origin:       l1A.ID(),
 		SequenceNumber: 0,
 	}
@@ -159,49 +161,87 @@ func TestValidBatchEspresso(t *testing.T) {
 
 	// Three valid windows, with varying numbers of HotShot blocks in the window.
 	hotshotHeaders := []espresso.Header{
-		makeHeader(l2A1.Time - 1),
-		makeHeader(l2A1.Time),
-		makeHeader(l2A2.Time),
-		makeHeader(l2A2.Time + 1),
-		makeHeader(l2A3.Time),
-		makeHeader(l2A3.Time + 1),
-		makeHeader(l2A3.Time + 1),
-		makeHeader(l2A3.Time + conf.BlockTime),
+		{
+			Height:    0,
+			Timestamp: l2A1.Time - 1,
+		},
+		{
+			Height:    1,
+			Timestamp: l2A1.Time,
+		},
+		{
+			Height:    2,
+			Timestamp: l2A2.Time,
+		},
+		{
+			Height:    3,
+			Timestamp: l2A2.Time + 1,
+		},
+		{
+			Height:    4,
+			Timestamp: l2A3.Time,
+		},
+		{
+			Height:    5,
+			Timestamp: l2A3.Time + 1,
+		},
+		{
+			Height:    6,
+			Timestamp: l2A3.Time + 1,
+		},
+		{
+			Height:    7,
+			Timestamp: l2A3.Time + conf.BlockTime,
+		},
 	}
 
 	// Hotshot skipped an L1 block
 	hotshotSkippedHeaders := []espresso.Header{
-		makeHeader(
-			l2B0.Time - 1,
-		),
 		{
-			Metadata: espresso.Metadata{
-				Timestamp: l2B0.Time,
-				L1Head:    l2A3.L1Origin.Number + 2,
-			},
+			Height:    0,
+			Timestamp: l2B0.Time - 1,
 		},
 		{
-			Metadata: espresso.Metadata{
-				Timestamp: l2B0.Time + conf.BlockTime,
-				L1Head:    l2A3.L1Origin.Number + 2,
-			},
+			Height:    1,
+			Timestamp: l2B0.Time,
+			L1Head:    l2A3.L1Origin.Number + 2,
+		},
+		{
+			Height:    2,
+			Timestamp: l2B0.Time + conf.BlockTime,
+			L1Head:    l2A3.L1Origin.Number + 2,
 		},
 	}
 
 	// Case where Hotshot window is genuinely empty
 	emptyHotshotWindowHeaders :=
 		[]espresso.Header{
-			makeHeader(l2A1.Time - 1),
-			makeHeader(l2A1.Time + 1000),
+			{
+				Height:    0,
+				Timestamp: l2A1.Time - 1,
+			},
+			{
+				Height:    1,
+				Timestamp: l2A1.Time + 1000,
+			},
 		}
 
 	// Case where Espresso tries to fool validator by providing a previous batch last block
 	// That is greater than the window range.
 	hotshotDishonestHeaders :=
 		[]espresso.Header{
-			makeHeader(l2B0.Time - 1),
-			makeHeader(l2B0.Time + 1000),
-			makeHeader(l2B0.Time + 1001),
+			{
+				Height:    0,
+				Timestamp: l2B0.Time - 1,
+			},
+			{
+				Height:    1,
+				Timestamp: l2B0.Time + 1000,
+			},
+			{
+				Height:    2,
+				Timestamp: l2B0.Time + 1001,
+			},
 		}
 
 	testCases := []EspressoValidBatchTestCase{
@@ -219,7 +259,6 @@ func TestValidBatchEspresso(t *testing.T) {
 					Timestamp:  l2A1.Time,
 					Justification: &eth.L2BatchJustification{
 						Prev: &hotshotHeaders[0],
-						From: 1,
 						Blocks: []eth.EspressoBlockJustification{
 							{
 								Header: hotshotHeaders[1],
@@ -246,7 +285,6 @@ func TestValidBatchEspresso(t *testing.T) {
 					Timestamp:  l2A2.Time,
 					Justification: &eth.L2BatchJustification{
 						Prev: &hotshotHeaders[1],
-						From: 2,
 						Blocks: []eth.EspressoBlockJustification{
 							{
 								Header: hotshotHeaders[2],
@@ -277,7 +315,6 @@ func TestValidBatchEspresso(t *testing.T) {
 					Timestamp:  l2A3.Time,
 					Justification: &eth.L2BatchJustification{
 						Prev: &hotshotHeaders[3],
-						From: 4,
 						Blocks: []eth.EspressoBlockJustification{
 							{
 								Header: hotshotHeaders[4],
@@ -313,7 +350,6 @@ func TestValidBatchEspresso(t *testing.T) {
 					Justification: &eth.L2BatchJustification{
 						Prev: &emptyHotshotWindowHeaders[0],
 						Next: &emptyHotshotWindowHeaders[1],
-						From: 1,
 					},
 				},
 			},
@@ -341,7 +377,6 @@ func TestValidBatchEspresso(t *testing.T) {
 							},
 						},
 						Next: &hotshotSkippedHeaders[2],
-						From: 1,
 					},
 				},
 			},
@@ -364,7 +399,6 @@ func TestValidBatchEspresso(t *testing.T) {
 						// Switch the blocks
 						Prev: &hotshotSkippedHeaders[1],
 						Next: &hotshotSkippedHeaders[0],
-						From: 1,
 					},
 				},
 			},
@@ -392,7 +426,6 @@ func TestValidBatchEspresso(t *testing.T) {
 							},
 						},
 						Next: &hotshotDishonestHeaders[2],
-						From: 1,
 					},
 				},
 			},
@@ -421,7 +454,6 @@ func TestValidBatchEspresso(t *testing.T) {
 							},
 						},
 						Next: &hotshotSkippedHeaders[2],
-						From: 1,
 					},
 				},
 			},
@@ -452,7 +484,6 @@ func TestValidBatchEspresso(t *testing.T) {
 								Proof:  nil,
 							},
 						},
-						From: 1,
 						// Increment Next from the valid test case by one
 						Next: &hotshotHeaders[3],
 					},
@@ -491,11 +522,92 @@ func TestValidBatchEspresso(t *testing.T) {
 					Justification: &eth.L2BatchJustification{
 						Prev: &emptyHotshotWindowHeaders[0],
 						Next: &emptyHotshotWindowHeaders[1],
-						From: 1,
 					},
 				},
 			},
 			Expected: BatchUndecided,
+		},
+		{
+			Name:       "valid batch genesis",
+			L1Blocks:   []eth.L1BlockRef{l1A, l1B, l1C},
+			L2SafeHead: l2Parent,
+			Headers:    hotshotHeaders,
+			Batch: BatchWithL1InclusionBlock{
+				L1InclusionBlock: l1A,
+				Batch: &SingularBatch{
+					ParentHash: l2A0.ParentHash,
+					EpochNum:   rollup.Epoch(l2A0.L1Origin.Number),
+					EpochHash:  l2A0.L1Origin.Hash,
+					Timestamp:  l2A0.Time,
+					Justification: &eth.L2BatchJustification{
+						Prev: nil,
+						Blocks: []eth.EspressoBlockJustification{
+							{
+								Header: hotshotHeaders[0],
+								Proof:  nil,
+							},
+						},
+						Next: &hotshotHeaders[1],
+					},
+				},
+			},
+			Expected: BatchAccept,
+		},
+		{
+			Name:       "invalid batch missing prev not genesis",
+			L1Blocks:   []eth.L1BlockRef{l1A, l1B, l1C},
+			L2SafeHead: l2A0,
+			Headers:    hotshotHeaders,
+			Batch: BatchWithL1InclusionBlock{
+				L1InclusionBlock: l1A,
+				Batch: &SingularBatch{
+					ParentHash: l2A1.ParentHash,
+					EpochNum:   rollup.Epoch(l2A1.L1Origin.Number),
+					EpochHash:  l2A1.L1Origin.Hash,
+					Timestamp:  l2A1.Time,
+					Justification: &eth.L2BatchJustification{
+						Prev: nil,
+						Blocks: []eth.EspressoBlockJustification{
+							{
+								Header: hotshotHeaders[1],
+								Proof:  nil,
+							},
+						},
+						Next: &hotshotHeaders[2],
+					},
+				},
+			},
+			Expected: BatchDrop,
+		},
+		{
+			Name:       "invalid batch missing prev genesis before window start",
+			L1Blocks:   []eth.L1BlockRef{l1A, l1B, l1C},
+			L2SafeHead: l2A0,
+			Headers:    hotshotHeaders,
+			Batch: BatchWithL1InclusionBlock{
+				L1InclusionBlock: l1A,
+				Batch: &SingularBatch{
+					ParentHash: l2A1.ParentHash,
+					EpochNum:   rollup.Epoch(l2A1.L1Origin.Number),
+					EpochHash:  l2A1.L1Origin.Hash,
+					Timestamp:  l2A1.Time,
+					Justification: &eth.L2BatchJustification{
+						Prev: nil,
+						Blocks: []eth.EspressoBlockJustification{
+							{
+								Header: hotshotHeaders[0],
+								Proof:  nil,
+							},
+							{
+								Header: hotshotHeaders[1],
+								Proof:  nil,
+							},
+						},
+						Next: &hotshotHeaders[2],
+					},
+				},
+			},
+			Expected: BatchDrop,
 		},
 	}
 
@@ -553,16 +665,14 @@ func TestL1OriginLag(t *testing.T) {
 
 	headers := []espresso.Header{
 		{
-			Metadata: espresso.Metadata{
-				Timestamp: l1C.Time,
-				L1Head:    l1C.Number,
-			},
+			Height:    0,
+			Timestamp: l1C.Time,
+			L1Head:    l1C.Number,
 		},
 		{
-			Metadata: espresso.Metadata{
-				Timestamp: l1C.Time + 2*conf.BlockTime + 1,
-				L1Head:    l1C.Number,
-			},
+			Height:    1,
+			Timestamp: l1C.Time + 2*conf.BlockTime + 1,
+			L1Head:    l1C.Number,
 		},
 	}
 
@@ -591,7 +701,6 @@ func TestL1OriginLag(t *testing.T) {
 					Justification: &eth.L2BatchJustification{
 						Prev: &headers[0],
 						Next: &headers[1],
-						From: 1,
 					},
 				},
 			},
@@ -612,7 +721,6 @@ func TestL1OriginLag(t *testing.T) {
 					Justification: &eth.L2BatchJustification{
 						Prev: &headers[0],
 						Next: &headers[1],
-						From: 1,
 					},
 				},
 			},

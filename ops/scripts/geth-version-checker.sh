@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Extract the version from the geth command output
 GETH_VERSION="v$(geth version | grep '^Version:' | awk '{print $2}')"

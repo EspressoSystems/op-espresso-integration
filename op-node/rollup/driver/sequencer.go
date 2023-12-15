@@ -6,13 +6,15 @@ import (
 	"fmt"
 	"time"
 
+	espressoClient "github.com/EspressoSystems/espresso-sequencer-go/client"
+	espresso "github.com/EspressoSystems/espresso-sequencer-go/types"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
-	"github.com/ethereum-optimism/optimism/op-service/espresso"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
 
@@ -64,7 +66,7 @@ type Sequencer struct {
 	cfgFetcher       derive.SystemConfigL2Fetcher
 	attrBuilder      derive.AttributesBuilder
 	l1OriginSelector L1OriginSelectorIface
-	espresso         espresso.QueryService
+	espresso         espressoClient.QueryService
 
 	metrics SequencerMetrics
 
@@ -79,7 +81,7 @@ type Sequencer struct {
 
 func NewSequencer(log log.Logger, cfg *rollup.Config, engine derive.ResettableEngineControl,
 	cfgFetcher derive.SystemConfigL2Fetcher, attributesBuilder derive.AttributesBuilder,
-	l1OriginSelector L1OriginSelectorIface, espresso espresso.QueryService, metrics SequencerMetrics) *Sequencer {
+	l1OriginSelector L1OriginSelectorIface, espresso espressoClient.QueryService, metrics SequencerMetrics) *Sequencer {
 	return &Sequencer{
 		log:              log,
 		config:           cfg,
@@ -113,7 +115,6 @@ func (d *Sequencer) startBuildingEspressoBatch(ctx context.Context, l2Head eth.L
 		windowStart: windowStart,
 		windowEnd:   windowEnd,
 		jst: eth.L2BatchJustification{
-			From: blocks.From,
 			Prev: blocks.Prev,
 		},
 	}
@@ -148,12 +149,11 @@ func (d *Sequencer) updateEspressoBatch(ctx context.Context, newHeaders []espres
 			d.log.Error("inconsistent data from Espresso query service: header is before its predecessor", "header", header, "prev", prev)
 		}
 
-		blockNum := batch.jst.From + uint64(numBlocks)
-		txs, err := d.espresso.FetchTransactionsInBlock(ctx, blockNum, &header, d.config.L2ChainID.Uint64())
+		txs, err := d.espresso.FetchTransactionsInBlock(ctx, &header, d.config.L2ChainID.Uint64())
 		if err != nil {
 			return err
 		}
-		d.log.Info("adding new transactions from Espresso", "block", blockNum, "count", len(txs.Transactions))
+		d.log.Info("adding new transactions from Espresso", "block", header, "count", len(txs.Transactions))
 		batch.jst.Blocks = append(blocks, eth.EspressoBlockJustification{
 			Header: header,
 			Proof:  txs.Proof,
@@ -175,7 +175,7 @@ func (d *Sequencer) updateEspressoBatch(ctx context.Context, newHeaders []espres
 func (d *Sequencer) tryToSealEspressoBatch(ctx context.Context) (*eth.ExecutionPayload, error) {
 	batch := d.espressoBatch
 	if !batch.complete() {
-		blocks, err := d.espresso.FetchRemainingHeadersForWindow(ctx, batch.jst.From+uint64(len(batch.jst.Blocks)), batch.windowEnd)
+		blocks, err := d.espresso.FetchRemainingHeadersForWindow(ctx, batch.jst.Last().Height+1, batch.windowEnd)
 		if err != nil {
 			return nil, err
 		}

@@ -257,10 +257,3 @@ install-geth:
  			go install -v github.com/ethereum/go-ethereum/cmd/geth@$(shell cat .gethrc); \
  			echo "Installed geth!"; true)
 .PHONY: install-geth
-
-generate-hotshot-binding:
-	forge build --root espresso-sequencer --out ../out --extra-output-files abi
-	mv ./out/HotShot.sol/HotShot.abi.json ./op-service/espresso/hotshot
-	rm -rf out
-	abigen --abi ./op-service/espresso/hotshot/HotShot.abi.json --pkg hotshot --out ./op-service/espresso/hotshot/hotshot.go
-	rm ./op-service/espresso/hotshot/HotShot.abi.json

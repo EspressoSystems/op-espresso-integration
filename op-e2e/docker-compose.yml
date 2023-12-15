@@ -57,7 +57,7 @@ services:
     ports:
       - "8080"
     # Run the API server (with options taken from the environment) and the optional submission API
-    command: sequencer -- http -- query -- submit
+    command: sequencer -- http -- query-fs -- status -- submit
     environment:
       - ESPRESSO_SEQUENCER_ORCHESTRATOR_URL=http://orchestrator:8080
       - ESPRESSO_SEQUENCER_DA_SERVER_URL=http://da-server:8080
@@ -77,7 +77,7 @@ services:
     image: ghcr.io/espressosystems/espresso-sequencer/sequencer:main
     ports:
       - "8080"
-    command: sequencer -- http -- query
+    command: sequencer -- http -- query-fs -- status
     environment:
       - ESPRESSO_SEQUENCER_ORCHESTRATOR_URL=http://orchestrator:8080
       - ESPRESSO_SEQUENCER_DA_SERVER_URL=http://da-server:8080
