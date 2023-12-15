@@ -32,6 +32,31 @@
           exec ${pkgs.nixFlakes}/bin/nix --experimental-features "nix-command flakes" "$@"
         '';
         foundry = pkgs.callPackage ./foundry { solc-bin-src = solc-bin; };
+        # Overriding version for go-packages is more complicated than it should be.
+        # To use a different go ethereum version the `version`, `hash` and `vendorHash` need to be updated.
+        #
+        # 1. Run the following command for `hash` :
+        #
+        #     nix-shell -p nix-prefetch-github --run "nix-prefetch-github ethereum go-ethereum --nix --rev v1.13.4"
+        #
+        # 2. Replace the `vendorHash` with an empty string and run `nix develop`.
+        # 3. Find the `vendorHash` in the output in the line that starts with `got:` and copy it into this file.
+        go-ethereum =
+          let
+            version = "1.13.4";
+            src = pkgs.fetchFromGitHub {
+              owner = "ethereum";
+              repo = "go-ethereum";
+              rev = "v${version}";
+              hash = "sha256-RQlWWHoij3gtFwjJeEGsmd5YJNTGX0I84nOAQyWBx/M=";
+            };
+            vendorHash = "sha256-YmUgKO3JtVOE/YACqL/QBiyR1jT/jPCH+Gb0xYwkJEc=";
+          in
+          pkgs.go-ethereum.override {
+            buildGoModule = args: pkgs.buildGoModule (args // {
+              inherit version src vendorHash;
+            });
+          };
       in
       {
         devShells.default = pkgs.mkShell {
