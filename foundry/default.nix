@@ -17,15 +17,7 @@ rustPlatform.buildRustPackage rec {
   src = fetchFromGitHub {
     owner = "foundry-rs";
     repo = "foundry";
-    # NOTE: as of 2023-12-13 commits newer than the one below have a problem
-    # where they escape constructor arguments in the deployment JSON files. When
-    # updating, make sure to check if the problem is fixed, for example by
-    # running
-    #
-    #     make devnet-clean
-    #     make devnet-up-espresso
-    #
-    rev = "d85718785859dc0b5a095d2302d1a20ec06ab77a";
+    rev = "2335dea2e0d938d769a2b87947e79e02484a8c5a";
     hash = "sha256-/yHvPUGHqek5255JkKGGK3TquCo4In9uBe0eaPkQr20=";
   };
 
