@@ -325,6 +325,14 @@ var _ derive.EspressoL1Provider = (*TestSequencer)(nil)
 
 // Implement Espresso QueryService interface for TestSequencer.
 
+func (s *TestSequencer) FetchLatestBlockHeight(ctx context.Context) (uint64, error) {
+	return uint64(len(s.espresso.Blocks)), nil
+}
+
+func (s *TestSequencer) FetchHeaderByHeight(ctx context.Context, height uint64) (espresso.Header, error) {
+	return *s.espressoBlock(height), nil
+}
+
 func (s *TestSequencer) FetchHeadersForWindow(ctx context.Context, start uint64, end uint64) (espressoClient.WindowStart, error) {
 	// Find the start of the range.
 	for i := uint64(0); ; i += 1 {

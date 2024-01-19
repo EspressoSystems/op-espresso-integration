@@ -33,7 +33,7 @@ services:
   #
 
   l1:
-    image: ghcr.io/espressosystems/op-espresso-integration/l1:integration
+    image: ghcr.io/espressosystems/op-espresso-integration/l1:release-gibraltar
     build:
       context: .
       dockerfile: Dockerfile.l1
@@ -64,7 +64,7 @@ services:
   #
 
   op1-l2:
-    image: ghcr.io/espressosystems/op-espresso-integration/l2:integration
+    image: ghcr.io/espressosystems/op-espresso-integration/l2:release-gibraltar
     build:
       context: .
       dockerfile: Dockerfile.l2
@@ -84,7 +84,7 @@ services:
       GETH_MINER_RECOMMIT: 100ms
 
   op1-node:
-    image: ghcr.io/espressosystems/op-espresso-integration/op-node:integration
+    image: ghcr.io/espressosystems/op-espresso-integration/op-node:release-gibraltar
     depends_on:
       - op_stack_go_builder
       - l1
@@ -133,7 +133,7 @@ services:
       - op1_log:/op_log
 
   op1-proposer:
-    image: ghcr.io/espressosystems/op-espresso-integration/op-proposer:integration
+    image: ghcr.io/espressosystems/op-espresso-integration/op-proposer:release-gibraltar
     depends_on:
       - op_stack_go_builder
       - l1
@@ -162,7 +162,7 @@ services:
       OP_PROPOSER_RPC_ENABLE_ADMIN: "true"
 
   op1-batcher:
-    image: ghcr.io/espressosystems/op-espresso-integration/op-batcher:integration
+    image: ghcr.io/espressosystems/op-espresso-integration/op-batcher:release-gibraltar
     depends_on:
       - op_stack_go_builder
       - l1
@@ -195,7 +195,7 @@ services:
     stop_grace_period: 1s
 
   op1-geth-proxy:
-    image: ghcr.io/espressosystems/op-espresso-integration/op-geth-proxy:integration
+    image: ghcr.io/espressosystems/op-espresso-integration/op-geth-proxy:release-gibraltar
     build:
       context: ../
       dockerfile: ./op-geth-proxy/Dockerfile
@@ -330,7 +330,7 @@ services:
   #
 
   op2-l2:
-    image: ghcr.io/espressosystems/op-espresso-integration/l2:integration
+    image: ghcr.io/espressosystems/op-espresso-integration/l2:release-gibraltar
     build:
       context: .
       dockerfile: Dockerfile.l2
@@ -348,7 +348,7 @@ services:
       - "--authrpc.jwtsecret=/config/test-jwt-secret.txt"
 
   op2-node:
-    image: ghcr.io/espressosystems/op-espresso-integration/op-node:integration
+    image: ghcr.io/espressosystems/op-espresso-integration/op-node:release-gibraltar
     depends_on:
       - l1
       - op2-l2
@@ -394,7 +394,7 @@ services:
       - op2_log:/op_log
 
   op2-proposer:
-    image: ghcr.io/espressosystems/op-espresso-integration/op-proposer:integration
+    image: ghcr.io/espressosystems/op-espresso-integration/op-proposer:release-gibraltar
     depends_on:
       - l1
       - op2-l2
@@ -419,7 +419,7 @@ services:
       OP_PROPOSER_ALLOW_NON_FINALIZED: "true"
 
   op2-batcher:
-    image: ghcr.io/espressosystems/op-espresso-integration/op-batcher:integration
+    image: ghcr.io/espressosystems/op-espresso-integration/op-batcher:release-gibraltar
     depends_on:
       - l1
       - op2-l2
@@ -448,7 +448,7 @@ services:
     stop_grace_period: 1s
 
   op2-geth-proxy:
-    image: ghcr.io/espressosystems/op-espresso-integration/op-geth-proxy:integration
+    image: ghcr.io/espressosystems/op-espresso-integration/op-geth-proxy:release-gibraltar
     build:
       context: ../
       dockerfile: ./op-geth-proxy/Dockerfile
@@ -568,7 +568,7 @@ services:
   #
 
   orchestrator:
-    image: ghcr.io/espressosystems/espresso-sequencer/orchestrator:main
+    image: ghcr.io/espressosystems/espresso-sequencer/orchestrator:release-gibraltar
     ports:
       - "8080"
     environment:
@@ -581,7 +581,7 @@ services:
     stop_grace_period: 1s
 
   da-server:
-    image: ghcr.io/espressosystems/espresso-sequencer/web-server:main
+    image: ghcr.io/espressosystems/espresso-sequencer/web-server:release-gibraltar
     ports:
       - "8080"
     environment:
@@ -593,7 +593,7 @@ services:
     stop_grace_period: 1s
 
   consensus-server:
-    image: ghcr.io/espressosystems/espresso-sequencer/web-server:main
+    image: ghcr.io/espressosystems/espresso-sequencer/web-server:release-gibraltar
     ports:
       - "8080"
     environment:
@@ -605,7 +605,7 @@ services:
     stop_grace_period: 1s
 
   commitment-task:
-    image: ghcr.io/espressosystems/espresso-sequencer/commitment-task:main
+    image: ghcr.io/espressosystems/espresso-sequencer/commitment-task:release-gibraltar
     command: commitment-task --deploy
     environment:
     - ESPRESSO_SEQUENCER_URL=http://sequencer0:8080
@@ -622,7 +622,7 @@ services:
     stop_grace_period: 1s
 
   sequencer0:
-    image: ghcr.io/espressosystems/espresso-sequencer/sequencer:main
+    image: ghcr.io/espressosystems/espresso-sequencer/sequencer:release-gibraltar
     ports:
       - "50000:8080"
     # Run the API server (with options taken from the environment) and the optional submission API
@@ -644,7 +644,7 @@ services:
     stop_grace_period: 1s
 
   sequencer1:
-    image: ghcr.io/espressosystems/espresso-sequencer/sequencer:main
+    image: ghcr.io/espressosystems/espresso-sequencer/sequencer:release-gibraltar
     ports:
       - "8080"
     command: sequencer -- http -- query-fs -- status

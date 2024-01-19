@@ -17,7 +17,7 @@ volumes:
 
 services:
   op-l2:
-    image: ghcr.io/espressosystems/op-espresso-integration/l2:integration
+    image: ghcr.io/espressosystems/op-espresso-integration/l2:release-gibraltar
     build:
       context: .
       dockerfile: Dockerfile.l2
@@ -35,7 +35,7 @@ services:
       - "--authrpc.jwtsecret=/config/test-jwt-secret.txt"
 
   op-node:
-    image: ghcr.io/espressosystems/op-espresso-integration/op-node:integration
+    image: ghcr.io/espressosystems/op-espresso-integration/op-node:release-gibraltar
     depends_on:
       - op-l2
     build:
@@ -80,7 +80,7 @@ services:
       - op_log:/op_log
 
   op-proposer:
-    image: ghcr.io/espressosystems/op-espresso-integration/op-proposer:integration
+    image: ghcr.io/espressosystems/op-espresso-integration/op-proposer:release-gibraltar
     depends_on:
       - op-l2
       - op-node
@@ -103,7 +103,7 @@ services:
       OP_PROPOSER_ALLOW_NON_FINALIZED: "true"
 
   op-batcher:
-    image: ghcr.io/espressosystems/op-espresso-integration/op-batcher:integration
+    image: ghcr.io/espressosystems/op-espresso-integration/op-batcher:release-gibraltar
     depends_on:
       - op-l2
       - op-node
@@ -131,7 +131,7 @@ services:
     stop_grace_period: 1s
 
   op-geth-proxy:
-    image: ghcr.io/espressosystems/op-espresso-integration/op-geth-proxy:integration
+    image: ghcr.io/espressosystems/op-espresso-integration/op-geth-proxy:release-gibraltar
     build:
       context: ../
       dockerfile: ./op-geth-proxy/Dockerfile

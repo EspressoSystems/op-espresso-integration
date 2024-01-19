@@ -81,6 +81,7 @@
 
             # Docker
             docker-compose # provides the `docker-compose` command
+            docker-buildx
 
             # Python
             (python3.withPackages (ps: with ps; [ ]))

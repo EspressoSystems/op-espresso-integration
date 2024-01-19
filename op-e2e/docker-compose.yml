@@ -4,7 +4,7 @@ version: '3.4'
 
 services:
   op-geth-proxy:
-    image: ghcr.io/espressosystems/op-espresso-integration/op-geth-proxy:integration
+    image: ghcr.io/espressosystems/op-espresso-integration/op-geth-proxy:release-gibraltar
     build:
       context: ../
       dockerfile: ./op-geth-proxy/Dockerfile
@@ -19,7 +19,7 @@ services:
       - "host.docker.internal:host-gateway"
 
   orchestrator:
-    image: ghcr.io/espressosystems/espresso-sequencer/orchestrator:main
+    image: ghcr.io/espressosystems/espresso-sequencer/orchestrator:release-gibraltar
     ports:
       - "8080"
     environment:
@@ -31,7 +31,7 @@ services:
       - RUST_LOG
 
   da-server:
-    image: ghcr.io/espressosystems/espresso-sequencer/web-server:main
+    image: ghcr.io/espressosystems/espresso-sequencer/web-server:release-gibraltar
     ports:
       - "8080"
     environment:
@@ -42,7 +42,7 @@ services:
         condition: service_healthy
 
   consensus-server:
-    image: ghcr.io/espressosystems/espresso-sequencer/web-server:main
+    image: ghcr.io/espressosystems/espresso-sequencer/web-server:release-gibraltar
     ports:
       - "8080"
     environment:
@@ -53,7 +53,7 @@ services:
         condition: service_healthy
 
   sequencer0:
-    image: ghcr.io/espressosystems/espresso-sequencer/sequencer:main
+    image: ghcr.io/espressosystems/espresso-sequencer/sequencer:release-gibraltar
     ports:
       - "8080"
     # Run the API server (with options taken from the environment) and the optional submission API
@@ -74,7 +74,7 @@ services:
       - "host.docker.internal:host-gateway"
 
   sequencer1:
-    image: ghcr.io/espressosystems/espresso-sequencer/sequencer:main
+    image: ghcr.io/espressosystems/espresso-sequencer/sequencer:release-gibraltar
     ports:
       - "8080"
     command: sequencer -- http -- query-fs -- status
@@ -93,7 +93,7 @@ services:
       - "host.docker.internal:host-gateway"
 
   commitment-task:
-    image: ghcr.io/espressosystems/espresso-sequencer/commitment-task:main
+    image: ghcr.io/espressosystems/espresso-sequencer/commitment-task:release-gibraltar
     command: commitment-task --deploy
     environment:
     - ESPRESSO_SEQUENCER_URL=http://sequencer0:8080

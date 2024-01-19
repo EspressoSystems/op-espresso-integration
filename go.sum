@@ -14,8 +14,8 @@ github.com/BurntSushi/toml v1.3.2 h1:o7IhLm0Msx3BaB+n3Ag7L8EVlByGnpq14C4YWiu/gL8
 github.com/BurntSushi/toml v1.3.2/go.mod h1:CxXYINrC8qIiEnFrOxCa7Jy5BFHlXnUU2pbicEuybxQ=
 github.com/DataDog/zstd v1.5.2 h1:vUG4lAyuPCXO0TLbXvPv7EB7cNK1QV/luu55UHLrrn8=
 github.com/DataDog/zstd v1.5.2/go.mod h1:g4AWEaM3yOg3HYfnJ3YIawPnVdXJh9QME85blwSAmyw=
-github.com/EspressoSystems/espresso-sequencer-go v0.0.1 h1:8Es2XVLJQoHvq9m4A7MfB3s33cZZmmiM/QhjZ9iiSxw=
-github.com/EspressoSystems/espresso-sequencer-go v0.0.1/go.mod h1:T3MyQRnfbCSTBhAAG2WASmVPCwWkl0/sPKKY5Z1ewtg=
+github.com/EspressoSystems/espresso-sequencer-go v0.0.4-0.20240119201042-f10be20e9982 h1:FfnfjZpPSGrsXLjvhv5MxnRLNtMNuqre/fZN3u9+dJM=
+github.com/EspressoSystems/espresso-sequencer-go v0.0.4-0.20240119201042-f10be20e9982/go.mod h1:T3MyQRnfbCSTBhAAG2WASmVPCwWkl0/sPKKY5Z1ewtg=
 github.com/EspressoSystems/op-geth v1.2.6-espresso h1:nqdw9EvEn5K37vvSTPeOkTow2AwTqxLD68Qv055OwcY=
 github.com/EspressoSystems/op-geth v1.2.6-espresso/go.mod h1:12W+vBetjYbDj5D2+V8hizke5yWuLrUDf7UmVkXTnCQ=
 github.com/Masterminds/semver/v3 v3.1.1/go.mod h1:VPu/7SZ7ePZ3QOrcuXROw5FAcLl4a0cBrbBpGY/8hQs=
