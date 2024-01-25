@@ -17,7 +17,7 @@ rustPlatform.buildRustPackage rec {
   src = fetchFromGitHub {
     owner = "foundry-rs";
     repo = "foundry";
-    rev = "d0a4452212f54cfe6b6ef03cf4f92c013e38af04";
+    rev = "293fad73670b7b59ca901c7f2105bf7a29165a90";
     hash = "sha256-/yHvPUGHqek5255JkKGGK3TquCo4In9uBe0eaPkQr20=";
   };
 
