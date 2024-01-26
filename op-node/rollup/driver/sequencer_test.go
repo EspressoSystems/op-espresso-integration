@@ -136,7 +136,7 @@ func (m *FakeEngineControl) resetBuildingState() {
 var _ derive.EngineControl = (*FakeEngineControl)(nil)
 
 type FakeEspressoClient struct {
-	Blocks          []FakeEspressoBlock
+	Blocks []FakeEspressoBlock
 }
 
 type FakeEspressoBlock struct {
