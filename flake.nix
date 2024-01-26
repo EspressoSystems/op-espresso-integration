@@ -77,6 +77,7 @@
 
             # Foundry, and tools like the anvil dev node
             foundry
+            slither-analyzer
             # solc
 
             # Docker
