@@ -46,14 +46,14 @@ contract L1Block is ISemver {
     /// @custom:legacy
     uint256 public l1FeeScalar;
 
+    /// @notice The latest L1 blob base fee.
+    uint256 public blobBaseFee;
+
     /// @notice Whether the Espresso Sequencer is enabled.
     bool public espresso;
 
     /// @notice Minimum confirmation depth for L1 origin blocks.
     uint64 public espressoL1ConfDepth;
-
-    /// @notice The latest L1 blob base fee.
-    uint256 public blobBaseFee;
 
     /// @custom:semver 1.2.0
     string public constant version = "1.2.0";
