@@ -35,6 +35,7 @@ packages/contracts-bedrock/deployments/anvil
 !.env.example
 !.envrc
 !ops-bedrock/.env
+!.envrc.example
 *.log
 
 .devnet
@@ -49,8 +50,6 @@ coverage.out
 
 # Ignore bedrock go bindings local output files
 op-bindings/bin
-op-exporter
-
 
 __pycache__
 

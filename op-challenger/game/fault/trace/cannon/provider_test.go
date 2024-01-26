@@ -25,7 +25,7 @@ import (
 var testData embed.FS
 
 func PositionFromTraceIndex(provider *CannonTraceProvider, idx *big.Int) types.Position {
-	return types.NewPosition(int(provider.gameDepth), idx)
+	return types.NewPosition(provider.gameDepth, idx)
 }
 
 func TestGet(t *testing.T) {
@@ -124,7 +124,7 @@ func TestGetStepData(t *testing.T) {
 
 		require.EqualValues(t, generator.proof.StateData, preimage)
 		require.EqualValues(t, generator.proof.ProofData, proof)
-		expectedData := types.NewPreimageOracleData(0, generator.proof.OracleKey, generator.proof.OracleValue, generator.proof.OracleOffset)
+		expectedData := types.NewPreimageOracleData(generator.proof.OracleKey, generator.proof.OracleValue, generator.proof.OracleOffset)
 		require.EqualValues(t, expectedData, data)
 	})
 
@@ -214,56 +214,6 @@ func TestGetStepData(t *testing.T) {
 		require.Empty(t, generator.generated)
 		require.Nil(t, data)
 	})
-}
-
-func TestAbsolutePreState(t *testing.T) {
-	dataDir := t.TempDir()
-
-	prestate := "state.json"
-
-	t.Run("StateUnavailable", func(t *testing.T) {
-		provider, _ := setupWithTestData(t, "/dir/does/not/exist", prestate)
-		_, err := provider.AbsolutePreState(context.Background())
-		require.ErrorIs(t, err, os.ErrNotExist)
-	})
-
-	t.Run("InvalidStateFile", func(t *testing.T) {
-		setupPreState(t, dataDir, "invalid.json")
-		provider, _ := setupWithTestData(t, dataDir, prestate)
-		_, err := provider.AbsolutePreState(context.Background())
-		require.ErrorContains(t, err, "invalid mipsevm state")
-	})
-
-	t.Run("ExpectedAbsolutePreState", func(t *testing.T) {
-		setupPreState(t, dataDir, "state.json")
-		provider, _ := setupWithTestData(t, dataDir, prestate)
-		preState, err := provider.AbsolutePreState(context.Background())
-		require.NoError(t, err)
-		state := mipsevm.State{
-			Memory:         mipsevm.NewMemory(),
-			PreimageKey:    common.HexToHash("cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"),
-			PreimageOffset: 0,
-			PC:             0,
-			NextPC:         1,
-			LO:             0,
-			HI:             0,
-			Heap:           0,
-			ExitCode:       0,
-			Exited:         false,
-			Step:           0,
-			Registers:      [32]uint32{},
-		}
-		require.Equal(t, []byte(state.EncodeWitness()), preState)
-	})
-}
-
-func setupPreState(t *testing.T, dataDir string, filename string) {
-	srcDir := filepath.Join("test_data")
-	path := filepath.Join(srcDir, filename)
-	file, err := testData.ReadFile(path)
-	require.NoErrorf(t, err, "reading %v", path)
-	err = os.WriteFile(filepath.Join(dataDir, "state.json"), file, 0o644)
-	require.NoErrorf(t, err, "writing %v", path)
 }
 
 func setupTestData(t *testing.T) (string, string) {

@@ -139,9 +139,12 @@ The [Espresso Sequencer](https://github.com/EspressoSystems/espresso-sequencer) 
 
 ## Documentation
 
-- If you want to build on top of OP Mainnet, refer to the [Optimism Community Hub](https://community.optimism.io)
-- If you want to build your own OP Stack based blockchain, refer to the [OP Stack docs](https://stack.optimism.io)
-- If you want to contribute to the OP Stack, check out the [Protocol Specs](./specs)
+- If you want to build on top of OP Mainnet, refer to the [Optimism Documentation](https://docs.optimism.io)
+- If you want to build your own OP Stack based blockchain, refer to the [OP Stack Guide](https://docs.optimism.io/stack/getting-started)
+
+## Specification
+
+If you're interested in the technical details of how Optimism works, refer to the [Optimism Protocol Specification](https://github.com/ethereum-optimism/specs).
 
 ## Community
 
@@ -152,21 +155,14 @@ Governance discussion can also be found on the [Optimism Governance Forum](https
 
 Read through [CONTRIBUTING.md](./CONTRIBUTING.md) for a general overview of the contributing process for this repository.
 Use the [Developer Quick Start](./CONTRIBUTING.md#development-quick-start) to get your development environment set up to start working on the Optimism Monorepo.
-Then check out the list of [Good First Issues](https://github.com/ethereum-optimism/optimism/contribute) to find something fun to work on!
+Then check out the list of [Good First Issues](https://github.com/ethereum-optimism/optimism/labels/D-good-first-issue) to find something fun to work on!
+Typo fixes are welcome; however, please create a single commit with all of the typo fixes & batch as many fixes together in a PR as possible. Spammy PRs will be closed.
 
 ## Security Policy and Vulnerability Reporting
 
 Please refer to the canonical [Security Policy](https://github.com/ethereum-optimism/.github/blob/master/SECURITY.md) document for detailed information about how to report vulnerabilities in this codebase.
 Bounty hunters are encouraged to check out [the Optimism Immunefi bug bounty program](https://immunefi.com/bounty/optimism/).
 The Optimism Immunefi program offers up to $2,000,042 for in-scope critical vulnerabilities.
-
-## The Bedrock Upgrade
-
-OP Mainnet is currently preparing for [its next major upgrade, Bedrock](https://dev.optimism.io/introducing-optimism-bedrock/).
-You can find detailed specifications for the Bedrock upgrade within the [specs folder](./specs) in this repository.
-
-Please note that a significant number of packages and folders within this repository are part of the Bedrock upgrade and are NOT currently running in production.
-Refer to the Directory Structure section below to understand which packages are currently running in production and which are intended for use as part of the Bedrock upgrade.
 
 ## Directory Structure
 
@@ -178,7 +174,6 @@ Refer to the Directory Structure section below to understand which packages are 
 ├── <a href="./op-chain-ops">op-chain-ops</a>: State surgery utilities
 ├── <a href="./op-challenger">op-challenger</a>: Dispute game challenge agent
 ├── <a href="./op-e2e">op-e2e</a>: End-to-End testing of all bedrock components in Go
-├── <a href="./op-exporter">op-exporter</a>: Prometheus exporter client
 ├── <a href="./op-heartbeat">op-heartbeat</a>: Heartbeat monitor service
 ├── <a href="./op-node">op-node</a>: rollup consensus-layer client
 ├── <a href="./op-preimage">op-preimage</a>: Go bindings for Preimage Oracle
@@ -194,8 +189,7 @@ Refer to the Directory Structure section below to understand which packages are 
 │   ├── <a href="./packages/contracts-bedrock">contracts-bedrock</a>: Bedrock smart contracts
 │   ├── <a href="./packages/core-utils">core-utils</a>: Low-level utilities that make building Optimism easier
 │   └── <a href="./packages/sdk">sdk</a>: provides a set of tools for interacting with Optimism
-├── <a href="./proxyd">proxyd</a>: Configurable RPC request router and proxy
-└── <a href="./specs">specs</a>: Specs of the rollup starting at the Bedrock upgrade
+└── <a href="./proxyd">proxyd</a>: Configurable RPC request router and proxy
 </pre>
 
 ## Branching Model

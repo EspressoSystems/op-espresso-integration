@@ -1,8 +1,9 @@
 package metrics
 
 import (
-	"context"
+	"io"
 
+	"github.com/ethereum-optimism/optimism/op-service/sources/caching"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
@@ -19,8 +20,15 @@ type Metricer interface {
 	RecordInfo(version string)
 	RecordUp()
 
+	StartBalanceMetrics(l log.Logger, client *ethclient.Client, account common.Address) io.Closer
+
 	// Record Tx metrics
 	txmetrics.TxMetricer
+
+	// Record cache metrics
+	caching.Metrics
+
+	RecordActedL1Block(n uint64)
 
 	RecordGameStep()
 	RecordGameMove()
@@ -37,6 +45,9 @@ type Metricer interface {
 	DecIdleExecutors()
 }
 
+// Metrics implementation must implement RegistryMetricer to allow the metrics server to work.
+var _ opmetrics.RegistryMetricer = (*Metrics)(nil)
+
 type Metrics struct {
 	ns       string
 	registry *prometheus.Registry
@@ -44,10 +55,14 @@ type Metrics struct {
 
 	txmetrics.TxMetrics
 
+	*opmetrics.CacheMetrics
+
 	info prometheus.GaugeVec
 	up   prometheus.Gauge
 
 	executors prometheus.GaugeVec
+
+	highestActedL1Block prometheus.Gauge
 
 	moves prometheus.Counter
 	steps prometheus.Counter
@@ -56,6 +71,10 @@ type Metrics struct {
 
 	trackedGames  prometheus.GaugeVec
 	inflightGames prometheus.Gauge
+}
+
+func (m *Metrics) Registry() *prometheus.Registry {
+	return m.registry
 }
 
 var _ Metricer = (*Metrics)(nil)
@@ -70,6 +89,8 @@ func NewMetrics() *Metrics {
 		factory:  factory,
 
 		TxMetrics: txmetrics.MakeTxMetrics(Namespace, factory),
+
+		CacheMetrics: opmetrics.NewCacheMetrics(factory, Namespace, "provider_cache", "Provider cache"),
 
 		info: *factory.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: Namespace,
@@ -115,6 +136,11 @@ func NewMetrics() *Metrics {
 		}, []string{
 			"status",
 		}),
+		highestActedL1Block: factory.NewGauge(prometheus.GaugeOpts{
+			Namespace: Namespace,
+			Name:      "highest_acted_l1_block",
+			Help:      "Highest L1 block acted on by the challenger",
+		}),
 		inflightGames: factory.NewGauge(prometheus.GaugeOpts{
 			Namespace: Namespace,
 			Name:      "inflight_games",
@@ -128,17 +154,11 @@ func (m *Metrics) Start(host string, port int) (*httputil.HTTPServer, error) {
 }
 
 func (m *Metrics) StartBalanceMetrics(
-	ctx context.Context,
 	l log.Logger,
 	client *ethclient.Client,
 	account common.Address,
-) {
-	// TODO(7684): util was refactored to close, but ctx is still being used by caller for shutdown
-	balanceMetric := opmetrics.LaunchBalanceMetrics(l, m.registry, m.ns, client, account)
-	go func() {
-		<-ctx.Done()
-		_ = balanceMetric.Close()
-	}()
+) io.Closer {
+	return opmetrics.LaunchBalanceMetrics(l, m.registry, m.ns, client, account)
 }
 
 // RecordInfo sets a pseudo-metric that contains versioning and
@@ -189,6 +209,10 @@ func (m *Metrics) RecordGamesStatus(inProgress, defenderWon, challengerWon int) 
 	m.trackedGames.WithLabelValues("in_progress").Set(float64(inProgress))
 	m.trackedGames.WithLabelValues("defender_won").Set(float64(defenderWon))
 	m.trackedGames.WithLabelValues("challenger_won").Set(float64(challengerWon))
+}
+
+func (m *Metrics) RecordActedL1Block(n uint64) {
+	m.highestActedL1Block.Set(float64(n))
 }
 
 func (m *Metrics) RecordGameUpdateScheduled() {

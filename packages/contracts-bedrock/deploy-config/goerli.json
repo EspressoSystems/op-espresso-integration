@@ -1,6 +1,6 @@
 {
   "finalSystemOwner": "0xBc1233d0C3e6B5d53Ab455cF65A6623F6dCd7e4f",
-  "portalGuardian": "0xBc1233d0C3e6B5d53Ab455cF65A6623F6dCd7e4f",
+  "superchainConfigGuardian": "0xBc1233d0C3e6B5d53Ab455cF65A6623F6dCd7e4f",
   "l1StartingBlockTag": "0x6ffc1bf3754c01f6bb9fe057c1578b87a8571ce2e9be5ca14bace6eccfd336c7",
   "l1ChainID": 5,
   "l2ChainID": 420,
@@ -40,7 +40,7 @@
   "eip1559DenominatorCanyon": 250,
   "eip1559Elasticity": 10,
   "systemConfigStartBlock": 8300214,
-  "requiredProtocolVersion": "0x0000000000000000000000000000000000000000000000000000000000000000",
-  "recommendedProtocolVersion": "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "requiredProtocolVersion": "0x0000000000000000000000000000000000000003000000010000000000000000",
+  "recommendedProtocolVersion": "0x0000000000000000000000000000000000000003000000010000000000000000",
   "espresso": false
 }

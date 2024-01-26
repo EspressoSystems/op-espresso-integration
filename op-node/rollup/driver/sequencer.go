@@ -14,6 +14,8 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/async"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/conductor"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
@@ -57,11 +59,11 @@ func (b *InProgressBatch) complete() bool {
 
 // Sequencer implements the sequencing interface of the driver: it starts and completes block building jobs.
 type Sequencer struct {
-	log    log.Logger
-	config *rollup.Config
-	mode   SequencerMode
+	log       log.Logger
+	rollupCfg *rollup.Config
+	mode      SequencerMode
 
-	engine derive.ResettableEngineControl
+	engine derive.EngineControl
 
 	cfgFetcher       derive.SystemConfigL2Fetcher
 	attrBuilder      derive.AttributesBuilder
@@ -79,12 +81,10 @@ type Sequencer struct {
 	espressoBatch *InProgressBatch
 }
 
-func NewSequencer(log log.Logger, cfg *rollup.Config, engine derive.ResettableEngineControl,
-	cfgFetcher derive.SystemConfigL2Fetcher, attributesBuilder derive.AttributesBuilder,
-	l1OriginSelector L1OriginSelectorIface, espresso espressoClient.QueryService, metrics SequencerMetrics) *Sequencer {
+func NewSequencer(log log.Logger, rollupCfg *rollup.Config, engine derive.EngineControl, cfgFetcher derive.SystemConfigL2Fetcher, attributesBuilder derive.AttributesBuilder, l1OriginSelector L1OriginSelectorIface, espresso espressoClient.QueryService, metrics SequencerMetrics) *Sequencer {
 	return &Sequencer{
 		log:              log,
-		config:           cfg,
+		rollupCfg:        rollupCfg,
 		mode:             Unknown,
 		engine:           engine,
 		timeNow:          time.Now,
@@ -101,8 +101,8 @@ func NewSequencer(log log.Logger, cfg *rollup.Config, engine derive.ResettableEn
 // safe and finalized blocks. After this function succeeds, `d.espressoBatch` is guaranteed to be
 // non-nil.
 func (d *Sequencer) startBuildingEspressoBatch(ctx context.Context, l2Head eth.L2BlockRef) error {
-	windowStart := l2Head.Time + d.config.BlockTime
-	windowEnd := windowStart + d.config.BlockTime
+	windowStart := l2Head.Time + d.rollupCfg.BlockTime
+	windowEnd := windowStart + d.rollupCfg.BlockTime
 
 	// Fetch the available HotShot blocks from this sequencing window.
 	blocks, err := d.espresso.FetchHeadersForWindow(ctx, windowStart, windowEnd)
@@ -149,7 +149,7 @@ func (d *Sequencer) updateEspressoBatch(ctx context.Context, newHeaders []espres
 			d.log.Error("inconsistent data from Espresso query service: header is before its predecessor", "header", header, "prev", prev)
 		}
 
-		txs, err := d.espresso.FetchTransactionsInBlock(ctx, &header, d.config.L2ChainID.Uint64())
+		txs, err := d.espresso.FetchTransactionsInBlock(ctx, &header, d.rollupCfg.L2ChainID.Uint64())
 		if err != nil {
 			return err
 		}
@@ -172,7 +172,7 @@ func (d *Sequencer) updateEspressoBatch(ctx context.Context, newHeaders []espres
 // block with a timestamp beyond the end of the current sequencing window) it will submit the block
 // to the engine and return the resulting execution payload. If the block cannot be sealed yet
 // because Espresso hasn't sequenced enough blocks, returns nil.
-func (d *Sequencer) tryToSealEspressoBatch(ctx context.Context) (*eth.ExecutionPayload, error) {
+func (d *Sequencer) tryToSealEspressoBatch(ctx context.Context, agossip async.AsyncGossiper, sequencerConductor conductor.SequencerConductor) (*eth.ExecutionPayloadEnvelope, error) {
 	batch := d.espressoBatch
 	if !batch.complete() {
 		blocks, err := d.espresso.FetchRemainingHeadersForWindow(ctx, batch.jst.Last().Height+1, batch.windowEnd)
@@ -184,7 +184,7 @@ func (d *Sequencer) tryToSealEspressoBatch(ctx context.Context) (*eth.ExecutionP
 		}
 	}
 	if batch.complete() {
-		return d.sealEspressoBatch(ctx)
+		return d.sealEspressoBatch(ctx, agossip, sequencerConductor)
 	} else {
 		return nil, nil
 	}
@@ -192,7 +192,7 @@ func (d *Sequencer) tryToSealEspressoBatch(ctx context.Context) (*eth.ExecutionP
 
 // sealEspressoBatch submits the current Espresso batch to the engine and return the resulting
 // execution payload.
-func (d *Sequencer) sealEspressoBatch(ctx context.Context) (*eth.ExecutionPayload, error) {
+func (d *Sequencer) sealEspressoBatch(ctx context.Context, agossip async.AsyncGossiper, sequencerConductor conductor.SequencerConductor) (*eth.ExecutionPayloadEnvelope, error) {
 	batch := d.espressoBatch
 
 	sysCfg, err := d.cfgFetcher.SystemConfigByL2Hash(ctx, batch.onto.Hash)
@@ -203,7 +203,7 @@ func (d *Sequencer) sealEspressoBatch(ctx context.Context) (*eth.ExecutionPayloa
 	// Deterministically choose an L1 origin for this L2 batch, based on the latest L1 block that
 	// Espresso has told us exists, but adjusting as needed to meet the constraints of the
 	// derivation pipeline.
-	l1Origin, err := derive.EspressoL1Origin(ctx, d.config, &sysCfg, batch.onto,
+	l1Origin, err := derive.EspressoL1Origin(ctx, d.rollupCfg, &sysCfg, batch.onto,
 		batch.jst.Next.L1Head, d.l1OriginSelector, d.log)
 	if err != nil {
 		return nil, err
@@ -211,7 +211,7 @@ func (d *Sequencer) sealEspressoBatch(ctx context.Context) (*eth.ExecutionPayloa
 
 	// In certain edge cases, like when the L2 has fallen too far behind the L1, we are required to
 	// submit empty batches until we catch up.
-	if derive.EspressoBatchMustBeEmpty(d.config, l1Origin, batch.windowStart) {
+	if derive.EspressoBatchMustBeEmpty(d.rollupCfg, l1Origin, batch.windowStart) {
 		batch.transactions = nil
 
 		// We don't need all the NMT proofs in this case, so save space in the batch by replacing
@@ -232,18 +232,19 @@ func (d *Sequencer) sealEspressoBatch(ctx context.Context) (*eth.ExecutionPayloa
 		"num", batch.onto.Number+1, "time", uint64(attrs.Timestamp), "origin", l1Origin)
 
 	// Start a payload building process.
-	errTyp, err := d.engine.StartPayload(ctx, batch.onto, attrs, false)
+	withParent := derive.NewAttributesWithParent(attrs, batch.onto, false)
+	errTyp, err := d.engine.StartPayload(ctx, batch.onto, withParent, false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to start building on top of L2 chain %s, error (%d): %w", batch.onto, errTyp, err)
 	}
 	// Immediately seal the block in the engine.
-	payload, errTyp, err := d.engine.ConfirmPayload(ctx)
+	envelope, errTyp, err := d.engine.ConfirmPayload(ctx, agossip, sequencerConductor)
 	if err != nil {
 		_ = d.engine.CancelPayload(ctx, true)
 		return nil, fmt.Errorf("failed to complete building block: error (%d): %w", errTyp, err)
 	}
 	d.espressoBatch = nil
-	return payload, nil
+	return envelope, nil
 }
 
 func (d *Sequencer) cancelBuildingEspressoBatch() {
@@ -282,14 +283,21 @@ func (d *Sequencer) startBuildingLegacyBlock(ctx context.Context) error {
 	// empty blocks (other than the L1 info deposit and any user deposits). We handle this by
 	// setting NoTxPool to true, which will cause the Sequencer to not include any transactions
 	// from the transaction pool.
-	attrs.NoTxPool = uint64(attrs.Timestamp) > l1Origin.Time+d.config.MaxSequencerDrift
+	attrs.NoTxPool = uint64(attrs.Timestamp) > l1Origin.Time+d.rollupCfg.MaxSequencerDrift
+
+	// For the Ecotone activation block we shouldn't include any sequencer transactions.
+	if d.rollupCfg.IsEcotoneActivationBlock(uint64(attrs.Timestamp)) {
+		attrs.NoTxPool = true
+		d.log.Info("Sequencing Ecotone upgrade block")
+	}
 
 	d.log.Debug("prepared attributes for new block",
 		"num", l2Head.Number+1, "time", uint64(attrs.Timestamp),
 		"origin", l1Origin, "origin_time", l1Origin.Time, "noTxPool", attrs.NoTxPool)
 
 	// Start a payload building process.
-	errTyp, err := d.engine.StartPayload(ctx, l2Head, attrs, false)
+	withParent := derive.NewAttributesWithParent(attrs, l2Head, false)
+	errTyp, err := d.engine.StartPayload(ctx, l2Head, withParent, false)
 	if err != nil {
 		return fmt.Errorf("failed to start building on top of L2 chain %s, error (%d): %w", l2Head, errTyp, err)
 	}
@@ -299,12 +307,12 @@ func (d *Sequencer) startBuildingLegacyBlock(ctx context.Context) error {
 // completeBuildingLegacyBlock takes the current legacy block that is being built, and asks the engine to complete the building, seal the block, and persist it as canonical.
 // Warning: the safe and finalized L2 blocks as viewed during the initiation of the block building are reused for completion of the block building.
 // The Execution engine should not change the safe and finalized blocks between start and completion of block building.
-func (d *Sequencer) completeBuildingLegacyBlock(ctx context.Context) (*eth.ExecutionPayload, error) {
-	payload, errTyp, err := d.engine.ConfirmPayload(ctx)
+func (d *Sequencer) completeBuildingLegacyBlock(ctx context.Context, agossip async.AsyncGossiper, sequencerConductor conductor.SequencerConductor) (*eth.ExecutionPayloadEnvelope, error) {
+	envelope, errTyp, err := d.engine.ConfirmPayload(ctx, agossip, sequencerConductor)
 	if err != nil {
 		return nil, fmt.Errorf("failed to complete building block: error (%d): %w", errTyp, err)
 	}
-	return payload, nil
+	return envelope, nil
 }
 
 // CancelBuildingBlock cancels the current open block building job.
@@ -322,7 +330,7 @@ func (d *Sequencer) PlanNextSequencerAction() time.Duration {
 	if onto, _, safe := d.engine.BuildingPayload(); safe {
 		d.log.Warn("delaying sequencing to not interrupt safe-head changes", "onto", onto, "onto_time", onto.Time)
 		// approximates the worst-case time it takes to build a block, to reattempt sequencing after.
-		return time.Second * time.Duration(d.config.BlockTime)
+		return time.Second * time.Duration(d.rollupCfg.BlockTime)
 	}
 
 	switch d.mode {
@@ -368,8 +376,8 @@ func (d *Sequencer) planNextLegacySequencerAction() time.Duration {
 		return delay
 	}
 
-	blockTime := time.Duration(d.config.BlockTime) * time.Second
-	payloadTime := time.Unix(int64(head.Time+d.config.BlockTime), 0)
+	blockTime := time.Duration(d.rollupCfg.BlockTime) * time.Second
+	payloadTime := time.Unix(int64(head.Time+d.rollupCfg.BlockTime), 0)
 	remainingTime := payloadTime.Sub(now)
 
 	// If we started building a block already, and if that work is still consistent,
@@ -420,12 +428,12 @@ func (d *Sequencer) StartBuildingBlock(ctx context.Context) error {
 	}
 }
 
-func (d *Sequencer) CompleteBuildingBlock(ctx context.Context) (*eth.ExecutionPayload, error) {
+func (d *Sequencer) CompleteBuildingBlock(ctx context.Context, agossip async.AsyncGossiper, sequencerConductor conductor.SequencerConductor) (*eth.ExecutionPayloadEnvelope, error) {
 	switch d.mode {
 	case Espresso:
-		return d.tryToSealEspressoBatch(ctx)
+		return d.tryToSealEspressoBatch(ctx, agossip, sequencerConductor)
 	case Legacy:
-		return d.completeBuildingLegacyBlock(ctx)
+		return d.completeBuildingLegacyBlock(ctx, agossip, sequencerConductor)
 	default:
 		return nil, fmt.Errorf("not building a block")
 	}
@@ -464,23 +472,26 @@ func (d *Sequencer) CancelBuildingBlock(ctx context.Context) {
 // If the derivation pipeline does force a conflicting block, then an ongoing sequencer task might still finish,
 // but the derivation can continue to reset until the chain is correct.
 // If the engine is currently building safe blocks, then that building is not interrupted, and sequencing is delayed.
-func (d *Sequencer) RunNextSequencerAction(ctx context.Context) (*eth.ExecutionPayload, error) {
+func (d *Sequencer) RunNextSequencerAction(ctx context.Context, agossip async.AsyncGossiper, sequencerConductor conductor.SequencerConductor) (*eth.ExecutionPayloadEnvelope, error) {
 	// Regardless of what mode we are in (Espresso or Legacy) our first priority is to not bother
 	// the engine if it is busy building safe blocks (and thus changing the head that we would sync
-	// on top of). Give it time to sync up.
+	// on top of). Give it time to sync up. If the engine returns a non-empty payload, OR if the async
+	// gossiper already has a payload, we can CompleteBuildingBlock
 	onto, buildingID, safe := d.engine.BuildingPayload()
-	if buildingID != (eth.PayloadID{}) && safe {
-		d.log.Warn("avoiding sequencing to not interrupt safe-head changes", "onto", onto, "onto_time", onto.Time)
-		// approximates the worst-case time it takes to build a block, to reattempt sequencing after.
-		d.nextAction = d.timeNow().Add(time.Second * time.Duration(d.config.BlockTime))
-		return nil, nil
+	if buildingID != (eth.PayloadID{}) || agossip.Get() != nil {
+		if safe {
+			d.log.Warn("avoiding sequencing to not interrupt safe-head changes", "onto", onto, "onto_time", onto.Time)
+			// approximates the worst-case time it takes to build a block, to reattempt sequencing after.
+			d.nextAction = d.timeNow().Add(time.Second * time.Duration(d.rollupCfg.BlockTime))
+			return nil, nil
+		}
 	}
 
 	switch d.mode {
 	case Espresso:
-		return d.buildEspressoBatch(ctx)
+		return d.buildEspressoBatch(ctx, agossip, sequencerConductor)
 	case Legacy:
-		return d.buildLegacyBlock(ctx, buildingID != eth.PayloadID{})
+		return d.buildLegacyBlock(ctx, buildingID != eth.PayloadID{}, agossip, sequencerConductor)
 	default:
 		// If we don't know what mode we are in, figure it out and then schedule another action
 		// immediately.
@@ -492,7 +503,7 @@ func (d *Sequencer) RunNextSequencerAction(ctx context.Context) (*eth.ExecutionP
 	}
 }
 
-func (d *Sequencer) buildEspressoBatch(ctx context.Context) (*eth.ExecutionPayload, error) {
+func (d *Sequencer) buildEspressoBatch(ctx context.Context, agossip async.AsyncGossiper, sequencerConductor conductor.SequencerConductor) (*eth.ExecutionPayloadEnvelope, error) {
 	// First, check if there has been a reorg. If so, drop the current block and restart.
 	head := d.engine.UnsafeL2Head()
 	if d.espressoBatch != nil && d.espressoBatch.onto.Hash != head.Hash {
@@ -509,7 +520,7 @@ func (d *Sequencer) buildEspressoBatch(ctx context.Context) (*eth.ExecutionPaylo
 	}
 
 	// Poll for transactions from the Espresso Sequencer and see if we can submit the block.
-	block, err := d.tryToSealEspressoBatch(ctx)
+	block, err := d.tryToSealEspressoBatch(ctx, agossip, sequencerConductor)
 	if err != nil {
 		return nil, d.handlePossibleEngineError("trying to seal Espresso block", err)
 	}
@@ -527,18 +538,18 @@ func (d *Sequencer) buildEspressoBatch(ctx context.Context) (*eth.ExecutionPaylo
 	}
 }
 
-func (d *Sequencer) buildLegacyBlock(ctx context.Context, building bool) (*eth.ExecutionPayload, error) {
+func (d *Sequencer) buildLegacyBlock(ctx context.Context, building bool, agossip async.AsyncGossiper, sequencerConductor conductor.SequencerConductor) (*eth.ExecutionPayloadEnvelope, error) {
 	if building {
-		payload, err := d.completeBuildingLegacyBlock(ctx)
+		envelope, err := d.completeBuildingLegacyBlock(ctx, agossip, sequencerConductor)
 		if err != nil {
 			if errors.Is(err, derive.ErrCritical) {
 				return nil, err // bubble up critical errors.
 			} else if errors.Is(err, derive.ErrReset) {
 				d.log.Error("sequencer failed to seal new block, requiring derivation reset", "err", err)
 				d.metrics.RecordSequencerReset()
-				d.nextAction = d.timeNow().Add(time.Second * time.Duration(d.config.BlockTime)) // hold off from sequencing for a full block
+				d.nextAction = d.timeNow().Add(time.Second * time.Duration(d.rollupCfg.BlockTime)) // hold off from sequencing for a full block
 				d.cancelBuildingLegacyBlock(ctx)
-				d.engine.Reset()
+				return nil, err
 			} else if errors.Is(err, derive.ErrTemporary) {
 				d.log.Error("sequencer failed temporarily to seal new block", "err", err)
 				d.nextAction = d.timeNow().Add(time.Second)
@@ -551,8 +562,9 @@ func (d *Sequencer) buildLegacyBlock(ctx context.Context, building bool) (*eth.E
 			}
 			return nil, nil
 		} else {
+			payload := envelope.ExecutionPayload
 			d.log.Info("sequencer successfully built a new block", "block", payload.ID(), "time", uint64(payload.Timestamp), "txs", len(payload.Transactions))
-			return payload, nil
+			return envelope, nil
 		}
 	} else {
 		err := d.startBuildingLegacyBlock(ctx)
@@ -588,9 +600,8 @@ func (d *Sequencer) handlePossibleEngineError(action string, err error) error {
 	} else if errors.Is(err, derive.ErrReset) {
 		d.log.Error("sequencer failed, requiring derivation reset", "action", action, "err", err)
 		d.metrics.RecordSequencerReset()
-		d.nextAction = d.timeNow().Add(time.Second * time.Duration(d.config.BlockTime)) // hold off from sequencing for a full block
-		d.engine.Reset()
-		return nil
+		d.nextAction = d.timeNow().Add(time.Second * time.Duration(d.rollupCfg.BlockTime)) // hold off from sequencing for a full block
+		return err
 	} else {
 		return d.handleNonEngineError(action, err)
 	}

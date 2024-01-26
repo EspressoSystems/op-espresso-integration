@@ -14,7 +14,7 @@ espresso_test_flags = -l1-allocs ../.devnet-espresso/allocs-l1.json \
 	-l1-deployments ../.devnet-espresso/addresses.json \
 	-deploy-config ../packages/contracts-bedrock/deploy-config/devnetL1-espresso-template.json \
 	-parallel 1 \
-	-run "TestMissingGasLimit|TestGethOnlyPendingBlockIsLatest|TestInvalidDepositInFCU|TestRegolith|TestPreregolith|TestSystemE2E|TestConfirmationDepth|TestMintOnRevertedDeposit|TestSystemP2PAltSync|TestSystemRPCAltSync|TestWithdrawals|TestERC20BridgeDeposits" \
+	-run "TestMissingGasLimit|TestGethOnlyPendingBlockIsLatest|TestInvalidDepositInFCU|TestRegolith|TestPreregolith|TestSystemE2E$$|TestConfirmationDepth|TestMintOnRevertedDeposit|TestSystemP2PAltSync|TestSystemRPCAltSync|TestWithdrawals|TestERC20BridgeDeposits"
 
 test: pre-test test-legacy-ws test-espresso-ws
 .PHONY: test
@@ -29,7 +29,7 @@ test-legacy-ws: pre-test
 
 test-legacy-http: pre-test
 	OP_E2E_USE_HTTP=true $(go_test) $(go_test_flags) ./...
-.PHONY: test-legacy-ws
+.PHONY: test-legacy-http
 
 test-espresso-ws: pre-test
 	$(go_test) $(go_test_flags) $(espresso_test_flags) ./...
@@ -37,7 +37,7 @@ test-espresso-ws: pre-test
 
 test-espresso-http: pre-test
 	OP_E2E_USE_HTTP=true $(go_test) $(go_test_flags) $(espresso_test_flags) ./...
-.PHONY: test-espresso-ws
+.PHONY: test-espresso-http
 
 cannon-prestate:
 	make -C .. cannon-prestate

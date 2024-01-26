@@ -75,7 +75,7 @@ func TestGasPriceOracleFeeUpdates(t *testing.T) {
 	require.Nil(t, err, "waiting for sysconfig set gas config update tx")
 	require.Equal(t, receipt.Status, types.ReceiptStatusSuccessful, "transaction failed")
 
-	_, err = geth.WaitForL1OriginOnL2(receipt.BlockNumber.Uint64(), l2Seq, txTimeoutDuration)
+	_, err = geth.WaitForL1OriginOnL2(sys.RollupConfig, receipt.BlockNumber.Uint64(), l2Seq, txTimeoutDuration)
 	require.NoError(t, err, "waiting for L2 block to include the sysconfig update")
 
 	gpoOverhead, err := gpoContract.Overhead(&bind.CallOpts{})
@@ -102,7 +102,7 @@ func TestGasPriceOracleFeeUpdates(t *testing.T) {
 	require.Nil(t, err, "waiting for sysconfig set gas config update tx")
 	require.Equal(t, receipt.Status, types.ReceiptStatusSuccessful, "transaction failed")
 
-	_, err = geth.WaitForL1OriginOnL2(receipt.BlockNumber.Uint64(), l2Seq, txTimeoutDuration)
+	_, err = geth.WaitForL1OriginOnL2(sys.RollupConfig, receipt.BlockNumber.Uint64(), l2Seq, txTimeoutDuration)
 	require.NoError(t, err, "waiting for L2 block to include the sysconfig update")
 
 	gpoOverhead, err = gpoContract.Overhead(&bind.CallOpts{})
@@ -132,7 +132,7 @@ func TestL2SequencerRPCDepositTx(t *testing.T) {
 	// Obtain our sequencer, verifier, and transactor keypair.
 	l2Seq := sys.Clients["sequencer"]
 	l2Verif := sys.Clients["verifier"]
-	txSigningKey := sys.cfg.Secrets.Alice
+	txSigningKey := sys.Cfg.Secrets.Alice
 	require.Nil(t, err)
 
 	// Create a deposit tx to send over RPC.
@@ -292,7 +292,7 @@ func TestMixedDepositValidity(t *testing.T) {
 	}
 
 	// Create our random provider
-	randomProvider := rand.New(rand.NewSource(time.Now().Unix()))
+	randomProvider := rand.New(rand.NewSource(1452))
 
 	// Now we create a number of deposits from each transactor
 	for i := 0; i < depositTxCount; i++ {

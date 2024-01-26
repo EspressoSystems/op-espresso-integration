@@ -621,7 +621,7 @@ func TestValidBatchEspresso(t *testing.T) {
 			l1.setBlocks(testCase.L1Blocks)
 			l1.setHeaders(testCase.Headers)
 			ctx := context.Background()
-			validity := CheckBatch(ctx, &conf, &sysCfg, logger, testCase.L1Blocks, testCase.L2SafeHead, &testCase.Batch, l1, nil)
+			validity := CheckBatch(ctx, &sysCfg, &conf, logger, testCase.L1Blocks, testCase.L2SafeHead, &testCase.Batch, l1, nil)
 			require.Equal(t, testCase.Expected, validity, "batch check must return expected validity level")
 		})
 	}
@@ -738,7 +738,7 @@ func TestL1OriginLag(t *testing.T) {
 			l1.setBlocks(testCase.L1Blocks)
 			l1.setHeaders(testCase.Headers)
 			ctx := context.Background()
-			validity := CheckBatch(ctx, &conf, &sysCfg, logger, testCase.L1Blocks, testCase.L2SafeHead, &testCase.Batch, l1, nil)
+			validity := CheckBatch(ctx, &sysCfg, &conf, logger, testCase.L1Blocks, testCase.L2SafeHead, &testCase.Batch, l1, nil)
 			require.Equal(t, testCase.Expected, validity, "batch check must return expected validity level")
 		})
 	}

@@ -26,7 +26,7 @@ type OracleEngine struct {
 }
 
 func NewOracleEngine(rollupCfg *rollup.Config, logger log.Logger, backend engineapi.EngineBackend) *OracleEngine {
-	engineAPI := engineapi.NewL2EngineAPI(logger, backend)
+	engineAPI := engineapi.NewL2EngineAPI(logger, backend, nil)
 	return &OracleEngine{
 		api:       engineAPI,
 		backend:   backend,
@@ -34,8 +34,11 @@ func NewOracleEngine(rollupCfg *rollup.Config, logger log.Logger, backend engine
 	}
 }
 
-func (o *OracleEngine) L2OutputRoot() (eth.Bytes32, error) {
-	outBlock := o.backend.CurrentHeader()
+func (o *OracleEngine) L2OutputRoot(l2ClaimBlockNum uint64) (eth.Bytes32, error) {
+	outBlock := o.backend.GetHeaderByNumber(l2ClaimBlockNum)
+	if outBlock == nil {
+		return eth.Bytes32{}, fmt.Errorf("failed to get L2 block at %d", l2ClaimBlockNum)
+	}
 	stateDB, err := o.backend.StateAt(outBlock.Root)
 	if err != nil {
 		return eth.Bytes32{}, fmt.Errorf("failed to open L2 state db at block %s: %w", outBlock.Hash(), err)
@@ -47,31 +50,42 @@ func (o *OracleEngine) L2OutputRoot() (eth.Bytes32, error) {
 	return rollup.ComputeL2OutputRootV0(eth.HeaderBlockInfo(outBlock), withdrawalsTrie.Hash())
 }
 
-func (o *OracleEngine) GetPayload(ctx context.Context, payloadId eth.PayloadID) (*eth.ExecutionPayload, error) {
-	res, err := o.api.GetPayloadV2(ctx, payloadId)
+func (o *OracleEngine) GetPayload(ctx context.Context, payloadId eth.PayloadID) (*eth.ExecutionPayloadEnvelope, error) {
+	res, err := o.api.GetPayloadV3(ctx, payloadId)
 	if err != nil {
 		return nil, err
 	}
-	return res.ExecutionPayload, nil
+	return res, nil
 }
 
 func (o *OracleEngine) ForkchoiceUpdate(ctx context.Context, state *eth.ForkchoiceState, attr *eth.PayloadAttributes) (*eth.ForkchoiceUpdatedResult, error) {
-	return o.api.ForkchoiceUpdatedV2(ctx, state, attr)
+	return o.api.ForkchoiceUpdatedV3(ctx, state, attr)
 }
 
-func (o *OracleEngine) NewPayload(ctx context.Context, payload *eth.ExecutionPayload) (*eth.PayloadStatusV1, error) {
-	return o.api.NewPayloadV2(ctx, payload)
+func (o *OracleEngine) NewPayload(ctx context.Context, payload *eth.ExecutionPayload, parentBeaconBlockRoot *common.Hash) (*eth.PayloadStatusV1, error) {
+	if o.rollupCfg.IsEcotone(uint64(payload.Timestamp)) {
+		return o.api.NewPayloadV3(ctx, payload, []common.Hash{}, parentBeaconBlockRoot)
+	} else {
+		return o.api.NewPayloadV2(ctx, payload)
+	}
 }
 
-func (o *OracleEngine) PayloadByHash(ctx context.Context, hash common.Hash) (*eth.ExecutionPayload, error) {
+func (o *OracleEngine) PayloadByHash(ctx context.Context, hash common.Hash) (*eth.ExecutionPayloadEnvelope, error) {
 	block := o.backend.GetBlockByHash(hash)
 	if block == nil {
 		return nil, ErrNotFound
 	}
-	return eth.BlockAsPayload(block, o.rollupCfg.CanyonTime)
+	payload, err := eth.BlockAsPayload(block, o.rollupCfg.CanyonTime)
+	if err != nil {
+		return nil, err
+	}
+	return &eth.ExecutionPayloadEnvelope{
+		ParentBeaconBlockRoot: block.BeaconRoot(),
+		ExecutionPayload:      payload,
+	}, nil
 }
 
-func (o *OracleEngine) PayloadByNumber(ctx context.Context, n uint64) (*eth.ExecutionPayload, error) {
+func (o *OracleEngine) PayloadByNumber(ctx context.Context, n uint64) (*eth.ExecutionPayloadEnvelope, error) {
 	hash := o.backend.GetCanonicalHash(n)
 	if hash == (common.Hash{}) {
 		return nil, ErrNotFound
@@ -98,7 +112,7 @@ func (o *OracleEngine) L2BlockRefByLabel(ctx context.Context, label eth.BlockLab
 	if block == nil {
 		return eth.L2BlockRef{}, ErrNotFound
 	}
-	return derive.L2BlockToBlockRef(block, &o.rollupCfg.Genesis)
+	return derive.L2BlockToBlockRef(o.rollupCfg, block)
 }
 
 func (o *OracleEngine) L2BlockRefByHash(ctx context.Context, l2Hash common.Hash) (eth.L2BlockRef, error) {
@@ -106,7 +120,7 @@ func (o *OracleEngine) L2BlockRefByHash(ctx context.Context, l2Hash common.Hash)
 	if block == nil {
 		return eth.L2BlockRef{}, ErrNotFound
 	}
-	return derive.L2BlockToBlockRef(block, &o.rollupCfg.Genesis)
+	return derive.L2BlockToBlockRef(o.rollupCfg, block)
 }
 
 func (o *OracleEngine) L2BlockRefByNumber(ctx context.Context, n uint64) (eth.L2BlockRef, error) {
@@ -122,5 +136,5 @@ func (o *OracleEngine) SystemConfigByL2Hash(ctx context.Context, hash common.Has
 	if err != nil {
 		return eth.SystemConfig{}, err
 	}
-	return derive.PayloadToSystemConfig(payload, o.rollupCfg)
+	return derive.PayloadToSystemConfig(o.rollupCfg, payload.ExecutionPayload)
 }

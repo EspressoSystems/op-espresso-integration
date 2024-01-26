@@ -114,7 +114,7 @@ func TestPreparePayloadAttributes(t *testing.T) {
 		l1Info.InfoNum = l2Parent.L1Origin.Number + 1
 		epoch := l1Info.ID()
 		justification := testutils.RandomL2BatchJustification(rng)
-		l1InfoTx, err := L1InfoDepositBytes(0, l1Info, testSysCfg, justification, false)
+		l1InfoTx, err := L1InfoDepositBytes(cfg, testSysCfg, 0, l1Info, 0, justification)
 		require.NoError(t, err)
 		l1Fetcher.ExpectFetchReceipts(epoch.Hash, l1Info, nil, nil)
 		attrBuilder := NewFetchingAttributesBuilder(cfg, l1Fetcher, l1CfgFetcher)
@@ -152,7 +152,7 @@ func TestPreparePayloadAttributes(t *testing.T) {
 
 		epoch := l1Info.ID()
 		justification := testutils.RandomL2BatchJustification(rng)
-		l1InfoTx, err := L1InfoDepositBytes(0, l1Info, testSysCfg, justification, false)
+		l1InfoTx, err := L1InfoDepositBytes(cfg, testSysCfg, 0, l1Info, 0, justification)
 		require.NoError(t, err)
 
 		l2Txs := append(append(make([]eth.Data, 0), l1InfoTx), usedDepositTxs...)
@@ -183,7 +183,7 @@ func TestPreparePayloadAttributes(t *testing.T) {
 
 		epoch := l1Info.ID()
 		justification := testutils.RandomL2BatchJustification(rng)
-		l1InfoTx, err := L1InfoDepositBytes(l2Parent.SequenceNumber+1, l1Info, testSysCfg, justification, false)
+		l1InfoTx, err := L1InfoDepositBytes(cfg, testSysCfg, l2Parent.SequenceNumber+1, l1Info, 0, justification)
 		require.NoError(t, err)
 
 		l1Fetcher.ExpectInfoByHash(epoch.Hash, l1Info, nil)
@@ -235,8 +235,12 @@ func TestPreparePayloadAttributes(t *testing.T) {
 				l1Info.InfoTime = tc.l1Time
 
 				epoch := l1Info.ID()
+				time := tc.regolithTime
+				if !tc.regolith {
+					time--
+				}
 				justification := testutils.RandomL2BatchJustification(rng)
-				l1InfoTx, err := L1InfoDepositBytes(0, l1Info, testSysCfg, justification, tc.regolith)
+				l1InfoTx, err := L1InfoDepositBytes(cfg, testSysCfg, 0, l1Info, time, justification)
 				require.NoError(t, err)
 				l1Fetcher.ExpectFetchReceipts(epoch.Hash, l1Info, nil, nil)
 				attrBuilder := NewFetchingAttributesBuilder(cfg, l1Fetcher, l1CfgFetcher)

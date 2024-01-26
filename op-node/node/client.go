@@ -21,13 +21,6 @@ type L2EndpointSetup interface {
 	Check() error
 }
 
-type L2SyncEndpointSetup interface {
-	// Setup a RPC client to another L2 node to sync L2 blocks from.
-	// It may return a nil client with nil error if RPC based sync is not enabled.
-	Setup(ctx context.Context, log log.Logger, rollupCfg *rollup.Config) (cl client.RPC, rpcCfg *sources.SyncClientConfig, err error)
-	Check() error
-}
-
 type L1EndpointSetup interface {
 	// Setup a RPC client to a L1 node to pull rollup input-data from.
 	// The results of the RPC client may be trusted for faster processing, or strictly validated.
@@ -36,8 +29,18 @@ type L1EndpointSetup interface {
 	Check() error
 }
 
+type L1BeaconEndpointSetup interface {
+	Setup(ctx context.Context, log log.Logger) (cl client.HTTP, err error)
+	// ShouldIgnoreBeaconCheck returns true if the Beacon-node version check should not halt startup.
+	ShouldIgnoreBeaconCheck() bool
+	ShouldFetchAllSidecars() bool
+	Check() error
+}
+
 type L2EndpointConfig struct {
-	L2EngineAddr string // Address of L2 Engine JSON-RPC endpoint to use (engine and eth namespace required)
+	// L2EngineAddr is the address of the L2 Engine JSON-RPC endpoint to use. The engine and eth
+	// namespaces must be enabled by the endpoint.
+	L2EngineAddr string
 
 	// JWT secrets for L2 Engine API authentication during HTTP or initial Websocket communication.
 	// Any value for an IPC connection.
@@ -89,50 +92,6 @@ func (p *PreparedL2Endpoints) Setup(ctx context.Context, log log.Logger, rollupC
 	return p.Client, sources.EngineClientDefaultConfig(rollupCfg), nil
 }
 
-// L2SyncEndpointConfig contains configuration for the fallback sync endpoint
-type L2SyncEndpointConfig struct {
-	// Address of the L2 RPC to use for backup sync, may be empty if RPC alt-sync is disabled.
-	L2NodeAddr string
-	TrustRPC   bool
-}
-
-var _ L2SyncEndpointSetup = (*L2SyncEndpointConfig)(nil)
-
-// Setup creates an RPC client to sync from.
-// It will return nil without error if no sync method is configured.
-func (cfg *L2SyncEndpointConfig) Setup(ctx context.Context, log log.Logger, rollupCfg *rollup.Config) (client.RPC, *sources.SyncClientConfig, error) {
-	if cfg.L2NodeAddr == "" {
-		return nil, nil, nil
-	}
-	l2Node, err := client.NewRPC(ctx, log, cfg.L2NodeAddr)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return l2Node, sources.SyncClientDefaultConfig(rollupCfg, cfg.TrustRPC), nil
-}
-
-func (cfg *L2SyncEndpointConfig) Check() error {
-	// empty addr is valid, as it is optional.
-	return nil
-}
-
-type PreparedL2SyncEndpoint struct {
-	// RPC endpoint to use for syncing, may be nil if RPC alt-sync is disabled.
-	Client   client.RPC
-	TrustRPC bool
-}
-
-var _ L2SyncEndpointSetup = (*PreparedL2SyncEndpoint)(nil)
-
-func (cfg *PreparedL2SyncEndpoint) Setup(ctx context.Context, log log.Logger, rollupCfg *rollup.Config) (client.RPC, *sources.SyncClientConfig, error) {
-	return cfg.Client, sources.SyncClientDefaultConfig(rollupCfg, cfg.TrustRPC), nil
-}
-
-func (cfg *PreparedL2SyncEndpoint) Check() error {
-	return nil
-}
-
 type L1EndpointConfig struct {
 	L1NodeAddr string // Address of L1 User JSON-RPC endpoint to use (eth namespace required)
 
@@ -151,6 +110,9 @@ type L1EndpointConfig struct {
 	// BatchSize specifies the maximum batch-size, which also applies as L1 rate-limit burst amount (if set).
 	BatchSize int
 
+	// MaxConcurrency specifies the maximum number of concurrent requests to the L1 RPC.
+	MaxConcurrency int
+
 	// HttpPollInterval specifies the interval between polling for the latest L1 block,
 	// when the RPC is detected to be an HTTP type.
 	// It is recommended to use websockets or IPC for efficient following of the changing block.
@@ -166,6 +128,9 @@ func (cfg *L1EndpointConfig) Check() error {
 	}
 	if cfg.RateLimit < 0 {
 		return fmt.Errorf("rate limit cannot be negative")
+	}
+	if cfg.MaxConcurrency < 1 {
+		return fmt.Errorf("max concurrent requests cannot be less than 1, was %d", cfg.MaxConcurrency)
 	}
 	return nil
 }
@@ -185,6 +150,7 @@ func (cfg *L1EndpointConfig) Setup(ctx context.Context, log log.Logger, rollupCf
 	}
 	rpcCfg := sources.L1ClientDefaultConfig(rollupCfg, cfg.L1TrustRPC, cfg.L1RPCKind)
 	rpcCfg.MaxRequestsPerBatch = cfg.BatchSize
+	rpcCfg.MaxConcurrentRequests = cfg.MaxConcurrency
 	return l1Node, rpcCfg, nil
 }
 
@@ -207,4 +173,31 @@ func (cfg *PreparedL1Endpoint) Check() error {
 	}
 
 	return nil
+}
+
+type L1BeaconEndpointConfig struct {
+	BeaconAddr             string // Address of L1 User Beacon-API endpoint to use (beacon namespace required)
+	BeaconCheckIgnore      bool   // When false, halt startup if the beacon version endpoint fails
+	BeaconFetchAllSidecars bool   // Whether to fetch all blob sidecars and filter locally
+}
+
+var _ L1BeaconEndpointSetup = (*L1BeaconEndpointConfig)(nil)
+
+func (cfg *L1BeaconEndpointConfig) Setup(ctx context.Context, log log.Logger) (cl client.HTTP, err error) {
+	return client.NewBasicHTTPClient(cfg.BeaconAddr, log), nil
+}
+
+func (cfg *L1BeaconEndpointConfig) Check() error {
+	if cfg.BeaconAddr == "" && !cfg.BeaconCheckIgnore {
+		return errors.New("expected L1 Beacon API endpoint, but got none")
+	}
+	return nil
+}
+
+func (cfg *L1BeaconEndpointConfig) ShouldIgnoreBeaconCheck() bool {
+	return cfg.BeaconCheckIgnore
+}
+
+func (cfg *L1BeaconEndpointConfig) ShouldFetchAllSidecars() bool {
+	return cfg.BeaconFetchAllSidecars
 }

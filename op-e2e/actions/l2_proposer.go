@@ -20,14 +20,18 @@ import (
 	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
 	"github.com/ethereum-optimism/optimism/op-proposer/metrics"
 	"github.com/ethereum-optimism/optimism/op-proposer/proposer"
+	"github.com/ethereum-optimism/optimism/op-service/dial"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 )
 
 type ProposerCfg struct {
-	OutputOracleAddr  common.Address
-	ProposerKey       *ecdsa.PrivateKey
-	AllowNonFinalized bool
+	OutputOracleAddr       *common.Address
+	DisputeGameFactoryAddr *common.Address
+	ProposalInterval       time.Duration
+	DisputeGameType        uint8
+	ProposerKey            *ecdsa.PrivateKey
+	AllowNonFinalized      bool
 }
 
 type L2Proposer struct {
@@ -48,31 +52,46 @@ type fakeTxMgr struct {
 func (f fakeTxMgr) From() common.Address {
 	return f.from
 }
-func (f fakeTxMgr) Call(_ context.Context, _ ethereum.CallMsg, _ *big.Int) ([]byte, error) {
-	panic("unimplemented")
-}
+
 func (f fakeTxMgr) BlockNumber(_ context.Context) (uint64, error) {
 	panic("unimplemented")
 }
+
 func (f fakeTxMgr) Send(_ context.Context, _ txmgr.TxCandidate) (*types.Receipt, error) {
 	panic("unimplemented")
 }
 
+func (f fakeTxMgr) Close() {
+}
+
 func NewL2Proposer(t Testing, log log.Logger, cfg *ProposerCfg, l1 *ethclient.Client, rollupCl *sources.RollupClient) *L2Proposer {
-	proposerCfg := proposer.Config{
-		L2OutputOracleAddr: cfg.OutputOracleAddr,
-		PollInterval:       time.Second,
-		NetworkTimeout:     time.Second,
-		L1Client:           l1,
-		RollupClient:       rollupCl,
-		AllowNonFinalized:  cfg.AllowNonFinalized,
-		// We use custom signing here instead of using the transaction manager.
-		TxManager: fakeTxMgr{from: crypto.PubkeyToAddress(cfg.ProposerKey.PublicKey)},
+	proposerConfig := proposer.ProposerConfig{
+		PollInterval:           time.Second,
+		NetworkTimeout:         time.Second,
+		ProposalInterval:       cfg.ProposalInterval,
+		L2OutputOracleAddr:     cfg.OutputOracleAddr,
+		DisputeGameFactoryAddr: cfg.DisputeGameFactoryAddr,
+		DisputeGameType:        cfg.DisputeGameType,
+		AllowNonFinalized:      cfg.AllowNonFinalized,
+	}
+	rollupProvider, err := dial.NewStaticL2RollupProviderFromExistingRollup(rollupCl)
+	require.NoError(t, err)
+	driverSetup := proposer.DriverSetup{
+		Log:            log,
+		Metr:           metrics.NoopMetrics,
+		Cfg:            proposerConfig,
+		Txmgr:          fakeTxMgr{from: crypto.PubkeyToAddress(cfg.ProposerKey.PublicKey)},
+		L1Client:       l1,
+		RollupProvider: rollupProvider,
 	}
 
-	dr, err := proposer.NewL2OutputSubmitter(proposerCfg, log, metrics.NoopMetrics)
+	if cfg.OutputOracleAddr == nil {
+		panic("L2OutputOracle address must be set in op-e2e test harness. The DisputeGameFactory is not yet supported as a proposal destination.")
+	}
+
+	dr, err := proposer.NewL2OutputSubmitter(driverSetup)
 	require.NoError(t, err)
-	contract, err := bindings.NewL2OutputOracleCaller(cfg.OutputOracleAddr, l1)
+	contract, err := bindings.NewL2OutputOracleCaller(*cfg.OutputOracleAddr, l1)
 	require.NoError(t, err)
 
 	address := crypto.PubkeyToAddress(cfg.ProposerKey.PublicKey)
@@ -87,7 +106,7 @@ func NewL2Proposer(t Testing, log log.Logger, cfg *ProposerCfg, l1 *ethclient.Cl
 		contract:     contract,
 		address:      address,
 		privKey:      cfg.ProposerKey,
-		contractAddr: cfg.OutputOracleAddr,
+		contractAddr: *cfg.OutputOracleAddr,
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/require"
@@ -14,22 +15,44 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
 )
 
-func TestProposer(gt *testing.T) {
+// TestProposerBatchType run each proposer-related test case in singular batch mode and span batch mode.
+func TestProposerBatchType(t *testing.T) {
+	tests := []struct {
+		name string
+		f    func(gt *testing.T, deltaTimeOffset *hexutil.Uint64)
+	}{
+		{"RunProposerTest", RunProposerTest},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name+"_SingularBatch", func(t *testing.T) {
+			test.f(t, nil)
+		})
+	}
+
+	deltaTimeOffset := hexutil.Uint64(0)
+	for _, test := range tests {
+		test := test
+		t.Run(test.name+"_SpanBatch", func(t *testing.T) {
+			test.f(t, &deltaTimeOffset)
+		})
+	}
+}
+
+func RunProposerTest(gt *testing.T, deltaTimeOffset *hexutil.Uint64) {
 	t := NewDefaultTesting(gt)
 	dp := e2eutils.MakeDeployParams(t, defaultRollupTestParams)
+	dp.DeployConfig.L2GenesisDeltaTimeOffset = deltaTimeOffset
 	sd := e2eutils.Setup(t, dp, defaultAlloc)
 	log := testlog.Logger(t, log.LvlDebug)
 	miner, seqEngine, sequencer := setupSequencerTest(t, sd, log)
 
 	rollupSeqCl := sequencer.RollupClient()
-	batcher := NewL2Batcher(log, sd.RollupCfg, &BatcherCfg{
-		MinL1TxSize: 0,
-		MaxL1TxSize: 128_000,
-		BatcherKey:  dp.Secrets.Batcher,
-	}, rollupSeqCl, miner.EthClient(), seqEngine.EthClient())
+	batcher := NewL2Batcher(log, sd.RollupCfg, DefaultBatcherCfg(dp),
+		rollupSeqCl, miner.EthClient(), seqEngine.EthClient(), seqEngine.EngineClient(t, sd.RollupCfg))
 
 	proposer := NewL2Proposer(t, log, &ProposerCfg{
-		OutputOracleAddr:  sd.DeploymentsL1.L2OutputOracleProxy,
+		OutputOracleAddr:  &sd.DeploymentsL1.L2OutputOracleProxy,
 		ProposerKey:       dp.Secrets.Proposer,
 		AllowNonFinalized: false,
 	}, miner.EthClient(), sequencer.RollupClient())

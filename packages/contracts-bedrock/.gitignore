@@ -3,11 +3,16 @@ artifacts
 forge-artifacts
 cache
 broadcast
-typechain
+kout-deployment
+kout-proofs
+test/kontrol/logs
 
 # Metrics
 coverage.out
 .resource-metering.csv
+
+# Testing State
+.testdata
 
 # Scripts
 scripts/go-ffi/go-ffi
@@ -29,3 +34,6 @@ deploy-config/devnetL1.json
 deploy-config/devnetL1-espresso.json
 deploy-config/devnetL1-espresso2.json
 deploy-config/espresso-demo.json
+
+# Getting Started guide deploy config
+deploy-config/getting-started.json

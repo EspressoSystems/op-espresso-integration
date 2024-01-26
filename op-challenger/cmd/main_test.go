@@ -2,15 +2,19 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
 
-	"github.com/ethereum-optimism/optimism/op-challenger/config"
-	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/stretchr/testify/require"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/stretchr/testify/require"
+
+	"github.com/ethereum-optimism/optimism/op-challenger/config"
+	"github.com/ethereum-optimism/optimism/op-service/cliapp"
+	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 )
 
 var (
@@ -24,8 +28,6 @@ var (
 	datadir                 = "./test_data"
 	cannonL2                = "http://example.com:9545"
 	rollupRpc               = "http://example.com:8555"
-	alphabetTrace           = "abcdefghijz"
-	agreeWithProposedOutput = "true"
 )
 
 func TestLogLevel(t *testing.T) {
@@ -36,7 +38,7 @@ func TestLogLevel(t *testing.T) {
 	for _, lvl := range []string{"trace", "debug", "info", "error", "crit"} {
 		lvl := lvl
 		t.Run("AcceptValid_"+lvl, func(t *testing.T) {
-			logger, _, err := runWithArgs(addRequiredArgs(config.TraceTypeAlphabet, "--log.level", lvl))
+			logger, _, err := dryRunWithArgs(addRequiredArgs(config.TraceTypeAlphabet, "--log.level", lvl))
 			require.NoError(t, err)
 			require.NotNil(t, logger)
 		})
@@ -45,17 +47,17 @@ func TestLogLevel(t *testing.T) {
 
 func TestDefaultCLIOptionsMatchDefaultConfig(t *testing.T) {
 	cfg := configForArgs(t, addRequiredArgs(config.TraceTypeAlphabet))
-	defaultCfg := config.NewConfig(common.HexToAddress(gameFactoryAddressValue), l1EthRpc, true, datadir, config.TraceTypeAlphabet)
+	defaultCfg := config.NewConfig(common.HexToAddress(gameFactoryAddressValue), l1EthRpc, datadir, config.TraceTypeAlphabet)
 	// Add in the extra CLI options required when using alphabet trace type
-	defaultCfg.AlphabetTrace = alphabetTrace
+	defaultCfg.RollupRpc = rollupRpc
 	require.Equal(t, defaultCfg, cfg)
 }
 
 func TestDefaultConfigIsValid(t *testing.T) {
-	cfg := config.NewConfig(common.HexToAddress(gameFactoryAddressValue), l1EthRpc, true, datadir, config.TraceTypeAlphabet)
+	cfg := config.NewConfig(common.HexToAddress(gameFactoryAddressValue), l1EthRpc, datadir, config.TraceTypeAlphabet)
 	// Add in options that are required based on the specific trace type
 	// To avoid needing to specify unused options, these aren't included in the params for NewConfig
-	cfg.AlphabetTrace = alphabetTrace
+	cfg.RollupRpc = rollupRpc
 	require.NoError(t, cfg.Check())
 }
 
@@ -73,8 +75,10 @@ func TestL1ETHRPCAddress(t *testing.T) {
 }
 
 func TestTraceType(t *testing.T) {
-	t.Run("Required", func(t *testing.T) {
-		verifyArgsInvalid(t, "flag trace-type is required", addRequiredArgsExcept("", "--trace-type"))
+	t.Run("Default", func(t *testing.T) {
+		expectedDefault := config.TraceTypeCannon
+		cfg := configForArgs(t, addRequiredArgsExcept(expectedDefault, "--trace-type"))
+		require.Equal(t, []config.TraceType{expectedDefault}, cfg.TraceTypes)
 	})
 
 	for _, traceType := range config.TraceTypes {
@@ -93,19 +97,17 @@ func TestTraceType(t *testing.T) {
 func TestMultipleTraceTypes(t *testing.T) {
 	t.Run("WithAllOptions", func(t *testing.T) {
 		argsMap := requiredArgs(config.TraceTypeCannon)
-		addRequiredOutputCannonArgs(argsMap)
-		addRequiredAlphabetArgs(argsMap)
+		addRequiredOutputArgs(argsMap)
 		args := toArgList(argsMap)
 		// Add extra trace types (cannon is already specified)
 		args = append(args,
-			"--trace-type", config.TraceTypeOutputCannon.String(),
 			"--trace-type", config.TraceTypeAlphabet.String())
 		cfg := configForArgs(t, args)
-		require.Equal(t, []config.TraceType{config.TraceTypeCannon, config.TraceTypeOutputCannon, config.TraceTypeAlphabet}, cfg.TraceTypes)
+		require.Equal(t, []config.TraceType{config.TraceTypeCannon, config.TraceTypeAlphabet}, cfg.TraceTypes)
 	})
 	t.Run("WithSomeOptions", func(t *testing.T) {
 		argsMap := requiredArgs(config.TraceTypeCannon)
-		addRequiredAlphabetArgs(argsMap)
+		addRequiredOutputArgs(argsMap)
 		args := toArgList(argsMap)
 		// Add extra trace types (cannon is already specified)
 		args = append(args,
@@ -162,24 +164,6 @@ func TestTxManagerFlagsSupported(t *testing.T) {
 	// Not a comprehensive list of flags, just enough to sanity check the txmgr.CLIFlags were defined
 	cfg := configForArgs(t, addRequiredArgs(config.TraceTypeAlphabet, "--"+txmgr.NumConfirmationsFlagName, "7"))
 	require.Equal(t, uint64(7), cfg.TxMgrConfig.NumConfirmations)
-}
-
-func TestAgreeWithProposedOutput(t *testing.T) {
-	t.Run("MustBeProvided", func(t *testing.T) {
-		verifyArgsInvalid(t, "flag agree-with-proposed-output is required", addRequiredArgsExcept(config.TraceTypeAlphabet, "--agree-with-proposed-output"))
-	})
-	t.Run("Enabled", func(t *testing.T) {
-		cfg := configForArgs(t, addRequiredArgs(config.TraceTypeAlphabet, "--agree-with-proposed-output"))
-		require.True(t, cfg.AgreeWithProposedOutput)
-	})
-	t.Run("EnabledWithArg", func(t *testing.T) {
-		cfg := configForArgs(t, addRequiredArgs(config.TraceTypeAlphabet, "--agree-with-proposed-output=true"))
-		require.True(t, cfg.AgreeWithProposedOutput)
-	})
-	t.Run("Disabled", func(t *testing.T) {
-		cfg := configForArgs(t, addRequiredArgs(config.TraceTypeAlphabet, "--agree-with-proposed-output=false"))
-		require.False(t, cfg.AgreeWithProposedOutput)
-	})
 }
 
 func TestMaxConcurrency(t *testing.T) {
@@ -285,20 +269,16 @@ func TestDataDir(t *testing.T) {
 }
 
 func TestRollupRpc(t *testing.T) {
-	t.Run("NotRequiredForAlphabetTrace", func(t *testing.T) {
-		configForArgs(t, addRequiredArgsExcept(config.TraceTypeAlphabet, "--rollup-rpc"))
+	t.Run("RequiredForAlphabetTrace", func(t *testing.T) {
+		verifyArgsInvalid(t, "flag rollup-rpc is required", addRequiredArgsExcept(config.TraceTypeAlphabet, "--rollup-rpc"))
 	})
 
-	t.Run("NotRequiredForAlphabetTrace", func(t *testing.T) {
-		configForArgs(t, addRequiredArgsExcept(config.TraceTypeCannon, "--rollup-rpc"))
-	})
-
-	t.Run("RequiredForOutputCannonTrace", func(t *testing.T) {
-		verifyArgsInvalid(t, "flag rollup-rpc is required", addRequiredArgsExcept(config.TraceTypeOutputCannon, "--rollup-rpc"))
+	t.Run("RequiredForCannonTrace", func(t *testing.T) {
+		verifyArgsInvalid(t, "flag rollup-rpc is required", addRequiredArgsExcept(config.TraceTypeCannon, "--rollup-rpc"))
 	})
 
 	t.Run("Valid", func(t *testing.T) {
-		cfg := configForArgs(t, addRequiredArgs(config.TraceTypeOutputCannon))
+		cfg := configForArgs(t, addRequiredArgs(config.TraceTypeCannon))
 		require.Equal(t, rollupRpc, cfg.RollupRpc)
 	})
 }
@@ -431,25 +411,29 @@ func TestCannonL2Genesis(t *testing.T) {
 }
 
 func verifyArgsInvalid(t *testing.T, messageContains string, cliArgs []string) {
-	_, _, err := runWithArgs(cliArgs)
+	_, _, err := dryRunWithArgs(cliArgs)
 	require.ErrorContains(t, err, messageContains)
 }
 
 func configForArgs(t *testing.T, cliArgs []string) config.Config {
-	_, cfg, err := runWithArgs(cliArgs)
+	_, cfg, err := dryRunWithArgs(cliArgs)
 	require.NoError(t, err)
 	return cfg
 }
 
-func runWithArgs(cliArgs []string) (log.Logger, config.Config, error) {
+func dryRunWithArgs(cliArgs []string) (log.Logger, config.Config, error) {
 	cfg := new(config.Config)
 	var logger log.Logger
 	fullArgs := append([]string{"op-challenger"}, cliArgs...)
-	err := run(fullArgs, func(ctx context.Context, log log.Logger, config *config.Config) error {
+	testErr := errors.New("dry-run")
+	err := run(context.Background(), fullArgs, func(ctx context.Context, log log.Logger, config *config.Config) (cliapp.Lifecycle, error) {
 		logger = log
 		cfg = config
-		return nil
+		return nil, testErr
 	})
+	if errors.Is(err, testErr) { // expected error
+		err = nil
+	}
 	return logger, *cfg, err
 }
 
@@ -467,30 +451,18 @@ func addRequiredArgsExcept(traceType config.TraceType, name string, optionalArgs
 
 func requiredArgs(traceType config.TraceType) map[string]string {
 	args := map[string]string{
-		"--agree-with-proposed-output": agreeWithProposedOutput,
-		"--l1-eth-rpc":                 l1EthRpc,
-		"--game-factory-address":       gameFactoryAddressValue,
-		"--trace-type":                 traceType.String(),
-		"--datadir":                    datadir,
+		"--l1-eth-rpc":           l1EthRpc,
+		"--game-factory-address": gameFactoryAddressValue,
+		"--trace-type":           traceType.String(),
+		"--datadir":              datadir,
 	}
 	switch traceType {
-	case config.TraceTypeAlphabet:
-		addRequiredAlphabetArgs(args)
 	case config.TraceTypeCannon:
 		addRequiredCannonArgs(args)
-	case config.TraceTypeOutputCannon:
-		addRequiredOutputCannonArgs(args)
+	case config.TraceTypeAlphabet:
+		addRequiredOutputArgs(args)
 	}
 	return args
-}
-
-func addRequiredAlphabetArgs(args map[string]string) {
-	args["--alphabet"] = alphabetTrace
-}
-
-func addRequiredOutputCannonArgs(args map[string]string) {
-	addRequiredCannonArgs(args)
-	args["--rollup-rpc"] = rollupRpc
 }
 
 func addRequiredCannonArgs(args map[string]string) {
@@ -499,6 +471,11 @@ func addRequiredCannonArgs(args map[string]string) {
 	args["--cannon-server"] = cannonServer
 	args["--cannon-prestate"] = cannonPreState
 	args["--cannon-l2"] = cannonL2
+	addRequiredOutputArgs(args)
+}
+
+func addRequiredOutputArgs(args map[string]string) {
+	args["--rollup-rpc"] = rollupRpc
 }
 
 func toArgList(req map[string]string) []string {

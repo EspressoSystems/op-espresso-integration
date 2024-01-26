@@ -24,7 +24,7 @@ import (
 
 type gossipNoop struct{}
 
-func (g *gossipNoop) OnUnsafeL2Payload(_ context.Context, _ peer.ID, _ *eth.ExecutionPayload) error {
+func (g *gossipNoop) OnUnsafeL2Payload(_ context.Context, _ peer.ID, _ *eth.ExecutionPayloadEnvelope) error {
 	return nil
 }
 
@@ -36,7 +36,7 @@ func (g *gossipConfig) P2PSequencerAddress() common.Address {
 
 type l2Chain struct{}
 
-func (l *l2Chain) PayloadByNumber(_ context.Context, _ uint64) (*eth.ExecutionPayload, error) {
+func (l *l2Chain) PayloadByNumber(_ context.Context, _ uint64) (*eth.ExecutionPayloadEnvelope, error) {
 	return nil, nil
 }
 
@@ -61,7 +61,7 @@ func Main(cliCtx *cli.Context) error {
 		return fmt.Errorf("failed to load p2p config: %w", err)
 	}
 
-	p2pNode, err := p2p.NewNodeP2P(ctx, config, logger, p2pConfig, &gossipNoop{}, &l2Chain{}, &gossipConfig{}, m)
+	p2pNode, err := p2p.NewNodeP2P(ctx, config, logger, p2pConfig, &gossipNoop{}, &l2Chain{}, &gossipConfig{}, m, false)
 	if err != nil || p2pNode == nil {
 		return err
 	}

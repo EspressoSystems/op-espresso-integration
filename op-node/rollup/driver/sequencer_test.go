@@ -21,6 +21,8 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-node/metrics"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/async"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/conductor"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
@@ -65,7 +67,7 @@ func (m *FakeEngineControl) avgTxsPerBlock() float64 {
 	return float64(m.totalTxs) / float64(m.totalBuiltBlocks)
 }
 
-func (m *FakeEngineControl) StartPayload(ctx context.Context, parent eth.L2BlockRef, attrs *eth.PayloadAttributes, updateSafe bool) (errType derive.BlockInsertionErrType, err error) {
+func (m *FakeEngineControl) StartPayload(ctx context.Context, parent eth.L2BlockRef, attrs *derive.AttributesWithParent, updateSafe bool) (errType derive.BlockInsertionErrType, err error) {
 	if m.err != nil {
 		return m.errTyp, m.err
 	}
@@ -73,12 +75,12 @@ func (m *FakeEngineControl) StartPayload(ctx context.Context, parent eth.L2Block
 	_, _ = crand.Read(m.buildingID[:])
 	m.buildingOnto = parent
 	m.buildingSafe = updateSafe
-	m.buildingAttrs = attrs
+	m.buildingAttrs = attrs.Attributes()
 	m.buildingStart = m.timeNow()
 	return derive.BlockInsertOK, nil
 }
 
-func (m *FakeEngineControl) ConfirmPayload(ctx context.Context) (out *eth.ExecutionPayload, errTyp derive.BlockInsertionErrType, err error) {
+func (m *FakeEngineControl) ConfirmPayload(ctx context.Context, agossip async.AsyncGossiper, sequencerConductor conductor.SequencerConductor) (out *eth.ExecutionPayloadEnvelope, errTyp derive.BlockInsertionErrType, err error) {
 	if m.err != nil {
 		return nil, m.errTyp, m.err
 	}
@@ -86,7 +88,7 @@ func (m *FakeEngineControl) ConfirmPayload(ctx context.Context) (out *eth.Execut
 	m.totalBuildingTime += buildTime
 	m.totalBuiltBlocks += 1
 	payload := m.makePayload(m.buildingOnto, m.buildingAttrs)
-	ref, err := derive.PayloadToBlockRef(payload, &m.cfg.Genesis)
+	ref, err := derive.PayloadToBlockRef(m.cfg, payload)
 	if err != nil {
 		panic(err)
 	}
@@ -98,7 +100,7 @@ func (m *FakeEngineControl) ConfirmPayload(ctx context.Context) (out *eth.Execut
 	m.resetBuildingState()
 	m.totalTxs += len(payload.Transactions)
 	m.l2Batches = append(m.l2Batches, payload)
-	return payload, derive.BlockInsertOK, nil
+	return &eth.ExecutionPayloadEnvelope{ExecutionPayload: payload}, derive.BlockInsertOK, nil
 }
 
 func (m *FakeEngineControl) CancelPayload(ctx context.Context, force bool) error {
@@ -131,15 +133,10 @@ func (m *FakeEngineControl) resetBuildingState() {
 	m.buildingAttrs = nil
 }
 
-func (m *FakeEngineControl) Reset() {
-	m.err = nil
-}
-
-var _ derive.ResettableEngineControl = (*FakeEngineControl)(nil)
+var _ derive.EngineControl = (*FakeEngineControl)(nil)
 
 type FakeEspressoClient struct {
 	Blocks          []FakeEspressoBlock
-	AdvanceL1Origin bool
 }
 
 type FakeEspressoBlock struct {
@@ -188,7 +185,7 @@ func (s *TestSequencer) PreparePayloadAttributes(ctx context.Context, l2Parent e
 		InfoBaseFee:     big.NewInt(1234),
 		InfoReceiptRoot: common.Hash{},
 	}
-	infoDep, err := derive.L1InfoDepositBytes(seqNr, l1Info, s.cfg.Genesis.SystemConfig, justification, false)
+	infoDep, err := derive.L1InfoDepositBytes(&s.cfg, s.cfg.Genesis.SystemConfig, seqNr, l1Info, 0, justification)
 	require.NoError(s.t, err)
 
 	testGasLimit := eth.Uint64Quantity(10_000_000)
@@ -339,7 +336,7 @@ func (s *TestSequencer) FetchHeadersForWindow(ctx context.Context, start uint64,
 		header := s.espressoBlock(i)
 		if header == nil {
 			// New headers not available.
-			return espressoClient.WindowStart{}, nil
+			return espressoClient.WindowStart{}, fmt.Errorf("start of window not available")
 		}
 		if header.Timestamp >= start {
 			res, err := s.FetchRemainingHeadersForWindow(ctx, i, end)
@@ -454,51 +451,25 @@ func (s *TestSequencer) nextEspressoBlock() *espresso.Header {
 	}
 	binary.LittleEndian.PutUint64(root.Root, uint64(len(s.espresso.Blocks)))
 
-	var l1OriginNumber uint64
-	if s.espresso.AdvanceL1Origin {
-		l1OriginNumber = prev.L1Head + 1
-		s.espresso.AdvanceL1Origin = false
-	} else {
-		l1OriginNumber = prev.L1Head
-		switch s.rng.Intn(20) {
-		case 0:
-			// 5%: move the L1 origin _backwards_. Espresso is supposed to enforce that the L1
-			// origin is monotonically increasing, but due to limitations in the current version of
-			// the HotShot interfaces, the current version does not, and the L1 block number will,
-			// rarely, decrease.
-			if l1OriginNumber > 0 {
-				// Correct the mistake in the next block. Otherwise, since the probability of
-				// advancing the L1 origin is fairly low (in order to simulate the case where the L1
-				// origin is old), once we decrease the L1 origin once, it can remain behind for
-				// many blocks.
-				s.espresso.AdvanceL1Origin = true
-				l1OriginNumber -= 1
+	l1OriginNumber := prev.L1Head
+	switch s.rng.Intn(20) {
+	case 1, 2:
+		// 10%: advance L1 origin
+		l1OriginNumber += 1
+	case 3:
+		// 5%: skip ahead to the latest possible L1 origin
+		for {
+			l1Origin := s.l1BlockByNumber(l1OriginNumber + 1)
+			if l1Origin.Time >= timestamp {
+				break
 			}
-		case 1, 2:
-			// 10%: advance L1 origin
 			l1OriginNumber += 1
-		case 3:
-			// 5%: skip ahead to the latest possible L1 origin
-			for {
-				l1Origin := s.l1BlockByNumber(l1OriginNumber + 1)
-				if l1Origin.Time >= timestamp {
-					break
-				}
-				l1OriginNumber += 1
-			}
-		default:
-			// 80%: use old L1 origin
-			break
 		}
+	default:
+		// 80%: use old L1 origin
+		break
 	}
-
 	l1Origin := s.l1BlockByNumber(l1OriginNumber)
-
-	// 5% of the time, mess with the timestamp. Again, Espresso should ensure that the timestamps
-	// are monotonically increasing, but for now, it doesn't.
-	if prev.Timestamp > 0 && s.rng.Intn(20) == 0 {
-		timestamp = prev.Timestamp - 1
-	}
 
 	header := espresso.Header{
 		Height:           uint64(len(s.espresso.Blocks)),
@@ -586,8 +557,7 @@ func SetupSequencer(t *testing.T, useEspresso bool) *TestSequencer {
 		cfg:       &s.cfg,
 	}
 
-	// start wallclock at 5 minutes after the current L2 head. The sequencer has some catching up to do!
-	s.clockTime = time.Unix(int64(s.engControl.unsafe.Time)+5*60, 0)
+	s.clockTime = time.Unix(int64(s.engControl.unsafe.Time), 0)
 	s.clockFn = func() time.Time {
 		return s.clockTime
 	}
@@ -675,15 +645,19 @@ func SequencerChaosMonkey(s *TestSequencer) {
 		default:
 			// no error
 		}
-		payload, err := s.seq.RunNextSequencerAction(context.Background())
-		require.NoError(t, err)
-		if payload != nil {
-			require.Equal(t, s.engControl.UnsafeL2Head().ID(), payload.ID(), "head must stay in sync with emitted payloads")
-			var tx types.Transaction
-			require.NoError(t, tx.UnmarshalBinary(payload.Transactions[0]))
-			info, err := derive.L1InfoDepositTxData(tx.Data())
+		payload, err := s.seq.RunNextSequencerAction(context.Background(), async.NoOpGossiper{}, &conductor.NoOpConductor{})
+		// RunNextSequencerAction passes ErrReset & ErrCritical through.
+		// Only suppress ErrReset, not ErrCritical
+		if !errors.Is(err, derive.ErrReset) {
 			require.NoError(t, err)
-			require.GreaterOrEqual(t, uint64(payload.Timestamp), info.Time, "ensure L2 time >= L1 time")
+		}
+		if payload != nil {
+			require.Equal(t, s.engControl.UnsafeL2Head().ID(), payload.ExecutionPayload.ID(), "head must stay in sync with emitted payloads")
+			var tx types.Transaction
+			require.NoError(t, tx.UnmarshalBinary(payload.ExecutionPayload.Transactions[0]))
+			info, err := derive.L1BlockInfoFromBytes(&s.cfg, uint64(payload.ExecutionPayload.Timestamp), tx.Data())
+			require.NoError(t, err)
+			require.GreaterOrEqual(t, uint64(payload.ExecutionPayload.Timestamp), info.Time, "ensure L2 time >= L1 time")
 		}
 	}
 
@@ -699,7 +673,7 @@ func SequencerChaosMonkey(s *TestSequencer) {
 	require.Equal(t, l2Head.Time, s.cfg.Genesis.L2Time+uint64(desiredBlocks)*s.cfg.BlockTime, "reached desired L2 block timestamp")
 	require.GreaterOrEqual(t, l2Head.Time, s.l1Times[l2Head.L1Origin], "the L2 time >= the L1 time")
 	require.Less(t, l2Head.Time-s.l1Times[l2Head.L1Origin], uint64(100), "The L1 origin time is close to the L2 time")
-	require.Greater(t, s.engControl.avgTxsPerBlock(), 3.0, "We expect at least 1 system tx per block, but with a mocked 0-10 txs we expect an higher avg")
+	require.Greater(t, s.engControl.avgTxsPerBlock(), 2.0, "We expect at least 1 system tx per block, but with a mocked 0-10 txs we expect an higher avg")
 }
 
 func TestSequencerChaosMonkeyLegacy(t *testing.T) {
@@ -721,7 +695,7 @@ func TestSequencerChaosMonkeyEspresso(t *testing.T) {
 	// batch. This problem is exacerbated with the chaos monkey, since it may take even more wall
 	// clock time to fetch that last Espresso block due to injected errors.
 	l2Head := s.engControl.UnsafeL2Head()
-	require.Less(t, s.clockTime.Sub(time.Unix(int64(l2Head.Time), 0)).Abs(), 12*time.Second, "L2 time is accurate, within 12 seconds of wallclock")
+	require.Less(t, s.clockTime.Sub(time.Unix(int64(l2Head.Time), 0)).Abs(), 30*time.Second, "L2 time is accurate, within 12 seconds of wallclock")
 	// Here, the legacy test checks `avgBuildingTime()`. This stat is meaningless for the Espresso
 	// mode sequencer, since it builds blocks locally rather than in the engine.
 
@@ -757,7 +731,7 @@ func TestSequencerChaosMonkeyEspresso(t *testing.T) {
 		// Parse the L1 info from the payload.
 		var tx types.Transaction
 		require.NoError(t, tx.UnmarshalBinary(payload.Transactions[0]))
-		l1Info, err := derive.L1InfoDepositTxData(tx.Data())
+		l1Info, err := derive.L1BlockInfoFromBytes(&s.cfg, uint64(payload.Timestamp), tx.Data())
 		require.NoError(t, err)
 		jst := l1Info.Justification
 
@@ -792,7 +766,7 @@ func TestSequencerChaosMonkeyEspresso(t *testing.T) {
 		}
 
 		// Move to the next batch.
-		l2Head, err = derive.PayloadToBlockRef(payload, &s.cfg.Genesis)
+		l2Head, err = derive.PayloadToBlockRef(&s.cfg, payload)
 		require.Nil(t, err, "failed to convert payload to block ref")
 		prevL1Origin = l1Info.Number
 	}

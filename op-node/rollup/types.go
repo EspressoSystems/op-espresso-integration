@@ -75,11 +75,25 @@ type Config struct {
 	// Active if RegolithTime != nil && L2 block timestamp >= *RegolithTime, inactive otherwise.
 	RegolithTime *uint64 `json:"regolith_time,omitempty"`
 
-	// CanyonTime  sets the activation time of the next network upgrade.
+	// CanyonTime sets the activation time of the Canyon network upgrade.
 	// Active if CanyonTime != nil && L2 block timestamp >= *CanyonTime, inactive otherwise.
 	CanyonTime *uint64 `json:"canyon_time,omitempty"`
 
-	SpanBatchTime *uint64 `json:"span_batch_time,omitempty"`
+	// DeltaTime sets the activation time of the Delta network upgrade.
+	// Active if DeltaTime != nil && L2 block timestamp >= *DeltaTime, inactive otherwise.
+	DeltaTime *uint64 `json:"delta_time,omitempty"`
+
+	// EcotoneTime sets the activation time of the Ecotone network upgrade.
+	// Active if EcotoneTime != nil && L2 block timestamp >= *EcotoneTime, inactive otherwise.
+	EcotoneTime *uint64 `json:"ecotone_time,omitempty"`
+
+	// FjordTime sets the activation time of the Fjord network upgrade.
+	// Active if FjordTime != nil && L2 block timestamp >= *FjordTime, inactive otherwise.
+	FjordTime *uint64 `json:"fjord_time,omitempty"`
+
+	// InteropTime sets the activation time for an experimental feature-set, activated like a hardfork.
+	// Active if InteropTime != nil && L2 block timestamp >= *InteropTime, inactive otherwise.
+	InteropTime *uint64 `json:"interop_time,omitempty"`
 
 	// Note: below addresses are part of the block-derivation process,
 	// and required to be the same network-wide to stay in consensus.
@@ -95,6 +109,9 @@ type Config struct {
 
 	// L1 address that declares the protocol versions, optional (Beta feature)
 	ProtocolVersionsAddress common.Address `json:"protocol_versions_address,omitempty"`
+
+	// L1 block timestamp to start reading blobs as batch data-source. Optional.
+	BlobsEnabledL1Timestamp *uint64 `json:"blobs_data,omitempty"`
 }
 
 // ValidateL1Config checks L1 config variables for errors.
@@ -113,13 +130,16 @@ func (cfg *Config) ValidateL1Config(ctx context.Context, client L1Client) error 
 }
 
 // ValidateL2Config checks L2 config variables for errors.
-func (cfg *Config) ValidateL2Config(ctx context.Context, client L2Client) error {
+func (cfg *Config) ValidateL2Config(ctx context.Context, client L2Client, skipL2GenesisBlockHash bool) error {
 	// Validate the L2 Client Chain ID
 	if err := cfg.CheckL2ChainID(ctx, client); err != nil {
 		return err
 	}
 
-	// Validate the Rollup L2 Genesis Blockhash
+	// Validate the Rollup L2 Genesis Blockhash if requested. We skip this when doing EL sync
+	if skipL2GenesisBlockHash {
+		return nil
+	}
 	if err := cfg.CheckL2GenesisBlockHash(ctx, client); err != nil {
 		return err
 	}
@@ -263,7 +283,7 @@ func (cfg *Config) Check() error {
 }
 
 func (c *Config) L1Signer() types.Signer {
-	return types.NewLondonSigner(c.L1ChainID)
+	return types.NewCancunSigner(c.L1ChainID)
 }
 
 // IsRegolith returns true if the Regolith hardfork is active at or past the given timestamp.
@@ -276,8 +296,32 @@ func (c *Config) IsCanyon(timestamp uint64) bool {
 	return c.CanyonTime != nil && timestamp >= *c.CanyonTime
 }
 
-func (c *Config) IsSpanBatch(timestamp uint64) bool {
-	return c.SpanBatchTime != nil && timestamp >= *c.SpanBatchTime
+// IsDelta returns true if the Delta hardfork is active at or past the given timestamp.
+func (c *Config) IsDelta(timestamp uint64) bool {
+	return c.DeltaTime != nil && timestamp >= *c.DeltaTime
+}
+
+// IsEcotone returns true if the Ecotone hardfork is active at or past the given timestamp.
+func (c *Config) IsEcotone(timestamp uint64) bool {
+	return c.EcotoneTime != nil && timestamp >= *c.EcotoneTime
+}
+
+// IsEcotoneActivationBlock returns whether the specified block is the first block subject to the
+// Ecotone upgrade. Ecotone activation at genesis does not count.
+func (c *Config) IsEcotoneActivationBlock(l2BlockTime uint64) bool {
+	return c.IsEcotone(l2BlockTime) &&
+		l2BlockTime >= c.BlockTime &&
+		!c.IsEcotone(l2BlockTime-c.BlockTime)
+}
+
+// IsFjord returns true if the Fjord hardfork is active at or past the given timestamp.
+func (c *Config) IsFjord(timestamp uint64) bool {
+	return c.FjordTime != nil && timestamp >= *c.FjordTime
+}
+
+// IsInterop returns true if the Interop hardfork is active at or past the given timestamp.
+func (c *Config) IsInterop(timestamp uint64) bool {
+	return c.InteropTime != nil && timestamp >= *c.InteropTime
 }
 
 // Description outputs a banner describing the important parts of rollup configuration in a human-readable form.
@@ -308,7 +352,10 @@ func (c *Config) Description(l2Chains map[string]string) string {
 	banner += "Post-Bedrock Network Upgrades (timestamp based):\n"
 	banner += fmt.Sprintf("  - Regolith: %s\n", fmtForkTimeOrUnset(c.RegolithTime))
 	banner += fmt.Sprintf("  - Canyon: %s\n", fmtForkTimeOrUnset(c.CanyonTime))
-	banner += fmt.Sprintf("  - SpanBatch: %s\n", fmtForkTimeOrUnset(c.SpanBatchTime))
+	banner += fmt.Sprintf("  - Delta: %s\n", fmtForkTimeOrUnset(c.DeltaTime))
+	banner += fmt.Sprintf("  - Ecotone: %s\n", fmtForkTimeOrUnset(c.EcotoneTime))
+	banner += fmt.Sprintf("  - Fjord: %s\n", fmtForkTimeOrUnset(c.FjordTime))
+	banner += fmt.Sprintf("  - Interop: %s\n", fmtForkTimeOrUnset(c.InteropTime))
 	// Report the protocol version
 	banner += fmt.Sprintf("Node supports up to OP-Stack Protocol Version: %s\n", OPStackSupport)
 	return banner
@@ -335,7 +382,10 @@ func (c *Config) LogDescription(log log.Logger, l2Chains map[string]string) {
 		"l2_block_number", c.Genesis.L2.Number, "l1_block_hash", c.Genesis.L1.Hash.String(),
 		"l1_block_number", c.Genesis.L1.Number, "regolith_time", fmtForkTimeOrUnset(c.RegolithTime),
 		"canyon_time", fmtForkTimeOrUnset(c.CanyonTime),
-		"span_batch_time", fmtForkTimeOrUnset(c.SpanBatchTime),
+		"delta_time", fmtForkTimeOrUnset(c.DeltaTime),
+		"ecotone_time", fmtForkTimeOrUnset(c.EcotoneTime),
+		"fjord_time", fmtForkTimeOrUnset(c.FjordTime),
+		"interop_time", fmtForkTimeOrUnset(c.InteropTime),
 	)
 }
 

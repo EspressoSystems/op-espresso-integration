@@ -8,18 +8,24 @@ import (
 	"io"
 	"math/big"
 
+	"github.com/holiman/uint256"
+	"github.com/stretchr/testify/require"
+
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/consensus/misc/eip4844"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/stretchr/testify/require"
 
 	"github.com/ethereum-optimism/optimism/op-batcher/compressor"
+	batcherFlags "github.com/ethereum-optimism/optimism/op-batcher/flags"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 )
 
 type SyncStatusAPI interface {
@@ -44,6 +50,24 @@ type BatcherCfg struct {
 	BatcherKey *ecdsa.PrivateKey
 
 	GarbageCfg *GarbageChannelCfg
+
+	ForceSubmitSingularBatch bool
+	ForceSubmitSpanBatch     bool
+
+	DataAvailabilityType batcherFlags.DataAvailabilityType
+}
+
+func DefaultBatcherCfg(dp *e2eutils.DeployParams) *BatcherCfg {
+	return &BatcherCfg{
+		MinL1TxSize:          0,
+		MaxL1TxSize:          128_000,
+		BatcherKey:           dp.Secrets.Batcher,
+		DataAvailabilityType: batcherFlags.CalldataType,
+	}
+}
+
+type L2BlockRefs interface {
+	L2BlockRefByHash(ctx context.Context, hash common.Hash) (eth.L2BlockRef, error)
 }
 
 // L2Batcher buffers and submits L2 batches to L1.
@@ -59,24 +83,28 @@ type L2Batcher struct {
 	syncStatusAPI SyncStatusAPI
 	l2            BlocksAPI
 	l1            L1TxAPI
+	engCl         L2BlockRefs
 
 	l1Signer types.Signer
 
 	l2ChannelOut     ChannelOutIface
 	l2Submitting     bool // when the channel out is being submitted, and not safe to write to without resetting
-	l2BufferedBlock  eth.BlockID
-	l2SubmittedBlock eth.BlockID
+	l2BufferedBlock  eth.L2BlockRef
+	l2SubmittedBlock eth.L2BlockRef
 	l2BatcherCfg     *BatcherCfg
 	batcherAddr      common.Address
+
+	LastSubmitted *types.Transaction
 }
 
-func NewL2Batcher(log log.Logger, rollupCfg *rollup.Config, batcherCfg *BatcherCfg, api SyncStatusAPI, l1 L1TxAPI, l2 BlocksAPI) *L2Batcher {
+func NewL2Batcher(log log.Logger, rollupCfg *rollup.Config, batcherCfg *BatcherCfg, api SyncStatusAPI, l1 L1TxAPI, l2 BlocksAPI, engCl L2BlockRefs) *L2Batcher {
 	return &L2Batcher{
 		log:           log,
 		rollupCfg:     rollupCfg,
 		syncStatusAPI: api,
 		l1:            l1,
 		l2:            l2,
+		engCl:         engCl,
 		l2BatcherCfg:  batcherCfg,
 		l1Signer:      types.LatestSignerForChainID(rollupCfg.L1ChainID),
 		batcherAddr:   crypto.PubkeyToAddress(batcherCfg.BatcherKey.PublicKey),
@@ -103,30 +131,38 @@ func (s *L2Batcher) Buffer(t Testing) error {
 	syncStatus, err := s.syncStatusAPI.SyncStatus(t.Ctx())
 	require.NoError(t, err, "no sync status error")
 	// If we just started, start at safe-head
-	if s.l2SubmittedBlock == (eth.BlockID{}) {
+	if s.l2SubmittedBlock == (eth.L2BlockRef{}) {
 		s.log.Info("Starting batch-submitter work at safe-head", "safe", syncStatus.SafeL2)
-		s.l2SubmittedBlock = syncStatus.SafeL2.ID()
-		s.l2BufferedBlock = syncStatus.SafeL2.ID()
+		s.l2SubmittedBlock = syncStatus.SafeL2
+		s.l2BufferedBlock = syncStatus.SafeL2
 		s.l2ChannelOut = nil
 	}
 	// If it's lagging behind, catch it up.
 	if s.l2SubmittedBlock.Number < syncStatus.SafeL2.Number {
 		s.log.Warn("last submitted block lagged behind L2 safe head: batch submission will continue from the safe head now", "last", s.l2SubmittedBlock, "safe", syncStatus.SafeL2)
-		s.l2SubmittedBlock = syncStatus.SafeL2.ID()
-		s.l2BufferedBlock = syncStatus.SafeL2.ID()
+		s.l2SubmittedBlock = syncStatus.SafeL2
+		s.l2BufferedBlock = syncStatus.SafeL2
 		s.l2ChannelOut = nil
 	}
 	// Add the next unsafe block to the channel
 	if s.l2BufferedBlock.Number >= syncStatus.UnsafeL2.Number {
 		if s.l2BufferedBlock.Number > syncStatus.UnsafeL2.Number || s.l2BufferedBlock.Hash != syncStatus.UnsafeL2.Hash {
 			s.log.Error("detected a reorg in L2 chain vs previous buffered information, resetting to safe head now", "safe_head", syncStatus.SafeL2)
-			s.l2SubmittedBlock = syncStatus.SafeL2.ID()
-			s.l2BufferedBlock = syncStatus.SafeL2.ID()
+			s.l2SubmittedBlock = syncStatus.SafeL2
+			s.l2BufferedBlock = syncStatus.SafeL2
 			s.l2ChannelOut = nil
 		} else {
 			s.log.Info("nothing left to submit")
 			return nil
 		}
+	}
+	block, err := s.l2.BlockByNumber(t.Ctx(), big.NewInt(int64(s.l2BufferedBlock.Number+1)))
+	require.NoError(t, err, "need l2 block %d from sync status", s.l2SubmittedBlock.Number+1)
+	if block.ParentHash() != s.l2BufferedBlock.Hash {
+		s.log.Error("detected a reorg in L2 chain vs previous submitted information, resetting to safe head now", "safe_head", syncStatus.SafeL2)
+		s.l2SubmittedBlock = syncStatus.SafeL2
+		s.l2BufferedBlock = syncStatus.SafeL2
+		s.l2ChannelOut = nil
 	}
 	// Create channel if we don't have one yet
 	if s.l2ChannelOut == nil {
@@ -140,23 +176,30 @@ func (s *L2Batcher) Buffer(t Testing) error {
 				ApproxComprRatio: 1,
 			})
 			require.NoError(t, e, "failed to create compressor")
-			ch, err = derive.NewChannelOut(derive.SingularBatchType, c, nil)
+
+			var batchType uint = derive.SingularBatchType
+			var spanBatchBuilder *derive.SpanBatchBuilder = nil
+
+			if s.l2BatcherCfg.ForceSubmitSingularBatch && s.l2BatcherCfg.ForceSubmitSpanBatch {
+				t.Fatalf("ForceSubmitSingularBatch and ForceSubmitSpanBatch cannot be set to true at the same time")
+			} else if s.l2BatcherCfg.ForceSubmitSingularBatch {
+				// use SingularBatchType
+			} else if s.l2BatcherCfg.ForceSubmitSpanBatch || s.rollupCfg.IsDelta(block.Time()) {
+				// If both ForceSubmitSingularBatch and ForceSubmitSpanbatch are false, use SpanBatch automatically if Delta HF is activated.
+				batchType = derive.SpanBatchType
+				spanBatchBuilder = derive.NewSpanBatchBuilder(s.rollupCfg.Genesis.L2Time, s.rollupCfg.L2ChainID)
+			}
+			ch, err = derive.NewChannelOut(batchType, c, spanBatchBuilder)
 		}
 		require.NoError(t, err, "failed to create channel")
 		s.l2ChannelOut = ch
 	}
-	block, err := s.l2.BlockByNumber(t.Ctx(), big.NewInt(int64(s.l2BufferedBlock.Number+1)))
-	require.NoError(t, err, "need l2 block %d from sync status", s.l2SubmittedBlock.Number+1)
-	if block.ParentHash() != s.l2BufferedBlock.Hash {
-		s.log.Error("detected a reorg in L2 chain vs previous submitted information, resetting to safe head now", "safe_head", syncStatus.SafeL2)
-		s.l2SubmittedBlock = syncStatus.SafeL2.ID()
-		s.l2BufferedBlock = syncStatus.SafeL2.ID()
-		s.l2ChannelOut = nil
-	}
-	if _, err := s.l2ChannelOut.AddBlock(block); err != nil { // should always succeed
+	if _, err := s.l2ChannelOut.AddBlock(s.rollupCfg, block); err != nil { // should always succeed
 		return err
 	}
-	s.l2BufferedBlock = eth.ToBlockID(block)
+	ref, err := s.engCl.L2BlockRefByHash(t.Ctx(), block.Hash())
+	require.NoError(t, err, "failed to get L2BlockRef")
+	s.l2BufferedBlock = ref
 	return nil
 }
 
@@ -196,26 +239,58 @@ func (s *L2Batcher) ActL2BatchSubmit(t Testing, txOpts ...func(tx *types.Dynamic
 	require.NoError(t, err, "need l1 pending header for gas price estimation")
 	gasFeeCap := new(big.Int).Add(gasTipCap, new(big.Int).Mul(pendingHeader.BaseFee, big.NewInt(2)))
 
-	rawTx := &types.DynamicFeeTx{
-		ChainID:   s.rollupCfg.L1ChainID,
-		Nonce:     nonce,
-		To:        &s.rollupCfg.BatchInboxAddress,
-		GasTipCap: gasTipCap,
-		GasFeeCap: gasFeeCap,
-		Data:      data.Bytes(),
-	}
-	for _, opt := range txOpts {
-		opt(rawTx)
-	}
-	gas, err := core.IntrinsicGas(rawTx.Data, nil, false, true, true, false)
-	require.NoError(t, err, "need to compute intrinsic gas")
-	rawTx.Gas = gas
+	var txData types.TxData
+	if s.l2BatcherCfg.DataAvailabilityType == batcherFlags.CalldataType {
+		rawTx := &types.DynamicFeeTx{
+			ChainID:   s.rollupCfg.L1ChainID,
+			Nonce:     nonce,
+			To:        &s.rollupCfg.BatchInboxAddress,
+			GasTipCap: gasTipCap,
+			GasFeeCap: gasFeeCap,
+			Data:      data.Bytes(),
+		}
+		for _, opt := range txOpts {
+			opt(rawTx)
+		}
 
-	tx, err := types.SignNewTx(s.l2BatcherCfg.BatcherKey, s.l1Signer, rawTx)
+		gas, err := core.IntrinsicGas(rawTx.Data, nil, false, true, true, false)
+		require.NoError(t, err, "need to compute intrinsic gas")
+		rawTx.Gas = gas
+		txData = rawTx
+	} else if s.l2BatcherCfg.DataAvailabilityType == batcherFlags.BlobsType {
+		var b eth.Blob
+		require.NoError(t, b.FromData(data.Bytes()), "must turn data into blob")
+		sidecar, blobHashes, err := txmgr.MakeSidecar([]*eth.Blob{&b})
+		require.NoError(t, err)
+		require.NotNil(t, pendingHeader.ExcessBlobGas, "need L1 header with 4844 properties")
+		blobBaseFee := eip4844.CalcBlobFee(*pendingHeader.ExcessBlobGas)
+		blobFeeCap := new(uint256.Int).Mul(uint256.NewInt(2), uint256.MustFromBig(blobBaseFee))
+		if blobFeeCap.Lt(uint256.NewInt(params.GWei)) { // ensure we meet 1 gwei geth tx-pool minimum
+			blobFeeCap = uint256.NewInt(params.GWei)
+		}
+		txData = &types.BlobTx{
+			To:         s.rollupCfg.BatchInboxAddress,
+			Data:       nil,
+			Gas:        params.TxGas, // intrinsic gas only
+			BlobHashes: blobHashes,
+			Sidecar:    sidecar,
+			ChainID:    uint256.MustFromBig(s.rollupCfg.L1ChainID),
+			GasTipCap:  uint256.MustFromBig(gasTipCap),
+			GasFeeCap:  uint256.MustFromBig(gasFeeCap),
+			BlobFeeCap: blobFeeCap,
+			Value:      uint256.NewInt(0),
+			Nonce:      nonce,
+		}
+	} else {
+		t.Fatalf("unrecognized DA type: %q", string(s.l2BatcherCfg.DataAvailabilityType))
+	}
+
+	tx, err := types.SignNewTx(s.l2BatcherCfg.BatcherKey, s.l1Signer, txData)
 	require.NoError(t, err, "need to sign tx")
 
 	err = s.l1.SendTransaction(t.Ctx(), tx)
 	require.NoError(t, err, "need to send tx")
+	s.LastSubmitted = tx
 }
 
 // ActL2BatchSubmitGarbage constructs a malformed channel frame and submits it to the

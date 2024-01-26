@@ -26,6 +26,12 @@ op-program-client-mips:
 	# verify output with: readelf -h bin/op-program-client.elf
 	# result is mips32, big endian, R3000
 
+reproducible-prestate:
+	@docker build --output ./bin/ --progress plain -f Dockerfile.repro ../
+	@echo "Absolute prestate hash:"
+	@cat ./bin/prestate-proof.json | jq -r .pre
+.PHONY: reproducible-prestate
+
 clean:
 	rm -rf bin "$(COMPAT_DIR)"
 
@@ -50,6 +56,12 @@ run-goerli-verify: op-program-host op-program-client
 
 .PHONY: \
 	op-program \
+	op-program-host \
+	op-program-client \
+	op-program-client-mips \
 	clean \
 	test \
-	lint
+	verify-goerli \
+	capture-goerli-verify \
+	capture-chain-test-data \
+	run-goerli-verify

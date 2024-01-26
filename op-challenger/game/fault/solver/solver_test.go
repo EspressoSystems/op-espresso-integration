@@ -6,14 +6,16 @@ import (
 	"testing"
 
 	faulttest "github.com/ethereum-optimism/optimism/op-challenger/game/fault/test"
+	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/trace"
 	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )
 
 func TestAttemptStep(t *testing.T) {
-	maxDepth := 3
-	claimBuilder := faulttest.NewAlphabetClaimBuilder(t, maxDepth)
+	maxDepth := types.Depth(3)
+	startingL2BlockNumber := big.NewInt(0)
+	claimBuilder := faulttest.NewAlphabetClaimBuilder(t, startingL2BlockNumber, maxDepth)
 
 	// Last accessible leaf is the second last trace index
 	// The root node is used for the last trace index and can only be attacked.
@@ -159,9 +161,9 @@ func TestAttemptStep(t *testing.T) {
 	for _, tableTest := range tests {
 		tableTest := tableTest
 		t.Run(tableTest.name, func(t *testing.T) {
-			builder := claimBuilder.GameBuilder(tableTest.agreeWithOutputRoot, !tableTest.agreeWithOutputRoot)
+			builder := claimBuilder.GameBuilder(!tableTest.agreeWithOutputRoot)
 			tableTest.setupGame(builder)
-			alphabetSolver := newClaimSolver(maxDepth, claimBuilder.CorrectTraceProvider())
+			alphabetSolver := newClaimSolver(maxDepth, trace.NewSimpleTraceAccessor(claimBuilder.CorrectTraceProvider()))
 			game := builder.Game
 			claims := game.Claims()
 			lastClaim := claims[len(claims)-1]

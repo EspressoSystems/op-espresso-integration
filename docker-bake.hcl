@@ -93,6 +93,19 @@ target "op-challenger" {
   tags = [for tag in split(",", IMAGE_TAGS) : "${REGISTRY}/${REPOSITORY}/op-challenger:${tag}"]
 }
 
+target "op-conductor" {
+  dockerfile = "Dockerfile"
+  context = "./op-conductor"
+  args = {
+    OP_STACK_GO_BUILDER = "op-stack-go"
+  }
+  contexts = {
+    op-stack-go: "target:op-stack-go"
+  }
+  platforms = split(",", PLATFORMS)
+  tags = [for tag in split(",", IMAGE_TAGS) : "${REGISTRY}/${REPOSITORY}/op-conductor:${tag}"]
+}
+
 target "op-heartbeat" {
   dockerfile = "Dockerfile"
   context = "./op-heartbeat"
@@ -132,9 +145,22 @@ target "op-geth-proxy" {
   tags = [for tag in split(",", IMAGE_TAGS) : "${REGISTRY}/${REPOSITORY}/op-geth-proxy:${tag}"]
 }
 
+target "op-ufm" {
+  dockerfile = "./op-ufm/Dockerfile"
+  context = "./"
+  args = {
+    // op-ufm dockerfile has no _ in the args
+    GITCOMMIT = "${GIT_COMMIT}"
+    GITDATE = "${GIT_DATE}"
+    GITVERSION = "${GIT_VERSION}"
+  }
+  platforms = split(",", PLATFORMS)
+  tags = [for tag in split(",", IMAGE_TAGS) : "${REGISTRY}/${REPOSITORY}/op-ufm:${tag}"]
+}
+
 target "proxyd" {
-  dockerfile = "Dockerfile"
-  context = "./proxyd"
+  dockerfile = "./proxyd/Dockerfile"
+  context = "./"
   args = {
     // proxyd dockerfile has no _ in the args
     GITCOMMIT = "${GIT_COMMIT}"
@@ -193,4 +219,10 @@ target "ci-builder" {
   tags = [for tag in split(",", IMAGE_TAGS) : "${REGISTRY}/${REPOSITORY}/ci-builder:${tag}"]
 }
 
-
+target "contracts-bedrock" {
+  dockerfile = "./ops/docker/Dockerfile.packages"
+  context = "."
+  target = "contracts-bedrock"
+  platforms = split(",", PLATFORMS)
+  tags = [for tag in split(",", IMAGE_TAGS) : "${REGISTRY}/${REPOSITORY}/contracts-bedrock:${tag}"]
+}

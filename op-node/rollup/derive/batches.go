@@ -78,10 +78,10 @@ func EspressoL1Origin(ctx context.Context, cfg *rollup.Config, sysCfg *eth.Syste
 			return l1.L1BlockRefByNumber(ctx, prev.Number)
 		}
 	}
-	// Constraint 2: the L1 origin number decreased.
-	//
-	// While Espresso _should_ guarantee that L1 origin numbers are monotonically increasing, a
-	// limitation in the current design means that on rare occasions the L1 origin number can
+	// Constraint 2: the L1 origin number decreased. This can happen if Espresso is giving us old L1
+	// origins, and we are forced to advance. If this happens to our parent, its L1 origin may be
+	// greater than the suggested one, and Espresso may _still_ be on the old origin, giving the
+	// appearance that the suggested origin has decreased relative tothe parent.
 	// decrease.
 	if suggested < prev.Number {
 		// In this case, we have no indication that new L1 blocks are ready. We don't want to
@@ -213,7 +213,7 @@ func CheckBatchEspresso(cfg *rollup.Config, sysCfg *eth.SystemConfig, log log.Lo
 // CheckBatch checks if the given batch can be applied on top of the given l2SafeHead, given the contextual L1 blocks the batch was included in.
 // The first entry of the l1Blocks should match the origin of the l2SafeHead. One or more consecutive l1Blocks should be provided.
 // In case of only a single L1 block, the decision whether a batch is valid may have to stay undecided.
-func CheckBatch(ctx context.Context, cfg *rollup.Config, sysCfg *eth.SystemConfig, log log.Logger, l1Blocks []eth.L1BlockRef,
+func CheckBatch(ctx context.Context, sysCfg *eth.SystemConfig, cfg *rollup.Config, log log.Logger, l1Blocks []eth.L1BlockRef,
 	l2SafeHead eth.L2BlockRef, batch *BatchWithL1InclusionBlock, l1 EspressoL1Provider, l2Fetcher SafeBlockFetcher) BatchValidity {
 	switch batch.Batch.GetBatchType() {
 	case SingularBatchType:
@@ -227,10 +227,6 @@ func CheckBatch(ctx context.Context, cfg *rollup.Config, sysCfg *eth.SystemConfi
 		spanBatch, ok := batch.Batch.(*SpanBatch)
 		if !ok {
 			log.Error("failed type assertion to SpanBatch")
-			return BatchDrop
-		}
-		if !cfg.IsSpanBatch(batch.Batch.GetTimestamp()) {
-			log.Warn("received SpanBatch before SpanBatch hard fork")
 			return BatchDrop
 		}
 		return checkSpanBatch(ctx, cfg, log, l1Blocks, l2SafeHead, spanBatch, batch.L1InclusionBlock, l2Fetcher)
@@ -443,6 +439,20 @@ func checkSpanBatch(ctx context.Context, cfg *rollup.Config, log log.Logger, l1B
 	}
 	epoch := l1Blocks[0]
 
+	startEpochNum := uint64(batch.GetStartEpochNum())
+	batchOrigin := epoch
+	if startEpochNum == batchOrigin.Number+1 {
+		if len(l1Blocks) < 2 {
+			log.Info("eager batch wants to advance epoch, but could not without more L1 blocks", "current_epoch", epoch.ID())
+			return BatchUndecided
+		}
+		batchOrigin = l1Blocks[1]
+	}
+	if !cfg.IsDelta(batchOrigin.Time) {
+		log.Warn("received SpanBatch with L1 origin before Delta hard fork", "l1_origin", batchOrigin.ID(), "l1_origin_time", batchOrigin.Time)
+		return BatchDrop
+	}
+
 	nextTimestamp := l2SafeHead.Time + cfg.BlockTime
 
 	if batch.GetTimestamp() > nextTimestamp {
@@ -461,18 +471,18 @@ func checkSpanBatch(ctx context.Context, cfg *rollup.Config, log log.Logger, l1B
 	if batch.GetTimestamp() < nextTimestamp {
 		if batch.GetTimestamp() > l2SafeHead.Time {
 			// batch timestamp cannot be between safe head and next timestamp
-			log.Warn("batch has misaligned timestamp")
+			log.Warn("batch has misaligned timestamp, block time is too short")
 			return BatchDrop
 		}
 		if (l2SafeHead.Time-batch.GetTimestamp())%cfg.BlockTime != 0 {
-			log.Warn("batch has misaligned timestamp")
+			log.Warn("batch has misaligned timestamp, not overlapped exactly")
 			return BatchDrop
 		}
 		parentNum = l2SafeHead.Number - (l2SafeHead.Time-batch.GetTimestamp())/cfg.BlockTime - 1
 		var err error
 		parentBlock, err = l2Fetcher.L2BlockRefByNumber(ctx, parentNum)
 		if err != nil {
-			log.Error("failed to fetch L2 block", "number", parentNum, "err", err)
+			log.Warn("failed to fetch L2 block", "number", parentNum, "err", err)
 			// unable to validate the batch for now. retry later.
 			return BatchUndecided
 		}
@@ -481,8 +491,6 @@ func checkSpanBatch(ctx context.Context, cfg *rollup.Config, log log.Logger, l1B
 		log.Warn("ignoring batch with mismatching parent hash", "parent_block", parentBlock.Hash)
 		return BatchDrop
 	}
-
-	startEpochNum := uint64(batch.GetStartEpochNum())
 
 	// Filter out batches that were included too late.
 	if startEpochNum+cfg.SeqWindowSize < l1InclusionBlock.Number {
@@ -594,11 +602,11 @@ func checkSpanBatch(ctx context.Context, cfg *rollup.Config, log log.Logger, l1B
 			safeBlockNum := parentNum + i + 1
 			safeBlockPayload, err := l2Fetcher.PayloadByNumber(ctx, safeBlockNum)
 			if err != nil {
-				log.Error("failed to fetch L2 block payload", "number", parentNum, "err", err)
+				log.Warn("failed to fetch L2 block payload", "number", parentNum, "err", err)
 				// unable to validate the batch for now. retry later.
 				return BatchUndecided
 			}
-			safeBlockTxs := safeBlockPayload.Transactions
+			safeBlockTxs := safeBlockPayload.ExecutionPayload.Transactions
 			batchTxs := batch.GetBlockTransactions(int(i))
 			// execution payload has deposit TXs, but batch does not.
 			depositCount := 0
@@ -617,9 +625,9 @@ func checkSpanBatch(ctx context.Context, cfg *rollup.Config, log log.Logger, l1B
 					return BatchDrop
 				}
 			}
-			safeBlockRef, err := PayloadToBlockRef(safeBlockPayload, &cfg.Genesis)
+			safeBlockRef, err := PayloadToBlockRef(cfg, safeBlockPayload.ExecutionPayload)
 			if err != nil {
-				log.Error("failed to extract L2BlockRef from execution payload", "hash", safeBlockPayload.BlockHash, "err", err)
+				log.Error("failed to extract L2BlockRef from execution payload", "hash", safeBlockPayload.ExecutionPayload.BlockHash, "err", err)
 				return BatchDrop
 			}
 			if safeBlockRef.L1Origin.Number != batch.GetBlockEpochNum(int(i)) {

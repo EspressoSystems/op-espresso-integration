@@ -8,11 +8,6 @@ import { ResourceMetering } from "src/L1/ResourceMetering.sol";
 import { Constants } from "src/libraries/Constants.sol";
 
 contract SystemConfig_GasLimitLowerBound_Invariant is Test {
-    struct FuzzInterface {
-        address target;
-        string[] artifacts;
-    }
-
     SystemConfig public config;
 
     function setUp() external {
@@ -35,7 +30,6 @@ contract SystemConfig_GasLimitLowerBound_Invariant is Test {
                         espressoL1ConfDepth: 0,
                         unsafeBlockSigner: address(1),
                         config: Constants.DEFAULT_RESOURCE_CONFIG(),
-                        startBlock: 0,
                         batchInbox: address(0),
                         addresses: SystemConfig.Addresses({
                             l1CrossDomainMessenger: address(0),
@@ -63,19 +57,14 @@ contract SystemConfig_GasLimitLowerBound_Invariant is Test {
         selectors[0] = config.setGasLimit.selector;
         FuzzSelector memory selector = FuzzSelector({ addr: address(config), selectors: selectors });
         targetSelector(selector);
-    }
 
-    /// @dev Allows the SystemConfig contract to be the target of the invariant test
-    ///      when it is behind a proxy. Foundry calls this function under the hood to
-    ///      know the ABI to use when calling the target contract.
-    function targetInterfaces() public view returns (FuzzInterface[] memory) {
-        require(address(config) != address(0), "SystemConfig not initialized");
-
-        FuzzInterface[] memory targets = new FuzzInterface[](1);
+        /// Allows the SystemConfig contract to be the target of the invariant test
+        /// when it is behind a proxy. Foundry calls this function under the hood to
+        /// know the ABI to use when calling the target contract.
         string[] memory artifacts = new string[](1);
         artifacts[0] = "SystemConfig";
-        targets[0] = FuzzInterface(address(config), artifacts);
-        return targets;
+        FuzzInterface memory target = FuzzInterface(address(config), artifacts);
+        targetInterface(target);
     }
 
     /// @custom:invariant The gas limit of the `SystemConfig` contract can never be lower

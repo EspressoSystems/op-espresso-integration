@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/chaincfg"
 	preimage "github.com/ethereum-optimism/optimism/op-preimage"
 	cl "github.com/ethereum-optimism/optimism/op-program/client"
-	"github.com/ethereum-optimism/optimism/op-program/client/driver"
 	"github.com/ethereum-optimism/optimism/op-program/host/config"
 	"github.com/ethereum-optimism/optimism/op-program/host/flags"
 	"github.com/ethereum-optimism/optimism/op-program/host/kvstore"
@@ -44,13 +43,10 @@ func Main(logger log.Logger, cfg *config.Config) error {
 		return PreimageServer(ctx, logger, cfg, preimageChan, hinterChan)
 	}
 
-	if err := FaultProofProgram(ctx, logger, cfg); errors.Is(err, driver.ErrClaimNotValid) {
-		log.Crit("Claim is invalid", "err", err)
-	} else if err != nil {
+	if err := FaultProofProgram(ctx, logger, cfg); err != nil {
 		return err
-	} else {
-		log.Info("Claim successfully verified")
 	}
+	log.Info("Claim successfully verified")
 	return nil
 }
 
@@ -174,7 +170,7 @@ func PreimageServer(ctx context.Context, logger log.Logger, cfg *config.Config, 
 
 	localPreimageSource := kvstore.NewLocalPreimageSource(cfg)
 	splitter := kvstore.NewPreimageSourceSplitter(localPreimageSource.Get, getPreimage)
-	preimageGetter := splitter.Get
+	preimageGetter := preimage.WithVerification(splitter.Get)
 
 	serverDone = launchOracleServer(logger, preimageChannel, preimageGetter)
 	hinterDone = routeHints(logger, hintChannel, hinter)

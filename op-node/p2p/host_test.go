@@ -15,6 +15,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	mocknet "github.com/libp2p/go-libp2p/p2p/net/mock"
+	ma "github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/slices"
 
@@ -24,6 +25,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/ethereum-optimism/optimism/op-node/metrics"
+	"github.com/ethereum-optimism/optimism/op-node/p2p/store"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
@@ -71,10 +73,10 @@ func TestP2PSimple(t *testing.T) {
 }
 
 type mockGossipIn struct {
-	OnUnsafeL2PayloadFn func(ctx context.Context, from peer.ID, msg *eth.ExecutionPayload) error
+	OnUnsafeL2PayloadFn func(ctx context.Context, from peer.ID, msg *eth.ExecutionPayloadEnvelope) error
 }
 
-func (m *mockGossipIn) OnUnsafeL2Payload(ctx context.Context, from peer.ID, msg *eth.ExecutionPayload) error {
+func (m *mockGossipIn) OnUnsafeL2Payload(ctx context.Context, from peer.ID, msg *eth.ExecutionPayloadEnvelope) error {
 	if m.OnUnsafeL2PayloadFn != nil {
 		return m.OnUnsafeL2PayloadFn(ctx, from, msg)
 	}
@@ -118,7 +120,7 @@ func TestP2PFull(t *testing.T) {
 	runCfgB := &testutils.MockRuntimeConfig{P2PSeqAddress: common.Address{0x42}}
 
 	logA := testlog.Logger(t, log.LvlError).New("host", "A")
-	nodeA, err := NewNodeP2P(context.Background(), &rollup.Config{}, logA, &confA, &mockGossipIn{}, nil, runCfgA, metrics.NoopMetrics)
+	nodeA, err := NewNodeP2P(context.Background(), &rollup.Config{}, logA, &confA, &mockGossipIn{}, nil, runCfgA, metrics.NoopMetrics, false)
 	require.NoError(t, err)
 	defer nodeA.Close()
 
@@ -139,12 +141,22 @@ func TestP2PFull(t *testing.T) {
 	confB.StaticPeers, err = peer.AddrInfoToP2pAddrs(&peer.AddrInfo{ID: hostA.ID(), Addrs: hostA.Addrs()})
 	require.NoError(t, err)
 
+	// Add address of host B itself, it shouldn't connect or cause issues.
+	idB, err := peer.IDFromPublicKey(confB.Priv.GetPublic())
+	require.NoError(t, err)
+	altAddrB, err := ma.NewMultiaddr("/ip4/127.0.0.1/tcp/12345/p2p/" + idB.String())
+	require.NoError(t, err)
+	confB.StaticPeers = append(confB.StaticPeers, altAddrB)
+
 	logB := testlog.Logger(t, log.LvlError).New("host", "B")
 
-	nodeB, err := NewNodeP2P(context.Background(), &rollup.Config{}, logB, &confB, &mockGossipIn{}, nil, runCfgB, metrics.NoopMetrics)
+	nodeB, err := NewNodeP2P(context.Background(), &rollup.Config{}, logB, &confB, &mockGossipIn{}, nil, runCfgB, metrics.NoopMetrics, false)
 	require.NoError(t, err)
 	defer nodeB.Close()
 	hostB := nodeB.Host()
+
+	require.True(t, nodeB.IsStatic(hostA.ID()), "node A must be static peer of node B")
+	require.False(t, nodeB.IsStatic(hostB.ID()), "node B must not be static peer of node B itself")
 
 	select {
 	case <-time.After(time.Second):
@@ -268,7 +280,7 @@ func TestDiscovery(t *testing.T) {
 	resourcesCtx, resourcesCancel := context.WithCancel(context.Background())
 	defer resourcesCancel()
 
-	nodeA, err := NewNodeP2P(context.Background(), rollupCfg, logA, &confA, &mockGossipIn{}, nil, runCfgA, metrics.NoopMetrics)
+	nodeA, err := NewNodeP2P(context.Background(), rollupCfg, logA, &confA, &mockGossipIn{}, nil, runCfgA, metrics.NoopMetrics, false)
 	require.NoError(t, err)
 	defer nodeA.Close()
 	hostA := nodeA.Host()
@@ -283,7 +295,7 @@ func TestDiscovery(t *testing.T) {
 	confB.DiscoveryDB = discDBC
 
 	// Start B
-	nodeB, err := NewNodeP2P(context.Background(), rollupCfg, logB, &confB, &mockGossipIn{}, nil, runCfgB, metrics.NoopMetrics)
+	nodeB, err := NewNodeP2P(context.Background(), rollupCfg, logB, &confB, &mockGossipIn{}, nil, runCfgB, metrics.NoopMetrics, false)
 	require.NoError(t, err)
 	defer nodeB.Close()
 	hostB := nodeB.Host()
@@ -298,7 +310,7 @@ func TestDiscovery(t *testing.T) {
 		}})
 
 	// Start C
-	nodeC, err := NewNodeP2P(context.Background(), rollupCfg, logC, &confC, &mockGossipIn{}, nil, runCfgC, metrics.NoopMetrics)
+	nodeC, err := NewNodeP2P(context.Background(), rollupCfg, logC, &confC, &mockGossipIn{}, nil, runCfgC, metrics.NoopMetrics, false)
 	require.NoError(t, err)
 	defer nodeC.Close()
 	hostC := nodeC.Host()
@@ -321,6 +333,26 @@ func TestDiscovery(t *testing.T) {
 		case c := <-connsB:
 			peersOfB = append(peersOfB, c.RemotePeer())
 		}
+	}
+
+	// Check that among known connections (B-A, B-C), we have metadata
+	type mdcheck struct {
+		n1 *NodeP2P
+		n2 *NodeP2P
+	}
+	cases := []mdcheck{
+		{nodeB, nodeA},
+		{nodeB, nodeC},
+	}
+	for _, c := range cases {
+		// make peerstore metadata available
+		eps, ok := c.n1.Host().Peerstore().(store.ExtendedPeerstore)
+		require.True(t, ok)
+		// confirm n1 has metadata about n2
+		md, err := eps.GetPeerMetadata(c.n2.Host().ID())
+		require.NoError(t, err)
+		require.NotEmpty(t, md.ENR)
+		require.Equal(t, uint64(901), md.OPStackID)
 	}
 }
 

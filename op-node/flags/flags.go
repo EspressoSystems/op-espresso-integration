@@ -2,15 +2,16 @@ package flags
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
-	"github.com/ethereum-optimism/optimism/op-node/chaincfg"
-	openum "github.com/ethereum-optimism/optimism/op-service/enum"
-	oplog "github.com/ethereum-optimism/optimism/op-service/log"
-	"github.com/ethereum-optimism/optimism/op-service/sources"
-
 	"github.com/urfave/cli/v2"
+
+	"github.com/ethereum-optimism/optimism/op-node/rollup/sync"
+	openum "github.com/ethereum-optimism/optimism/op-service/enum"
+	opflags "github.com/ethereum-optimism/optimism/op-service/flags"
+	oplog "github.com/ethereum-optimism/optimism/op-service/log"
+	"github.com/ethereum-optimism/optimism/op-service/oppprof"
+	"github.com/ethereum-optimism/optimism/op-service/sources"
 )
 
 // Flags
@@ -34,17 +35,44 @@ var (
 		Usage:   "Address of L2 Engine JSON-RPC endpoints to use (engine and eth namespace required)",
 		EnvVars: prefixEnvVars("L2_ENGINE_RPC"),
 	}
-	RollupConfig = &cli.StringFlag{
-		Name:    "rollup.config",
-		Usage:   "Rollup chain parameters",
-		EnvVars: prefixEnvVars("ROLLUP_CONFIG"),
-	}
-	Network = &cli.StringFlag{
-		Name:    "network",
-		Usage:   fmt.Sprintf("Predefined network selection. Available networks: %s", strings.Join(chaincfg.AvailableNetworks(), ", ")),
-		EnvVars: prefixEnvVars("NETWORK"),
+	L2EngineJWTSecret = &cli.StringFlag{
+		Name:        "l2.jwt-secret",
+		Usage:       "Path to JWT secret key. Keys are 32 bytes, hex encoded in a file. A new key will be generated if the file is empty.",
+		EnvVars:     prefixEnvVars("L2_ENGINE_AUTH"),
+		Value:       "",
+		Destination: new(string),
 	}
 	/* Optional Flags */
+	BeaconAddr = &cli.StringFlag{
+		Name:     "l1.beacon",
+		Usage:    "Address of L1 Beacon-node HTTP endpoint to use.",
+		Required: false,
+		EnvVars:  prefixEnvVars("L1_BEACON"),
+	}
+	BeaconCheckIgnore = &cli.BoolFlag{
+		Name:     "l1.beacon.ignore",
+		Usage:    "When false, halts op-node startup if the healthcheck to the Beacon-node endpoint fails.",
+		Required: false,
+		Value:    false,
+		EnvVars:  prefixEnvVars("L1_BEACON_IGNORE"),
+	}
+	BeaconFetchAllSidecars = &cli.BoolFlag{
+		Name:     "l1.beacon.fetch-all-sidecars",
+		Usage:    "If true, all sidecars are fetched and filtered locally. Workaround for buggy Beacon nodes.",
+		Required: false,
+		Value:    false,
+		EnvVars:  prefixEnvVars("L1_BEACON_FETCH_ALL_SIDECARS"),
+	}
+	SyncModeFlag = &cli.GenericFlag{
+		Name:    "syncmode",
+		Usage:   fmt.Sprintf("IN DEVELOPMENT: Options are: %s", openum.EnumString(sync.ModeStrings)),
+		EnvVars: prefixEnvVars("SYNCMODE"),
+		Value: func() *sync.Mode {
+			out := sync.CLSync
+			return &out
+		}(),
+		Hidden: true,
+	}
 	RPCListenAddr = &cli.StringFlag{
 		Name:    "rpc.addr",
 		Usage:   "RPC listening address",
@@ -83,11 +111,16 @@ var (
 		}(),
 	}
 	L1RethDBPath = &cli.StringFlag{
-		Name:     "l1.rethdb",
-		Usage:    "The L1 RethDB path, used to fetch receipts for L1 blocks. Only applicable when using the `reth_db` RPC kind with `l1.rpckind`.",
-		EnvVars:  prefixEnvVars("L1_RETHDB"),
-		Required: false,
-		Hidden:   true,
+		Name:    "l1.rethdb",
+		Usage:   "The L1 RethDB path, used to fetch receipts for L1 blocks. Only applicable when using the `reth_db` RPC kind with `l1.rpckind`.",
+		EnvVars: prefixEnvVars("L1_RETHDB"),
+		Hidden:  true,
+	}
+	L1RPCMaxConcurrency = &cli.IntFlag{
+		Name:    "l1.max-concurrency",
+		Usage:   "Maximum number of concurrent RPC requests to make to the L1 RPC provider.",
+		EnvVars: prefixEnvVars("L1_MAX_CONCURRENCY"),
+		Value:   10,
 	}
 	L1RPCRateLimit = &cli.Float64Flag{
 		Name:    "l1.rpc-rate-limit",
@@ -107,20 +140,11 @@ var (
 		EnvVars: prefixEnvVars("L1_HTTP_POLL_INTERVAL"),
 		Value:   time.Second * 12,
 	}
-	L2EngineJWTSecret = &cli.StringFlag{
-		Name:        "l2.jwt-secret",
-		Usage:       "Path to JWT secret key. Keys are 32 bytes, hex encoded in a file. A new key will be generated if left empty.",
-		EnvVars:     prefixEnvVars("L2_ENGINE_AUTH"),
-		Required:    false,
-		Value:       "",
-		Destination: new(string),
-	}
 	VerifierL1Confs = &cli.Uint64Flag{
-		Name:     "verifier.l1-confs",
-		Usage:    "Number of L1 blocks to keep distance from the L1 head before deriving L2 data from. Reorgs are supported, but may be slow to perform.",
-		EnvVars:  prefixEnvVars("VERIFIER_L1_CONFS"),
-		Required: false,
-		Value:    0,
+		Name:    "verifier.l1-confs",
+		Usage:   "Number of L1 blocks to keep distance from the L1 head before deriving L2 data from. Reorgs are supported, but may be slow to perform.",
+		EnvVars: prefixEnvVars("VERIFIER_L1_CONFS"),
+		Value:   0,
 	}
 	SequencerEnabledFlag = &cli.BoolFlag{
 		Name:    "sequencer.enabled",
@@ -133,32 +157,28 @@ var (
 		EnvVars: prefixEnvVars("SEQUENCER_STOPPED"),
 	}
 	SequencerMaxSafeLagFlag = &cli.Uint64Flag{
-		Name:     "sequencer.max-safe-lag",
-		Usage:    "Maximum number of L2 blocks for restricting the distance between L2 safe and unsafe. Disabled if 0.",
-		EnvVars:  prefixEnvVars("SEQUENCER_MAX_SAFE_LAG"),
-		Required: false,
-		Value:    0,
+		Name:    "sequencer.max-safe-lag",
+		Usage:   "Maximum number of L2 blocks for restricting the distance between L2 safe and unsafe. Disabled if 0.",
+		EnvVars: prefixEnvVars("SEQUENCER_MAX_SAFE_LAG"),
+		Value:   0,
 	}
 	SequencerL1Confs = &cli.Uint64Flag{
-		Name:     "sequencer.l1-confs",
-		Usage:    "Number of L1 blocks to keep distance from the L1 head as a sequencer for picking an L1 origin.",
-		EnvVars:  prefixEnvVars("SEQUENCER_L1_CONFS"),
-		Required: false,
-		Value:    4,
+		Name:    "sequencer.l1-confs",
+		Usage:   "Number of L1 blocks to keep distance from the L1 head as a sequencer for picking an L1 origin.",
+		EnvVars: prefixEnvVars("SEQUENCER_L1_CONFS"),
+		Value:   4,
 	}
 	L1EpochPollIntervalFlag = &cli.DurationFlag{
-		Name:     "l1.epoch-poll-interval",
-		Usage:    "Poll interval for retrieving new L1 epoch updates such as safe and finalized block changes. Disabled if 0 or negative.",
-		EnvVars:  prefixEnvVars("L1_EPOCH_POLL_INTERVAL"),
-		Required: false,
-		Value:    time.Second * 12 * 32,
+		Name:    "l1.epoch-poll-interval",
+		Usage:   "Poll interval for retrieving new L1 epoch updates such as safe and finalized block changes. Disabled if 0 or negative.",
+		EnvVars: prefixEnvVars("L1_EPOCH_POLL_INTERVAL"),
+		Value:   time.Second * 12 * 32,
 	}
 	RuntimeConfigReloadIntervalFlag = &cli.DurationFlag{
-		Name:     "l1.runtime-config-reload-interval",
-		Usage:    "Poll interval for reloading the runtime config, useful when config events are not being picked up. Disabled if 0 or negative.",
-		EnvVars:  prefixEnvVars("L1_RUNTIME_CONFIG_RELOAD_INTERVAL"),
-		Required: false,
-		Value:    time.Minute * 10,
+		Name:    "l1.runtime-config-reload-interval",
+		Usage:   "Poll interval for reloading the runtime config, useful when config events are not being picked up. Disabled if 0 or negative.",
+		EnvVars: prefixEnvVars("L1_RUNTIME_CONFIG_RELOAD_INTERVAL"),
+		Value:   time.Minute * 10,
 	}
 	MetricsEnabledFlag = &cli.BoolFlag{
 		Name:    "metrics.enabled",
@@ -176,23 +196,6 @@ var (
 		Usage:   "Metrics listening port",
 		Value:   7300,
 		EnvVars: prefixEnvVars("METRICS_PORT"),
-	}
-	PprofEnabledFlag = &cli.BoolFlag{
-		Name:    "pprof.enabled",
-		Usage:   "Enable the pprof server",
-		EnvVars: prefixEnvVars("PPROF_ENABLED"),
-	}
-	PprofAddrFlag = &cli.StringFlag{
-		Name:    "pprof.addr",
-		Usage:   "pprof listening address",
-		Value:   "0.0.0.0", // TODO(CLI-4159): Switch to 127.0.0.1
-		EnvVars: prefixEnvVars("PPROF_ADDR"),
-	}
-	PprofPortFlag = &cli.IntFlag{
-		Name:    "pprof.port",
-		Usage:   "pprof listening port",
-		Value:   6060,
-		EnvVars: prefixEnvVars("PPROF_PORT"),
 	}
 	SnapshotLog = &cli.StringFlag{
 		Name:    "snapshotlog.file",
@@ -215,46 +218,6 @@ var (
 		EnvVars: prefixEnvVars("HEARTBEAT_URL"),
 		Value:   "https://heartbeat.optimism.io",
 	}
-	BackupL2UnsafeSyncRPC = &cli.StringFlag{
-		Name:     "l2.backup-unsafe-sync-rpc",
-		Usage:    "Set the backup L2 unsafe sync RPC endpoint.",
-		EnvVars:  prefixEnvVars("L2_BACKUP_UNSAFE_SYNC_RPC"),
-		Required: false,
-	}
-	BackupL2UnsafeSyncRPCTrustRPC = &cli.StringFlag{
-		Name: "l2.backup-unsafe-sync-rpc.trustrpc",
-		Usage: "Like l1.trustrpc, configure if response data from the RPC needs to be verified, e.g. blockhash computation." +
-			"This does not include checks if the blockhash is part of the canonical chain.",
-		EnvVars:  prefixEnvVars("L2_BACKUP_UNSAFE_SYNC_RPC_TRUST_RPC"),
-		Required: false,
-	}
-	L2EngineSyncEnabled = &cli.BoolFlag{
-		Name:     "l2.engine-sync",
-		Usage:    "Enables or disables execution engine P2P sync",
-		EnvVars:  prefixEnvVars("L2_ENGINE_SYNC_ENABLED"),
-		Required: false,
-		Value:    false,
-	}
-	SkipSyncStartCheck = &cli.BoolFlag{
-		Name: "l2.skip-sync-start-check",
-		Usage: "Skip sanity check of consistency of L1 origins of the unsafe L2 blocks when determining the sync-starting point. " +
-			"This defers the L1-origin verification, and is recommended to use in when utilizing l2.engine-sync",
-		EnvVars:  prefixEnvVars("L2_SKIP_SYNC_START_CHECK"),
-		Required: false,
-		Value:    false,
-	}
-	EspressoUrl = &cli.StringFlag{
-		Name:     "espresso",
-		Usage:    "Sets the URL for fetching data from the Espresso Sequencer. Required only if sequencing for an Espresso-enabled OP-chain",
-		EnvVars:  prefixEnvVars("ESPRESSO_URL"),
-		Required: false,
-	}
-	BetaExtraNetworks = &cli.BoolFlag{
-		Name:    "beta.extra-networks",
-		Usage:   "Legacy flag, ignored, all superchain-registry networks are enabled by default.",
-		EnvVars: prefixEnvVars("BETA_EXTRA_NETWORKS"),
-		Hidden:  true, // hidden, this is deprecated, the flag is not used anymore.
-	}
 	RollupHalt = &cli.StringFlag{
 		Name:    "rollup.halt",
 		Usage:   "Opt-in option to halt on incompatible protocol version requirements of the given level (major/minor/patch/none), as signaled onchain in L1",
@@ -265,31 +228,87 @@ var (
 		Usage:   "Load protocol versions from the superchain L1 ProtocolVersions contract (if available), and report in logs and metrics",
 		EnvVars: prefixEnvVars("ROLLUP_LOAD_PROTOCOL_VERSIONS"),
 	}
-	CanyonOverrideFlag = &cli.Uint64Flag{
-		Name:    "override.canyon",
-		Usage:   "Manually specify the Canyon fork timestamp, overriding the bundled setting",
-		EnvVars: prefixEnvVars("OVERRIDE_CANYON"),
-		Hidden:  false,
+	/* Deprecated Flags */
+	L2EngineSyncEnabled = &cli.BoolFlag{
+		Name:    "l2.engine-sync",
+		Usage:   "WARNING: Deprecated. Use --syncmode=execution-layer instead",
+		EnvVars: prefixEnvVars("L2_ENGINE_SYNC_ENABLED"),
+		Value:   false,
+		Hidden:  true,
+	}
+	SkipSyncStartCheck = &cli.BoolFlag{
+		Name: "l2.skip-sync-start-check",
+		Usage: "Skip sanity check of consistency of L1 origins of the unsafe L2 blocks when determining the sync-starting point. " +
+			"This defers the L1-origin verification, and is recommended to use in when utilizing l2.engine-sync",
+		EnvVars: prefixEnvVars("L2_SKIP_SYNC_START_CHECK"),
+		Value:   false,
+		Hidden:  true,
+	}
+	EspressoUrl = &cli.StringFlag{
+		Name:     "espresso.url",
+		Usage:    "Sets the URL for fetching data from the Espresso Sequencer. Required only if sequencing for an Espresso-enabled OP-chain",
+		EnvVars:  prefixEnvVars("ESPRESSO_URL"),
+		Required: false,
+	}
+	BetaExtraNetworks = &cli.BoolFlag{
+		Name:    "beta.extra-networks",
+		Usage:   "Legacy flag, ignored, all superchain-registry networks are enabled by default.",
+		EnvVars: prefixEnvVars("BETA_EXTRA_NETWORKS"),
+		Hidden:  true, // hidden, this is deprecated, the flag is not used anymore.
+	}
+	BackupL2UnsafeSyncRPC = &cli.StringFlag{
+		Name:    "l2.backup-unsafe-sync-rpc",
+		Usage:   "Set the backup L2 unsafe sync RPC endpoint.",
+		EnvVars: prefixEnvVars("L2_BACKUP_UNSAFE_SYNC_RPC"),
+		Hidden:  true,
+	}
+	BackupL2UnsafeSyncRPCTrustRPC = &cli.StringFlag{
+		Name: "l2.backup-unsafe-sync-rpc.trustrpc",
+		Usage: "Like l1.trustrpc, configure if response data from the RPC needs to be verified, e.g. blockhash computation." +
+			"This does not include checks if the blockhash is part of the canonical chain.",
+		EnvVars: prefixEnvVars("L2_BACKUP_UNSAFE_SYNC_RPC_TRUST_RPC"),
+		Hidden:  true,
+	}
+	ConductorEnabledFlag = &cli.BoolFlag{
+		Name:    "conductor.enabled",
+		Usage:   "Enable the conductor service",
+		EnvVars: prefixEnvVars("CONDUCTOR_ENABLED"),
+		Value:   false,
+	}
+	ConductorRpcFlag = &cli.StringFlag{
+		Name:    "conductor.rpc",
+		Usage:   "Conductor service rpc endpoint",
+		EnvVars: prefixEnvVars("CONDUCTOR_RPC"),
+		Value:   "http://127.0.0.1:8547",
+	}
+	ConductorRpcTimeoutFlag = &cli.DurationFlag{
+		Name:    "conductor.rpc-timeout",
+		Usage:   "Conductor service rpc timeout",
+		EnvVars: prefixEnvVars("CONDUCTOR_RPC_TIMEOUT"),
+		Value:   time.Second * 1,
 	}
 )
 
 var requiredFlags = []cli.Flag{
 	L1NodeAddr,
 	L2EngineAddr,
+	L2EngineJWTSecret,
 }
 
 var optionalFlags = []cli.Flag{
 	EspressoUrl,
+	BeaconAddr,
+	BeaconCheckIgnore,
+	BeaconFetchAllSidecars,
+	SyncModeFlag,
 	RPCListenAddr,
 	RPCListenPort,
-	RollupConfig,
-	Network,
 	L1TrustRPC,
 	L1RPCProviderKind,
 	L1RPCRateLimit,
 	L1RPCMaxBatchSize,
+	L1RPCMaxConcurrency,
 	L1HTTPPollInterval,
-	L2EngineJWTSecret,
 	VerifierL1Confs,
 	SequencerEnabledFlag,
 	SequencerStoppedFlag,
@@ -302,30 +321,37 @@ var optionalFlags = []cli.Flag{
 	MetricsEnabledFlag,
 	MetricsAddrFlag,
 	MetricsPortFlag,
-	PprofEnabledFlag,
-	PprofAddrFlag,
-	PprofPortFlag,
 	SnapshotLog,
 	HeartbeatEnabledFlag,
 	HeartbeatMonikerFlag,
 	HeartbeatURLFlag,
-	BackupL2UnsafeSyncRPC,
-	BackupL2UnsafeSyncRPCTrustRPC,
+	RollupHalt,
+	RollupLoadProtocolVersions,
+	L1RethDBPath,
+	ConductorEnabledFlag,
+	ConductorRpcFlag,
+	ConductorRpcTimeoutFlag,
+}
+
+var DeprecatedFlags = []cli.Flag{
 	L2EngineSyncEnabled,
 	SkipSyncStartCheck,
 	BetaExtraNetworks,
-	RollupHalt,
-	RollupLoadProtocolVersions,
-	CanyonOverrideFlag,
-	L1RethDBPath,
+	BackupL2UnsafeSyncRPC,
+	BackupL2UnsafeSyncRPCTrustRPC,
+	// Deprecated P2P Flags are added at the init step
 }
 
 // Flags contains the list of configuration options available to the binary.
 var Flags []cli.Flag
 
 func init() {
+	DeprecatedFlags = append(DeprecatedFlags, deprecatedP2PFlags(EnvVarPrefix)...)
 	optionalFlags = append(optionalFlags, P2PFlags(EnvVarPrefix)...)
 	optionalFlags = append(optionalFlags, oplog.CLIFlags(EnvVarPrefix)...)
+	optionalFlags = append(optionalFlags, oppprof.CLIFlags(EnvVarPrefix)...)
+	optionalFlags = append(optionalFlags, DeprecatedFlags...)
+	optionalFlags = append(optionalFlags, opflags.CLIFlags(EnvVarPrefix)...)
 	Flags = append(requiredFlags, optionalFlags...)
 }
 
@@ -335,5 +361,5 @@ func CheckRequired(ctx *cli.Context) error {
 			return fmt.Errorf("flag %s is required", f.Names()[0])
 		}
 	}
-	return nil
+	return opflags.CheckRequiredXor(ctx)
 }

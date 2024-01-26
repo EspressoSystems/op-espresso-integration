@@ -14,6 +14,12 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
+)
+
+var (
+	rollupCfg rollup.Config
 )
 
 // basic implementation of the Compressor interface that does no compression
@@ -45,7 +51,7 @@ func TestChannelOutAddBlock(t *testing.T) {
 			},
 			nil,
 		)
-		_, err := cout.AddBlock(block)
+		_, err := cout.AddBlock(&rollupCfg, block)
 		require.Error(t, err)
 		require.Equal(t, ErrNotDepositTx, err)
 	})
@@ -157,7 +163,7 @@ func TestForceCloseTxData(t *testing.T) {
 
 func TestBlockToBatchValidity(t *testing.T) {
 	block := new(types.Block)
-	_, _, err := BlockToSingularBatch(block)
+	_, _, err := BlockToSingularBatch(&rollupCfg, block)
 	require.ErrorContains(t, err, "has no transactions")
 }
 
@@ -186,14 +192,14 @@ func TestBlockToBatchAllTransactionTypes(t *testing.T) {
 		Nonce: 1,
 	})
 	deposit := types.NewTx(&types.DepositTx{})
-	l1Info, err := L1InfoDeposit(0, eth.HeaderBlockInfo(testutils.RandomHeader(rng)), eth.SystemConfig{}, nil, false)
+	l1Info, err := L1InfoDeposit(&rollupCfg, eth.SystemConfig{}, 0, eth.HeaderBlockInfo(testutils.RandomHeader(rng)), 0, nil)
 	require.Nil(t, err, "failed to build L1 deposit info")
 
 	block := types.NewBlockWithHeader(testutils.RandomHeader(rng)).
 		WithBody([]*types.Transaction{types.NewTx(l1Info), deposit, accepted1, accepted2}, nil).
 		WithRejected([]types.RejectedTransaction{rejected1, rejected2})
 
-	batch, _, err := BlockToSingularBatch(block)
+	batch, _, err := BlockToSingularBatch(&rollupCfg, block)
 	require.Nil(t, err, "BlockToSingularBatch failed")
 
 	accepted1Bytes, err := accepted1.MarshalBinary()

@@ -15,7 +15,7 @@ import (
 	openum "github.com/ethereum-optimism/optimism/op-service/enum"
 	oplog "github.com/ethereum-optimism/optimism/op-service/log"
 	opmetrics "github.com/ethereum-optimism/optimism/op-service/metrics"
-	oppprof "github.com/ethereum-optimism/optimism/op-service/pprof"
+	"github.com/ethereum-optimism/optimism/op-service/oppprof"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 )
 
@@ -49,11 +49,7 @@ var (
 		Name:    "trace-type",
 		Usage:   "The trace types to support. Valid options: " + openum.EnumString(config.TraceTypes),
 		EnvVars: prefixEnvVars("TRACE_TYPE"),
-	}
-	AgreeWithProposedOutputFlag = &cli.BoolFlag{
-		Name:    "agree-with-proposed-output",
-		Usage:   "Temporary hardcoded flag if we agree or disagree with the proposed output.",
-		EnvVars: prefixEnvVars("AGREE_WITH_PROPOSED_OUTPUT"),
+		Value:   cli.NewStringSlice(config.TraceTypeCannon.String()),
 	}
 	DatadirFlag = &cli.StringFlag{
 		Name:    "datadir",
@@ -77,11 +73,6 @@ var (
 		Name:    "rollup-rpc",
 		Usage:   "HTTP provider URL for the rollup node",
 		EnvVars: prefixEnvVars("ROLLUP_RPC"),
-	}
-	AlphabetFlag = &cli.StringFlag{
-		Name:    "alphabet",
-		Usage:   "Correct Alphabet Trace (alphabet trace type only)",
-		EnvVars: prefixEnvVars("ALPHABET"),
 	}
 	CannonNetworkFlag = &cli.StringFlag{
 		Name: "cannon-network",
@@ -145,17 +136,15 @@ var (
 var requiredFlags = []cli.Flag{
 	L1EthRpcFlag,
 	FactoryAddressFlag,
-	TraceTypeFlag,
-	AgreeWithProposedOutputFlag,
 	DatadirFlag,
 }
 
 // optionalFlags is a list of unchecked cli flags
 var optionalFlags = []cli.Flag{
+	TraceTypeFlag,
 	MaxConcurrencyFlag,
 	HTTPPollInterval,
 	RollupRpcFlag,
-	AlphabetFlag,
 	GameAllowlistFlag,
 	CannonNetworkFlag,
 	CannonRollupConfigFlag,
@@ -219,14 +208,10 @@ func CheckRequired(ctx *cli.Context, traceTypes []config.TraceType) error {
 			if err := CheckCannonFlags(ctx); err != nil {
 				return err
 			}
+			if !ctx.IsSet(RollupRpcFlag.Name) {
+				return fmt.Errorf("flag %s is required", RollupRpcFlag.Name)
+			}
 		case config.TraceTypeAlphabet:
-			if !ctx.IsSet(AlphabetFlag.Name) {
-				return fmt.Errorf("flag %s is required", "alphabet")
-			}
-		case config.TraceTypeOutputCannon:
-			if err := CheckCannonFlags(ctx); err != nil {
-				return err
-			}
 			if !ctx.IsSet(RollupRpcFlag.Name) {
 				return fmt.Errorf("flag %s is required", RollupRpcFlag.Name)
 			}
@@ -285,28 +270,26 @@ func NewConfigFromCLI(ctx *cli.Context) (*config.Config, error) {
 	}
 	return &config.Config{
 		// Required Flags
-		L1EthRpc:                ctx.String(L1EthRpcFlag.Name),
-		TraceTypes:              traceTypes,
-		GameFactoryAddress:      gameFactoryAddress,
-		GameAllowlist:           allowedGames,
-		GameWindow:              ctx.Duration(GameWindowFlag.Name),
-		MaxConcurrency:          maxConcurrency,
-		PollInterval:            ctx.Duration(HTTPPollInterval.Name),
-		RollupRpc:               ctx.String(RollupRpcFlag.Name),
-		AlphabetTrace:           ctx.String(AlphabetFlag.Name),
-		CannonNetwork:           ctx.String(CannonNetworkFlag.Name),
-		CannonRollupConfigPath:  ctx.String(CannonRollupConfigFlag.Name),
-		CannonL2GenesisPath:     ctx.String(CannonL2GenesisFlag.Name),
-		CannonBin:               ctx.String(CannonBinFlag.Name),
-		CannonServer:            ctx.String(CannonServerFlag.Name),
-		CannonAbsolutePreState:  ctx.String(CannonPreStateFlag.Name),
-		Datadir:                 ctx.String(DatadirFlag.Name),
-		CannonL2:                ctx.String(CannonL2Flag.Name),
-		CannonSnapshotFreq:      ctx.Uint(CannonSnapshotFreqFlag.Name),
-		CannonInfoFreq:          ctx.Uint(CannonInfoFreqFlag.Name),
-		AgreeWithProposedOutput: ctx.Bool(AgreeWithProposedOutputFlag.Name),
-		TxMgrConfig:             txMgrConfig,
-		MetricsConfig:           metricsConfig,
-		PprofConfig:             pprofConfig,
+		L1EthRpc:               ctx.String(L1EthRpcFlag.Name),
+		TraceTypes:             traceTypes,
+		GameFactoryAddress:     gameFactoryAddress,
+		GameAllowlist:          allowedGames,
+		GameWindow:             ctx.Duration(GameWindowFlag.Name),
+		MaxConcurrency:         maxConcurrency,
+		PollInterval:           ctx.Duration(HTTPPollInterval.Name),
+		RollupRpc:              ctx.String(RollupRpcFlag.Name),
+		CannonNetwork:          ctx.String(CannonNetworkFlag.Name),
+		CannonRollupConfigPath: ctx.String(CannonRollupConfigFlag.Name),
+		CannonL2GenesisPath:    ctx.String(CannonL2GenesisFlag.Name),
+		CannonBin:              ctx.String(CannonBinFlag.Name),
+		CannonServer:           ctx.String(CannonServerFlag.Name),
+		CannonAbsolutePreState: ctx.String(CannonPreStateFlag.Name),
+		Datadir:                ctx.String(DatadirFlag.Name),
+		CannonL2:               ctx.String(CannonL2Flag.Name),
+		CannonSnapshotFreq:     ctx.Uint(CannonSnapshotFreqFlag.Name),
+		CannonInfoFreq:         ctx.Uint(CannonInfoFreqFlag.Name),
+		TxMgrConfig:            txMgrConfig,
+		MetricsConfig:          metricsConfig,
+		PprofConfig:            pprofConfig,
 	}, nil
 }
