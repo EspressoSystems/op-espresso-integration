@@ -322,9 +322,8 @@ contract LivenessModule_RemoveOwnersFuzz_Test is LivenessModule_TestInit {
     address[] ownersToRemove;
 
     /// @dev Options for handling the event that the number of owners remaining is less than minOwners
-    enum ShutDownBehavior
-    // Correctly removes the owners and transfers to the shutDown owner
-    {
+    enum ShutDownBehavior {
+        // Correctly removes the owners and transfers to the shutDown owner
         Correct,
         // Removes all but one owner, and does not transfer to the shutDown owner
         DoesNotTransferToFallbackOwner,
