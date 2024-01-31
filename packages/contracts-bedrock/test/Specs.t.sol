@@ -262,6 +262,8 @@ contract Specification_Test is CommonTest {
         _addSpec({ _name: "SystemConfig", _sel: _getSel("START_BLOCK_SLOT()") });
         _addSpec({ _name: "SystemConfig", _sel: _getSel("VERSION()") });
         _addSpec({ _name: "SystemConfig", _sel: _getSel("batcherHash()") });
+        _addSpec({ _name: "SystemConfig", _sel: _getSel("espresso()") });
+        _addSpec({ _name: "SystemConfig", _sel: _getSel("espressoL1ConfDepth()") });
         _addSpec({ _name: "SystemConfig", _sel: _getSel("gasLimit()") });
         _addSpec({ _name: "SystemConfig", _sel: SystemConfig.initialize.selector });
         _addSpec({ _name: "SystemConfig", _sel: SystemConfig.minimumGasLimit.selector });
@@ -271,6 +273,8 @@ contract Specification_Test is CommonTest {
         _addSpec({ _name: "SystemConfig", _sel: SystemConfig.resourceConfig.selector });
         _addSpec({ _name: "SystemConfig", _sel: _getSel("scalar()") });
         _addSpec({ _name: "SystemConfig", _sel: SystemConfig.setBatcherHash.selector, _auth: Role.SYSTEMCONFIGOWNER });
+        _addSpec({ _name: "SystemConfig", _sel: SystemConfig.setEspresso.selector, _auth: Role.SYSTEMCONFIGOWNER });
+        _addSpec({ _name: "SystemConfig", _sel: SystemConfig.setEspressoL1ConfDepth.selector, _auth: Role.SYSTEMCONFIGOWNER });
         _addSpec({ _name: "SystemConfig", _sel: SystemConfig.setGasConfig.selector, _auth: Role.SYSTEMCONFIGOWNER });
         _addSpec({ _name: "SystemConfig", _sel: SystemConfig.setGasLimit.selector, _auth: Role.SYSTEMCONFIGOWNER });
         _addSpec({ _name: "SystemConfig", _sel: SystemConfig.setResourceConfig.selector, _auth: Role.SYSTEMCONFIGOWNER });
