@@ -50,7 +50,7 @@ contract L1Block is ISemver {
     uint256 public blobBaseFee;
 
     /// @notice Whether the Espresso Sequencer is enabled.
-    bool public espresso;
+    uint64 public espresso;
 
     /// @notice Minimum confirmation depth for L1 origin blocks.
     uint64 public espressoL1ConfDepth;
@@ -96,7 +96,7 @@ contract L1Block is ISemver {
         batcherHash = v.batcherHash;
         l1FeeOverhead = v.l1FeeOverhead;
         l1FeeScalar = v.l1FeeScalar;
-        espresso = v.espresso;
+        espresso = v.espresso ? 1 : 0;
         espressoL1ConfDepth = v.espressoL1ConfDepth;
     }
 
@@ -112,8 +112,8 @@ contract L1Block is ISemver {
     ///   7. _blobBaseFee        L1 blob base fee.
     ///   8. _hash               L1 blockhash.
     ///   9. _batcherHash        Versioned hash to authenticate batcher by.
-    ///  10. _espresso           Whether the Espresso Sequencer is enabled
-    ///  11. _espressoL1ConfDepth Minimum confirmation depth for L1 origin blocks
+    ///  10. _espressoL1ConfDepth Minimum confirmation depth for L1 origin blocks
+    ///  11. _espresso           Whether the Espresso Sequencer is enabled
     ///  12. _justification      The RLP-encoded L2 batch justification
     function setL1BlockValuesEcotone() external {
         assembly {

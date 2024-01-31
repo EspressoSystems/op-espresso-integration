@@ -79,6 +79,32 @@
   },
   {
     "inputs": [],
+    "name": "espresso",
+    "outputs": [
+      {
+        "internalType": "uint64",
+        "name": "",
+        "type": "uint64"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "espressoL1ConfDepth",
+    "outputs": [
+      {
+        "internalType": "uint64",
+        "name": "",
+        "type": "uint64"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "hash",
     "outputs": [
       {
@@ -145,44 +171,66 @@
   {
     "inputs": [
       {
-        "internalType": "uint64",
-        "name": "_number",
-        "type": "uint64"
-      },
-      {
-        "internalType": "uint64",
-        "name": "_timestamp",
-        "type": "uint64"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_basefee",
-        "type": "uint256"
-      },
-      {
-        "internalType": "bytes32",
-        "name": "_hash",
-        "type": "bytes32"
-      },
-      {
-        "internalType": "uint64",
-        "name": "_sequenceNumber",
-        "type": "uint64"
-      },
-      {
-        "internalType": "bytes32",
-        "name": "_batcherHash",
-        "type": "bytes32"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_l1FeeOverhead",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_l1FeeScalar",
-        "type": "uint256"
+        "components": [
+          {
+            "internalType": "uint64",
+            "name": "number",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint64",
+            "name": "timestamp",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint256",
+            "name": "basefee",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "hash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint64",
+            "name": "sequenceNumber",
+            "type": "uint64"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "batcherHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint256",
+            "name": "l1FeeOverhead",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "l1FeeScalar",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bool",
+            "name": "espresso",
+            "type": "bool"
+          },
+          {
+            "internalType": "uint64",
+            "name": "espressoL1ConfDepth",
+            "type": "uint64"
+          },
+          {
+            "internalType": "bytes",
+            "name": "justification",
+            "type": "bytes"
+          }
+        ],
+        "internalType": "struct L1Block.L1BlockValues",
+        "name": "v",
+        "type": "tuple"
       }
     ],
     "name": "setL1BlockValues",

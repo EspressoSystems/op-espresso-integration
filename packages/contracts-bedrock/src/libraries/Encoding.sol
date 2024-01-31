@@ -177,8 +177,8 @@ library Encoding {
             blobBaseFee,
             hash,
             batcherHash,
-            espresso,
             espressoL1ConfDepth,
+            espresso ? uint64(1) : uint64(0),
             justification
         );
     }

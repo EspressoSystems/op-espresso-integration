@@ -244,8 +244,8 @@ func (info *L1BlockInfo) unmarshalBinaryBedrock(data []byte) error {
 // | 32      | BlobBaseFee              |
 // | 32      | BlockHash                |
 // | 32      | BatcherHash              |
-// | 8       | Espresso                 |
 // | 8       | EspressoL1ConfDepth      |
+// | 8       | Espresso                 |
 // | variable| Justification            |
 // +---------+--------------------------+
 
@@ -286,6 +286,9 @@ func (info *L1BlockInfo) marshalBinaryEcotone() ([]byte, error) {
 	if err := solabi.WriteAddress(w, info.BatcherAddr); err != nil {
 		return nil, err
 	}
+	if err := binary.Write(w, binary.BigEndian, info.EspressoL1ConfDepth); err != nil {
+		return nil, err
+	}
 	if info.Espresso {
 		if err := binary.Write(w, binary.BigEndian, uint64(1)); err != nil {
 			return nil, err
@@ -294,9 +297,6 @@ func (info *L1BlockInfo) marshalBinaryEcotone() ([]byte, error) {
 		if err := binary.Write(w, binary.BigEndian, uint64(0)); err != nil {
 			return nil, err
 		}
-	}
-	if err := binary.Write(w, binary.BigEndian, info.EspressoL1ConfDepth); err != nil {
-		return nil, err
 	}
 	rlpBytes, err := rlp.EncodeToBytes(info.Justification)
 	if err != nil {
@@ -343,14 +343,14 @@ func (info *L1BlockInfo) unmarshalBinaryEcotone(data []byte) error {
 	if info.BatcherAddr, err = solabi.ReadAddress(r); err != nil {
 		return err
 	}
+	if err := binary.Read(r, binary.BigEndian, &info.EspressoL1ConfDepth); err != nil {
+		return fmt.Errorf("invalid ecotone l1 block info format: %w", err)
+	}
 	var espresso uint64
 	if err := binary.Read(r, binary.BigEndian, &espresso); err != nil {
 		return fmt.Errorf("invalid ecotone l1 block info format: %w", err)
 	}
 	info.Espresso = espresso != 0
-	if err := binary.Read(r, binary.BigEndian, &info.EspressoL1ConfDepth); err != nil {
-		return fmt.Errorf("invalid ecotone l1 block info format: %w", err)
-	}
 	rlpBytes, err := io.ReadAll(r)
 	if err != nil {
 		return fmt.Errorf("invalid ecotone l1 block info format: %w", err)

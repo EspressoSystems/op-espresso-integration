@@ -60,7 +60,7 @@ contract L1BlockBedrock_Test is L1BlockTest {
         assertEq(l1Block.batcherHash(), bt);
         assertEq(l1Block.l1FeeOverhead(), fo);
         assertEq(l1Block.l1FeeScalar(), fs);
-        assertEq(l1Block.espresso(), e);
+        assertEq(l1Block.espresso(), e ? 1 : 0);
         assertEq(l1Block.espressoL1ConfDepth(), ed);
     }
 
@@ -132,7 +132,7 @@ contract L1BlockEcotone_Test is L1BlockTest {
         assertEq(l1Block.blobBaseFee(), blobBaseFee);
         assertEq(l1Block.hash(), hash);
         assertEq(l1Block.batcherHash(), batcherHash);
-        assertEq(l1Block.espresso(), espresso);
+        assertEq(l1Block.espresso(), espresso ? 1 : 0);
         assertEq(l1Block.espressoL1ConfDepth(), espressoL1ConfDepth);
 
         // ensure we didn't accidentally pollute the 128 bits of the sequencenum+scalars slot that

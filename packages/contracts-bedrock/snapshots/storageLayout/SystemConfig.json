@@ -63,6 +63,20 @@
     "type": "uint64"
   },
   {
+    "bytes": "1",
+    "label": "espresso",
+    "offset": 8,
+    "slot": "104",
+    "type": "bool"
+  },
+  {
+    "bytes": "8",
+    "label": "espressoL1ConfDepth",
+    "offset": 9,
+    "slot": "104",
+    "type": "uint64"
+  },
+  {
     "bytes": "32",
     "label": "_resourceConfig",
     "offset": 0,
